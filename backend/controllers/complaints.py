@@ -52,6 +52,12 @@ class ResolveComplaintResponse(BaseModel):
     complaint_id: int
 
 
+class MediaResponse(BaseModel):
+    id: int
+    media_url: str
+    uploaded_at: datetime
+
+
 class ComplaintResponse(BaseModel):
     id: int
     description: str
@@ -63,6 +69,7 @@ class ComplaintResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
     media_urls: List[str] = []
+    media: List[MediaResponse] = []
 
 
 class MediaUploadResponse(BaseModel):
@@ -90,6 +97,7 @@ class DetailedComplaintResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
     media_urls: List[str] = []
+    media: List[MediaResponse] = []
     comments: List[ComplaintCommentResponse] = []
     assigned_worker: Optional[str] = None
     assignment_date: Optional[datetime] = None
@@ -142,8 +150,14 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
     if not complaint:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
 
-    # Get media URLs
-    media_urls = [media.media_url for media in complaint.media]
+    # Get media URLs and detailed media information
+    media_details = [
+        MediaResponse(
+            id=media.id,
+            media_url=media.media_url,
+            uploaded_at=media.uploaded_at
+        ) for media in complaint.media
+    ]
 
     # Get comments with user names
     comments = []
@@ -186,7 +200,7 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
         district_name=complaint.village.block.district.name,
         created_at=complaint.created_at,
         updated_at=complaint.updated_at,
-        media_urls=media_urls,
+        media=media_details,
         comments=comments,
         assigned_worker=assigned_worker,
         assignment_date=assignment_date
@@ -358,6 +372,7 @@ async def create_complaint(complaint_request: CreateComplaintRequest, db: AsyncS
         created_at=complaint.created_at,
         updated_at=complaint.updated_at,
         media_urls=[],
+        media=[],
     )
 
 
@@ -440,6 +455,24 @@ async def create_complaint_with_media(
 
     if media_urls:
         await db.commit()
+        # Refresh complaint to get the latest media records
+        await db.refresh(complaint)
+        
+        # Fetch media details after commit
+        media_result = await db.execute(
+            select(ComplaintMedia).where(ComplaintMedia.complaint_id == complaint.id)
+        )
+        media_records = media_result.scalars().all()
+        
+        media_details = [
+            MediaResponse(
+                id=media.id,
+                media_url=media.media_url,
+                uploaded_at=media.uploaded_at
+            ) for media in media_records
+        ]
+    else:
+        media_details = []
 
     return ComplaintResponse(
         id=complaint.id,
@@ -452,6 +485,7 @@ async def create_complaint_with_media(
         created_at=complaint.created_at,
         updated_at=complaint.updated_at,
         media_urls=media_urls,
+        media=media_details,
     )
 
 

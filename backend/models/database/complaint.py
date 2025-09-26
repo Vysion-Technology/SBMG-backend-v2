@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy.orm import mapped_column, relationship, Mapped
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     String,
     Integer,
     ForeignKey,
@@ -165,9 +166,27 @@ class ComplaintMedia(Base):
         DateTime,
         default=datetime.utcnow,
     )
+    uploaded_by_public_mobile: Mapped[Optional[str]] = mapped_column(  # type: ignore
+        String, nullable=True
+    )
+    uploaded_by_user_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
+        Integer, ForeignKey("users.id"), nullable=True
+    )
 
     # Relationships
     complaint = relationship("Complaint", back_populates="media")
+
+    # Constraint: Either uploaded_by_public_mobile or uploaded_by_user_id should be set, but not both, nor neither.
+    __table_args__ = (
+        CheckConstraint(
+            (uploaded_by_public_mobile.isnot(None)) | (uploaded_by_user_id.isnot(None)),
+            name="uploaded_by_constraint"
+        ),
+        CheckConstraint(
+            (uploaded_by_public_mobile.is_(None)) | (uploaded_by_user_id.is_(None)),
+            name="uploaded_by_exclusivity_constraint"
+        )
+    )
 
 
 class ComplaintComment(Base):

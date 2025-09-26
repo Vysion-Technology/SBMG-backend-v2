@@ -30,7 +30,8 @@ target_metadata = Base.metadata
 # ... etc.
 
 load_dotenv()  # Load environment variables from a .env file if present
-url = os.getenv("DATABASE_URL", "sqlite:///./test.db")
+url = os.getenv("DATABASE_URL")
+assert url is not None, "DATABASE_URL environment variable is not set"
 
 if url.startswith("postgres://"):
     url = url.replace("postgres://", "postgresql://", 1)
