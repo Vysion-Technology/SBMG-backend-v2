@@ -297,3 +297,50 @@ async def upload_complaint_media(
         "content_type": file.content_type,
         "uploaded_at": datetime.now(timezone.utc)
     }
+
+
+@router.post("/{complaint_id}/resolve", response_model=ComplaintResponse)
+async def resolve_complaint(
+    complaint_id: int,
+    resolution: str,
+    db: AsyncSession = Depends(get_db),
+    user_token: str = Header(..., description="Public user token"),
+):
+    """Resolve a complaint (Admin only)."""
+    result = await db.execute(select(Complaint).where(Complaint.id == complaint_id))
+    complaint = result.scalar_one_or_none()
+
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    verified_status = await db.execute(
+        select(ComplaintStatus).where(ComplaintStatus.name == "VERIFIED")
+    )
+    verified_status = verified_status.scalar_one_or_none()
+    if not verified_status:
+        verified_status = ComplaintStatus(
+            name="VERIFIED", description="Complaint has been verified and resolved"
+        )
+        db.add(verified_status)
+        await db.commit()
+        await db.refresh(verified_status)
+    complaint.status = verified_status.id
+    # Add a new comment indicating resolution
+    public_user = await get_public_user_by_token(db, user_token)
+    if not public_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing user token",
+        )
+    resolution_comment = ComplaintComment(
+        complaint_id=complaint.id,
+        comment=resolution,
+        user_id=None,  # Assuming admin user ID is not tracked here
+        mobile_number=public_user.mobile_number,  # type: ignore
+    )
+    db.add(resolution_comment)
+    db.add(complaint)
+    await db.commit()
+    await db.refresh(complaint)
+
+    return complaint
