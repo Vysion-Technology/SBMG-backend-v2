@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from controllers import citizen
 from controllers import auth, complaints, admin, public, user_management
 from controllers import reporting, login_management, person_management
 
@@ -48,13 +49,14 @@ async def health_check():
 
 # Include routers
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(login_management.router, prefix="/api/v1/login-management", tags=["Login User Management"])
-app.include_router(person_management.router, prefix="/api/v1/person-management", tags=["Person Management"])
-app.include_router(user_management.router, prefix="/api/v1/user-management", tags=["User Management (Legacy)"])
-app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
-app.include_router(complaints.router, prefix="/api/v1/complaints", tags=["Complaints"])
-app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
-app.include_router(reporting.router, prefix="/api/v1/reports", tags=["Reporting"])
+app.include_router(citizen.router, prefix="/api/v1/citizen", tags=["Citizen"])
+# app.include_router(login_management.router, prefix="/api/v1/login-management", tags=["Login User Management"])
+# app.include_router(person_management.router, prefix="/api/v1/person-management", tags=["Person Management"])
+# app.include_router(user_management.router, prefix="/api/v1/user-management", tags=["User Management (Legacy)"])
+# app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+# app.include_router(complaints.router, prefix="/api/v1/complaints", tags=["Complaints"])
+# app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
+# app.include_router(reporting.router, prefix="/api/v1/reports", tags=["Reporting"])
 
 
 @app.exception_handler(HTTPException)
