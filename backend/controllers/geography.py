@@ -15,20 +15,25 @@ from models.response.geography import (
 from auth_utils import require_admin
 
 
-
 router = APIRouter()
+
 
 # List endpoints with pagination
 @router.get("/districts", response_model=List[DistrictResponse])
 async def list_districts(
-    skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
 ):
     """List all districts with pagination (Admin only)."""
     result = await db.execute(select(District).offset(skip).limit(limit))
     districts = result.scalars().all()
 
     return [
-        DistrictResponse(id=district.id, name=district.name, description=district.description) for district in districts
+        DistrictResponse(
+            id=district.id, name=district.name, description=district.description
+        )
+        for district in districts
     ]
 
 
@@ -38,7 +43,6 @@ async def list_blocks(
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
 ):
     """List all blocks with pagination (Admin only)."""
     query = select(Block)
@@ -51,7 +55,12 @@ async def list_blocks(
     blocks = result.scalars().all()
 
     return [
-        BlockResponse(id=block.id, name=block.name, description=block.description, district_id=block.district_id)
+        BlockResponse(
+            id=block.id,
+            name=block.name,
+            description=block.description,
+            district_id=block.district_id,
+        )
         for block in blocks
     ]
 
@@ -63,7 +72,6 @@ async def list_villages(
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
 ):
     """List all villages with pagination (Admin only)."""
     query = select(Village)
@@ -89,9 +97,11 @@ async def list_villages(
     ]
 
 
-
 @router.get("/villages/{village_id}", response_model=VillageResponse)
-async def get_village(village_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)):
+async def get_village(
+    village_id: int,
+    db: AsyncSession = Depends(get_db),
+):
     """Get a specific village by ID (Admin only)."""
     result = await db.execute(select(Village).where(Village.id == village_id))
     village = result.scalar_one_or_none()
@@ -109,7 +119,10 @@ async def get_village(village_id: int, db: AsyncSession = Depends(get_db), curre
 
 
 @router.get("/blocks/{block_id}", response_model=BlockResponse)
-async def get_block(block_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)):
+async def get_block(
+    block_id: int,
+    db: AsyncSession = Depends(get_db),
+):
     """Get a specific block by ID (Admin only)."""
     result = await db.execute(select(Block).where(Block.id == block_id))
     block = result.scalar_one_or_none()
@@ -117,12 +130,18 @@ async def get_block(block_id: int, db: AsyncSession = Depends(get_db), current_u
     if not block:
         raise HTTPException(status_code=404, detail="Block not found")
 
-    return BlockResponse(id=block.id, name=block.name, description=block.description, district_id=block.district_id)
+    return BlockResponse(
+        id=block.id,
+        name=block.name,
+        description=block.description,
+        district_id=block.district_id,
+    )
 
 
 @router.get("/districts/{district_id}", response_model=DistrictResponse)
 async def get_district(
-    district_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)
+    district_id: int,
+    db: AsyncSession = Depends(get_db),
 ):
     """Get a specific district by ID (Admin only)."""
     result = await db.execute(select(District).where(District.id == district_id))
@@ -131,5 +150,6 @@ async def get_district(
     if not district:
         raise HTTPException(status_code=404, detail="District not found")
 
-    return DistrictResponse(id=district.id, name=district.name, description=district.description)
-
+    return DistrictResponse(
+        id=district.id, name=district.name, description=district.description
+    )

@@ -9,8 +9,8 @@ from database import get_db
 from models.database.auth import User, Role, PositionHolder
 from models.database.complaint import Complaint, ComplaintStatus, ComplaintType
 from models.database.geography import District, Block, Village
+from models.requests.geography import CreateDistrictRequest
 from models.response.geography import (
-    CreateDistrictRequest,
     CreateBlockRequest,
     CreateVillageRequest,
     DistrictResponse,

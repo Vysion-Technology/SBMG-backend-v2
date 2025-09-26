@@ -1,7 +1,7 @@
 from typing import Optional, List
 from pydantic import BaseModel
 
-from backend.models.base import BlockBase, VillageBase
+from models.base import BlockBase, VillageBase
 
 
 class DistrictResponse(BaseModel):
