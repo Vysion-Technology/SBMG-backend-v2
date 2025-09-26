@@ -179,3 +179,12 @@ async def require_staff_role(current_user: User = Depends(get_current_active_use
             detail="Staff role required"
         )
     return current_user
+
+async def require_worker_role(current_user: User = Depends(get_current_active_user)) -> User:
+    """Require worker role."""
+    if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Worker role required"
+        )
+    return current_user

@@ -1,35 +1,35 @@
-from models.database.complaint import ComplaintMedia
+from typing import Optional
 
-from typing import List, Optional
-from datetime import datetime
-import os
-import uuid
-
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    Form,
-    HTTPException,
-    Query,
-    UploadFile,
-    status,
-)
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
+from database import get_db
+from models.database.auth import User
+from models.database.complaint import (
+    Complaint,
+    ComplaintComment,
+    ComplaintAssignment,
+)
+from models.database.geography import Village, Block
+from services.s3_service import s3_service
+
+from models.response.complaint import MediaResponse
+from models.response.complaint import (
+    ComplaintCommentResponse,
+    DetailedComplaintResponse,
+)
+
+from typing import List
+import os
+
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from models.database.auth import PublicUser, PublicUserToken
-from database import get_db
-from models.database.geography import District, Block, Village
 from models.database.complaint import (
-    ComplaintComment,
     ComplaintType,
-    Complaint,
-    ComplaintStatus,
 )
-from services.s3_service import s3_service
 
 router = APIRouter()
 
@@ -62,84 +62,6 @@ class ComplaintTypeResponse(BaseModel):
     description: Optional[str]
 
 
-class ComplaintStatusResponse(BaseModel):
-    id: int
-    status_name: str
-    updated_at: Optional[datetime]
-
-
-# Public endpoints (no authentication required)
-@router.get("/districts", response_model=List[DistrictResponse])
-async def get_districts(db: AsyncSession = Depends(get_db)):
-    """Get all districts (Public access)."""
-    result = await db.execute(select(District))
-    districts = result.scalars().all()
-
-    return [
-        DistrictResponse(
-            id=district.id, name=district.name, description=district.description
-        )
-        for district in districts
-    ]
-
-
-@router.get("/blocks", response_model=List[BlockResponse])
-async def get_blocks(
-    district_id: Optional[int] = Query(
-        None, description="Filter blocks by district ID"
-    ),
-    db: AsyncSession = Depends(get_db),
-):
-    """Get blocks, optionally filtered by district (Public access)."""
-    query = select(Block)
-
-    if district_id:
-        query = query.where(Block.district_id == district_id)
-
-    result = await db.execute(query)
-    blocks = result.scalars().all()
-
-    return [
-        BlockResponse(
-            id=block.id,
-            name=block.name,
-            description=block.description,
-            district_id=block.district_id,
-        )
-        for block in blocks
-    ]
-
-
-@router.get("/villages", response_model=List[VillageResponse])
-async def get_villages(
-    block_id: Optional[int] = Query(None, description="Filter villages by block ID"),
-    district_id: Optional[int] = Query(
-        None, description="Filter villages by district ID"
-    ),
-    db: AsyncSession = Depends(get_db),
-):
-    """Get villages, optionally filtered by block or district (Public access)."""
-    query = select(Village)
-
-    if block_id:
-        query = query.where(Village.block_id == block_id)
-    elif district_id:
-        query = query.where(Village.district_id == district_id)
-
-    result = await db.execute(query)
-    villages = result.scalars().all()
-
-    return [
-        VillageResponse(
-            id=village.id,
-            name=village.name,
-            description=village.description,
-            block_id=village.block_id,
-            district_id=village.district_id,
-        )
-        for village in villages
-    ]
-
 
 @router.get("/complaint-types", response_model=List[ComplaintTypeResponse])
 async def get_complaint_types(db: AsyncSession = Depends(get_db)):
@@ -155,31 +77,6 @@ async def get_complaint_types(db: AsyncSession = Depends(get_db)):
         )
         for complaint_type in complaint_types
     ]
-
-
-@router.get("/complaints/{complaint_id}/status", response_model=ComplaintStatusResponse)
-async def get_complaint_status(complaint_id: int, db: AsyncSession = Depends(get_db)):
-    """Get complaint status (Public access)."""
-    # Get complaint with its status
-    result = await db.execute(
-        select(Complaint, ComplaintStatus)
-        .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
-        .where(Complaint.id == complaint_id)
-    )
-    complaint_data = result.first()
-
-    if not complaint_data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
-        )
-
-    complaint, complaint_status = complaint_data
-
-    return ComplaintStatusResponse(
-        id=complaint.id,
-        status_name=complaint_status.name,
-        updated_at=complaint.updated_at,
-    )
 
 
 @router.get("/media/{file_path:path}")
@@ -241,4 +138,88 @@ async def serve_media(file_path: str):
         headers={"Cache-Control": "public, max-age=3600"},  # Cache for 1 hour
     )
 
+@router.get("/{complaint_id}/details", response_model=DetailedComplaintResponse)
+async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(get_db)):
+    """Get detailed complaint information with all related data (Public access)."""
+    # Query complaint with all related data
+    result = await db.execute(
+        select(Complaint)
+        .options(
+            selectinload(Complaint.complaint_type),
+            selectinload(Complaint.status),
+            selectinload(Complaint.village)
+            .selectinload(Village.block)
+            .selectinload(Block.district),
+            selectinload(Complaint.media),
+            selectinload(Complaint.comments)
+            .selectinload(ComplaintComment.user)
+            .selectinload(User.positions),
+            selectinload(Complaint.assignments)
+            .selectinload(ComplaintAssignment.user)
+            .selectinload(User.positions),
+        )
+        .where(Complaint.id == complaint_id)
+    )
+    complaint = result.scalar_one_or_none()
 
+    if not complaint:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
+        )
+
+    # Get media URLs and detailed media information
+    media_details = [
+        MediaResponse(
+            id=media.id, media_url=media.media_url, uploaded_at=media.uploaded_at
+        )
+        for media in complaint.media
+    ]
+
+    # Get comments with user names
+    comments = []
+    for comment in complaint.comments:
+        user_name = "Unknown User"
+        if comment.user and comment.user.positions:
+            first_pos = comment.user.positions[0]
+            user_name = f"{first_pos.first_name} {first_pos.last_name}"
+        elif comment.user:
+            user_name = comment.user.username
+
+        comments.append(  # type: ignore
+            ComplaintCommentResponse(
+                id=comment.id,
+                complaint_id=comment.complaint_id,
+                comment=comment.comment,
+                commented_at=comment.commented_at,
+                user_name=user_name,
+            )
+        )
+
+    # Get assigned worker info
+    assigned_worker = None
+    assignment_date = None
+    if complaint.assignments:
+        latest_assignment = max(complaint.assignments, key=lambda a: a.assigned_at)
+        if latest_assignment.user and latest_assignment.user.positions:
+            first_pos = latest_assignment.user.positions[0]
+            assigned_worker = f"{first_pos.first_name} {first_pos.last_name}"
+        elif latest_assignment.user:
+            assigned_worker = latest_assignment.user.username
+        assignment_date = latest_assignment.assigned_at
+
+    return DetailedComplaintResponse(
+        id=complaint.id,
+        description=complaint.description,
+        mobile_number=complaint.mobile_number,
+        complaint_type_name=complaint.complaint_type.name,
+        status_name=complaint.status.name,
+        village_name=complaint.village.name,
+        block_name=complaint.village.block.name,
+        district_name=complaint.village.block.district.name,
+        created_at=complaint.created_at,
+        updated_at=complaint.updated_at,
+        media=media_details,
+        comments=comments,  # type: ignore
+        assigned_worker=assigned_worker,
+        assignment_date=assignment_date,
+    )

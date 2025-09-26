@@ -1,11 +1,10 @@
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from pydantic import BaseModel
 
 from database import get_db
 from models.database.auth import User
@@ -14,26 +13,19 @@ from models.database.complaint import (
     ComplaintStatus,
     ComplaintMedia,
     ComplaintComment,
-    ComplaintAssignment,
 )
-from models.database.geography import Village, Block
-from auth_utils import require_staff_role, PermissionChecker, UserRole
+from auth_utils import require_staff_role, PermissionChecker, UserRole, require_worker_role
 from services.s3_service import s3_service
 
 from models.response.complaint import MediaResponse
 from models.requests.complaint import (
-    VerifyComplaintStatusRequest,
-    CitizenStatusUpdateRequest,
     UpdateComplaintStatusRequest,
     ResolveComplaintRequest,
 )
 from models.response.complaint import (
-    VerifyComplaintStatusResponse,
     ComplaintCommentResponse,
     ResolveComplaintResponse,
     ComplaintStatusResponse,
-    DetailedComplaintResponse,
-    CitizenStatusUpdateResponse,
 )
 
 router = APIRouter()
@@ -45,209 +37,6 @@ router = APIRouter()
 # Public endpoints (no authentication required)
 
 
-@router.get("/{complaint_id}/details", response_model=DetailedComplaintResponse)
-async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(get_db)):
-    """Get detailed complaint information with all related data (Public access)."""
-    # Query complaint with all related data
-    result = await db.execute(
-        select(Complaint)
-        .options(
-            selectinload(Complaint.complaint_type),
-            selectinload(Complaint.status),
-            selectinload(Complaint.village)
-            .selectinload(Village.block)
-            .selectinload(Block.district),
-            selectinload(Complaint.media),
-            selectinload(Complaint.comments)
-            .selectinload(ComplaintComment.user)
-            .selectinload(User.positions),
-            selectinload(Complaint.assignments)
-            .selectinload(ComplaintAssignment.user)
-            .selectinload(User.positions),
-        )
-        .where(Complaint.id == complaint_id)
-    )
-    complaint = result.scalar_one_or_none()
-
-    if not complaint:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
-        )
-
-    # Get media URLs and detailed media information
-    media_details = [
-        MediaResponse(
-            id=media.id, media_url=media.media_url, uploaded_at=media.uploaded_at
-        )
-        for media in complaint.media
-    ]
-
-    # Get comments with user names
-    comments = []
-    for comment in complaint.comments:
-        user_name = "Unknown User"
-        if comment.user and comment.user.positions:
-            first_pos = comment.user.positions[0]
-            user_name = f"{first_pos.first_name} {first_pos.last_name}"
-        elif comment.user:
-            user_name = comment.user.username
-
-        comments.append(
-            ComplaintCommentResponse(
-                id=comment.id,
-                complaint_id=comment.complaint_id,
-                comment=comment.comment,
-                commented_at=comment.commented_at,
-                user_name=user_name,
-            )
-        )
-
-    # Get assigned worker info
-    assigned_worker = None
-    assignment_date = None
-    if complaint.assignments:
-        latest_assignment = max(complaint.assignments, key=lambda a: a.assigned_at)
-        if latest_assignment.user and latest_assignment.user.positions:
-            first_pos = latest_assignment.user.positions[0]
-            assigned_worker = f"{first_pos.first_name} {first_pos.last_name}"
-        elif latest_assignment.user:
-            assigned_worker = latest_assignment.user.username
-        assignment_date = latest_assignment.assigned_at
-
-    return DetailedComplaintResponse(
-        id=complaint.id,
-        description=complaint.description,
-        mobile_number=complaint.mobile_number,
-        complaint_type_name=complaint.complaint_type.name,
-        status_name=complaint.status.name,
-        village_name=complaint.village.name,
-        block_name=complaint.village.block.name,
-        district_name=complaint.village.block.district.name,
-        created_at=complaint.created_at,
-        updated_at=complaint.updated_at,
-        media=media_details,
-        comments=comments,
-        assigned_worker=assigned_worker,
-        assignment_date=assignment_date,
-    )
-
-
-@router.post("/citizen/update-status", response_model=CitizenStatusUpdateResponse)
-async def citizen_update_complaint_status(
-    status_request: CitizenStatusUpdateRequest, db: AsyncSession = Depends(get_db)
-):
-    """Allow citizens to update complaint status using complaint ID and mobile number (Public access)."""
-    # Verify complaint exists and mobile number matches
-    result = await db.execute(
-        select(Complaint)
-        .options(selectinload(Complaint.status))
-        .where(
-            Complaint.id == status_request.complaint_id,
-            Complaint.mobile_number == status_request.mobile_number,
-        )
-    )
-    complaint = result.scalar_one_or_none()
-
-    if not complaint:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Complaint not found or mobile number does not match",
-        )
-
-    # Only allow specific status transitions for citizens
-    allowed_statuses = ["VERIFIED", "RESOLVED"]
-    if status_request.new_status not in allowed_statuses:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Citizens can only set status to: {', '.join(allowed_statuses)}",
-        )
-
-    # Ensure the complaint is in a state that allows citizen updates
-    # For example, only allow verification if complaint is COMPLETED
-    current_status = complaint.status.name
-    if status_request.new_status == "VERIFIED" and current_status != "COMPLETED":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Can only verify complaints that are marked as COMPLETED",
-        )
-
-    # Get or create the new status
-    status_result = await db.execute(
-        select(ComplaintStatus).where(ComplaintStatus.name == status_request.new_status)
-    )
-    new_status = status_result.scalar_one_or_none()
-
-    if not new_status:
-        # Create the status if it doesn't exist
-        new_status = ComplaintStatus(
-            name=status_request.new_status,
-            description="Status set by citizen verification",
-        )
-        db.add(new_status)
-        await db.commit()
-        await db.refresh(new_status)
-
-    # Update complaint status
-    complaint.status_id = new_status.id
-    complaint.updated_at = datetime.now()  # type: ignore
-
-    # Add a comment to track the citizen update
-    comment = ComplaintComment(
-        complaint_id=complaint.id,
-        user_id=None,  # No user_id for citizen updates
-        comment=f"Status updated to {status_request.new_status} by citizen via mobile verification",
-    )
-    db.add(comment)
-
-    await db.commit()
-
-    return CitizenStatusUpdateResponse(
-        message=f"Complaint status updated to {status_request.new_status} successfully",
-        complaint_id=complaint.id,
-        new_status=status_request.new_status,
-        updated_at=complaint.updated_at or datetime.now(),
-    )
-
-
-@router.post("/citizen/verify-status", response_model=VerifyComplaintStatusResponse)
-async def verify_complaint_status(
-    verify_request: VerifyComplaintStatusRequest, db: AsyncSession = Depends(get_db)
-):
-    """Verify complaint status using complaint ID and mobile number (Public access)."""
-    # Verify complaint exists and mobile number matches
-    result = await db.execute(
-        select(Complaint)
-        .options(selectinload(Complaint.status))
-        .where(
-            Complaint.id == verify_request.complaint_id,
-            Complaint.mobile_number == verify_request.mobile_number,
-        )
-    )
-    complaint = result.scalar_one_or_none()
-
-    if not complaint:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Complaint not found or mobile number does not match",
-        )
-
-    # Determine appropriate message based on status
-
-    # Save the status to DB
-    complaint.status = (
-        await db.execute(
-            select(ComplaintStatus).where(ComplaintStatus.name == "COMPLETED")
-        )
-    ).scalar_one()
-    complaint.status_id = complaint.status_id  # No change, just to trigger update
-    await db.commit()
-    await db.refresh(complaint)
-
-    return VerifyComplaintStatusResponse(
-        complaint_id=complaint.id,
-        current_status=complaint.status.name,
-        message=f"Your complaint is currently {complaint.status.name.replace('_', ' ')}.",
-    )
 
 
 @router.patch("/{complaint_id}/status")
@@ -413,13 +202,82 @@ async def add_complaint_comment(
         user_name=user_name,
     )
 
+@router.post("/{complaint_id}/media", response_model=MediaResponse)
+async def upload_complaint_media(
+    complaint_id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_worker_role),
+):
+    """Upload media to a complaint (Workers and VDOs only, within their village)."""
+    # Check if user is a Worker or VDO
+    if not PermissionChecker.user_has_role(
+        current_user, [UserRole.WORKER.value, UserRole.VDO.value]
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only Workers and VDOs can upload media to complaints",
+        )
+
+    # Get complaint with village information
+    result = await db.execute(
+        select(Complaint)
+        .options(selectinload(Complaint.village))
+        .where(Complaint.id == complaint_id)
+    )
+    complaint = result.scalar_one_or_none()
+
+    if not complaint:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
+        )
+
+    # Check village access
+    if not await check_complaint_village_access(current_user, complaint):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only upload media to complaints in your assigned village",
+        )
+
+    try:
+        # Upload file to S3/MinIO
+        s3_key = await s3_service.upload_file(
+            file=file,
+            folder=f"complaints/{complaint_id}/media",
+            filename=file.filename,
+        )
+
+        # Get the media URL for database storage
+        if s3_service.is_available():
+            # Use S3 key for database storage
+            media_url = s3_key
+        else:
+            # Fallback to local path
+            media_url = f"/media/complaints/{complaint_id}/media/{file.filename}"
+
+        # Create media record
+        media = ComplaintMedia(complaint_id=complaint_id, media_url=media_url)
+        db.add(media)
+        await db.commit()
+        await db.refresh(media)
+
+        return MediaResponse(
+            id=media.id, media_url=media.media_url, uploaded_at=media.uploaded_at
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload media",
+        ) from e
 
 @router.patch("/{complaint_id}/resolve", response_model=ResolveComplaintResponse)
 async def resolve_complaint(
     complaint_id: int,
     resolve_request: ResolveComplaintRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role),
+    current_user: User = Depends(require_worker_role),
 ):
     """Mark complaint as resolved (VDOs only, within their village)."""
     # Check if user is a VDO
