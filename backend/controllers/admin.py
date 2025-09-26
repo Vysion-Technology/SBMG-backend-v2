@@ -571,6 +571,36 @@ async def initialize_default_data(
     """Initialize default roles and admin user (Admin only)."""
     auth_service = AuthService(db)
 
+    # If an admin does not exist, create one
+    admin_username = "admin"
+    existing_admin = await auth_service.get_user_by_username(admin_username)
+    if not existing_admin:
+        await auth_service.create_user(
+            username=admin_username,
+            email=f"{admin_username}@sbm-rajasthan.gov.in",
+            password=f"{admin_username}123",  # In production, use a secure password and environment variable
+        )
+
+    await db.commit()  # to save roles and user
+
+    # If the default user has not been assigned ADMIN role, assign it
+    if existing_admin:
+        admin_role = await auth_service.get_role_by_name(UserRole.ADMIN)
+        if admin_role:
+            position_holders_result = await db.execute(
+                select(PositionHolder).where(
+                    PositionHolder.user_id == existing_admin.id, PositionHolder.role_id == admin_role.id
+                )
+            )
+            position_holder = position_holders_result.scalar_one_or_none()
+            if not position_holder:
+                position_holder = await auth_service.create_position_holder(
+                    user_id=existing_admin.id, role_id=admin_role.id, first_name="Admin", last_name="User"
+                )
+                db.add(position_holder)
+
+    await db.commit()
+    
     # Create default roles
     default_roles = [
         UserRole.ADMIN,
@@ -618,35 +648,6 @@ async def initialize_default_data(
             role = Role(name=role_name, description=f"{role_name} role")
             db.add(role)
 
-    # If an admin does not exist, create one
-    admin_username = "admin"
-    existing_admin = await auth_service.get_user_by_username(admin_username)
-    if not existing_admin:
-        await auth_service.create_user(
-            username=admin_username,
-            email=f"{admin_username}@sbm-rajasthan.gov.in",
-            password=f"{admin_username}123",  # In production, use a secure password and environment variable
-        )
-
-    await db.commit()  # to save roles and user
-
-    # If the default user has not been assigned ADMIN role, assign it
-    if existing_admin:
-        admin_role = await auth_service.get_role_by_name(UserRole.ADMIN)
-        if admin_role:
-            position_holders_result = await db.execute(
-                select(PositionHolder).where(
-                    PositionHolder.user_id == existing_admin.id, PositionHolder.role_id == admin_role.id
-                )
-            )
-            position_holder = position_holders_result.scalar_one_or_none()
-            if not position_holder:
-                position_holder = await auth_service.create_position_holder(
-                    user_id=existing_admin.id, role_id=admin_role.id, first_name="Admin", last_name="User"
-                )
-                db.add(position_holder)
-
-    await db.commit()
 
     return {
         "message": "Default data initialized successfully",
