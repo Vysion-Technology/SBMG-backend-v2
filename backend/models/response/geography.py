@@ -1,12 +1,7 @@
 from typing import Optional, List
 from pydantic import BaseModel
 
-
-class DistrictBase(BaseModel):
-    """Base district model."""
-
-    name: str
-    description: Optional[str] = None
+from backend.models.base import BlockBase, VillageBase
 
 
 class DistrictResponse(BaseModel):
@@ -26,14 +21,6 @@ class DistrictDetailResponse(BaseModel):
     blocks_count: int
     villages_count: int
     complaints_count: int
-
-
-class BlockBase(BaseModel):
-    """Base block model."""
-
-    name: str
-    description: Optional[str] = None
-    district_id: int
 
 
 class BlockResponse(BaseModel):
@@ -57,15 +44,6 @@ class BlockDetailResponse(BaseModel):
     complaints_count: int
 
 
-class VillageBase(BaseModel):
-    """Base village model."""
-
-    name: str
-    description: Optional[str] = None
-    block_id: int
-    district_id: int
-
-
 class VillageResponse(BaseModel):
     """Village response model."""
 
@@ -87,19 +65,6 @@ class VillageDetailResponse(BaseModel):
     block_name: Optional[str] = None
     district_name: Optional[str] = None
     complaints_count: int
-
-
-# Request models
-class CreateDistrictRequest(DistrictBase):
-    """Request model for creating a district."""
-
-    pass
-
-
-class UpdateDistrictRequest(DistrictBase):
-    """Request model for updating a district."""
-
-    pass
 
 
 class CreateBlockRequest(BlockBase):
