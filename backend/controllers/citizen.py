@@ -1,6 +1,15 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+    File,
+    UploadFile,
+    Form,
+    Header
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -11,37 +20,35 @@ from models.database.geography import Village
 from services.s3_service import s3_service
 
 from models.response.complaint import ComplaintResponse, MediaResponse
-from models.database.complaint import ComplaintMedia
 
-from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import uuid
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    Form,
-    HTTPException,
-    Query,
-    UploadFile,
-    status,
-)
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from models.database.auth import PublicUser, PublicUserToken
-from database import get_db
-from models.database.geography import Village
 from models.database.complaint import (
     ComplaintComment,
-    Complaint,
-    ComplaintStatus,
 )
-from services.s3_service import s3_service
 
 router = APIRouter()
+
+async def get_public_user_by_token(
+    db: AsyncSession, token: str
+) -> Optional[PublicUser]:
+    """Retrieve a public user based on the provided token."""
+    result = await db.execute(
+        select(PublicUserToken).where(PublicUserToken.token == token)
+    )
+    public_user_token = result.scalar_one_or_none()
+    if not public_user_token:
+        return None
+
+    result = await db.execute(
+        select(PublicUser).where(PublicUser.id == public_user_token.public_user_id)
+    )
+    public_user = result.scalar_one_or_none()
+    return public_user
 
 
 @router.post("/with-media", response_model=ComplaintResponse)
@@ -51,9 +58,9 @@ async def create_complaint_with_media(
     block_id: int = Form(...),
     district_id: int = Form(...),
     description: str = Form(...),
-    mobile_number: Optional[str] = Form(None),
     files: List[UploadFile] = File(default=[]),
     db: AsyncSession = Depends(get_db),
+    token: str = Header(..., description="Public user token")
 ) -> ComplaintResponse:
     """Create a new complaint with optional media files (Public access)."""
     # Create the complaint first using similar logic to create_complaint
@@ -69,6 +76,12 @@ async def create_complaint_with_media(
             status_code=status.HTTP_404_NOT_FOUND, detail="Village not found"
         )
 
+    user = await get_public_user_by_token(db, token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing user token",
+        )
     # Get or create "OPEN" status
     status_result = await db.execute(
         select(ComplaintStatus).where(ComplaintStatus.name == "OPEN")
@@ -89,8 +102,8 @@ async def create_complaint_with_media(
         block_id=block_id,
         district_id=district_id,
         description=description,
-        mobile_number=mobile_number,
         status_id=complaint_status.id,
+        mobile_number=user.mobile_number,
     )
 
     db.add(complaint)
@@ -167,25 +180,17 @@ async def comment_on_complaint(
     complaint_id: int,
     comment: str = Form(...),
     db: AsyncSession = Depends(get_db),
-    user_token: str = Query(None, description="Public user token"),
-):
+    user_token: str = Header(..., description="Public user token"),
+) -> Dict[str, Any]:
     """Add a comment to a complaint (Public access)."""
     # Check if complaint exists
     # Get the user id using the token
-    public_user_token = (
-        await db.execute(
-            select(PublicUserToken).where(PublicUserToken.token == user_token)
-        )
-    ).scalar_one_or_none()
-    if not public_user_token:
+    public_user = await get_public_user_by_token(db, user_token)
+    if not public_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing user token",
         )
-    public_user_id = public_user_token.public_user_id
-    public_user = (
-        await db.execute(select(PublicUser).where(PublicUser.id == public_user_id))
-    ).scalar_one_or_none()
     result = await db.execute(select(Complaint).where(Complaint.id == complaint_id))
     complaint = result.scalar_one_or_none()
 
@@ -222,8 +227,8 @@ async def upload_complaint_media(
     complaint_id: int,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    token: str = Query(..., description="Public user token"),
-):
+    token: str = Header(..., description="Public user token"),
+) -> Dict[str, Any]:
     """Upload media (image) for a complaint (Public access)."""
     # Check if complaint exists
     result = await db.execute(select(Complaint).where(Complaint.id == complaint_id))
@@ -250,7 +255,7 @@ async def upload_complaint_media(
 
     # Validate file type
     allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-    filename, file_extension = os.path.splitext(file.filename.lower())
+    filename, file_extension = os.path.splitext(file.filename.lower()) # type: ignore
 
     if file_extension not in allowed_extensions:
         raise HTTPException(
@@ -258,11 +263,11 @@ async def upload_complaint_media(
         )
 
     # Upload file to S3/MinIO
-    s3_key = f"complaints/{complaint_id}/{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{file.filename}"
+    s3_key = f"complaints/{complaint_id}/{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{file.filename}"
 
     try:
-        s3_service.upload_file(
-            file=file.file,
+        await s3_service.upload_file(
+            file=file.file,  # type: ignore
             folder=f"complaints/{complaint_id}",
             filename=f"{uuid.uuid4()}-{file.filename}",
         )
@@ -278,7 +283,7 @@ async def upload_complaint_media(
     new_media = ComplaintMedia(
         complaint_id=complaint.id,
         media_url=s3_key,
-        uploaded_by_public_mobile=public_user.mobile_number,
+        uploaded_by_public_mobile=public_user.mobile_number,  # type: ignore
         uploaded_by_user_id=None,
     )
     db.add(new_media)
@@ -290,5 +295,5 @@ async def upload_complaint_media(
         "file_name": file.filename,
         "s3_key": s3_key,
         "content_type": file.content_type,
-        "uploaded_at": datetime.utcnow(),
+        "uploaded_at": datetime.now(timezone.utc)
     }
