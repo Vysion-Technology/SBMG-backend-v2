@@ -2,6 +2,7 @@ import json
 from typing import List, Optional
 from datetime import datetime
 import os
+import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
@@ -317,7 +318,11 @@ async def upload_complaint_media(
     s3_key = f"complaints/{complaint_id}/{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{file.filename}"
     
     try:
-        s3_service.upload_fileobj(file.file, s3_key, file.content_type)
+        s3_service.upload_file(
+            file=file.file,
+            folder=f"complaints/{complaint_id}",
+            filename=f"{uuid.uuid4()}-{file.filename}"
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
