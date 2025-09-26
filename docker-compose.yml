@@ -1,0 +1,140 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: sbm_postgres
+    environment:
+      POSTGRES_DB: sbm_rajasthan
+      POSTGRES_USER: sbm_user
+      POSTGRES_PASSWORD: sbm_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sbm_user -d sbm_rajasthan"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sbm_network
+
+  # MinIO S3 Compatible Storage
+  minio:
+    image: minio/minio:latest
+    container_name: sbm_minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - sbm_network
+
+  # Backend FastAPI Application
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sbm_backend
+    environment:
+      # Database Configuration
+      DATABASE_URL: postgresql+asyncpg://sbm_user:sbm_password@postgres:5432/sbm_rajasthan
+      # JWT Configuration
+      SECRET_KEY: your-secret-key-here-change-in-production
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      # MinIO/S3 Configuration
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin123
+      S3_BUCKET_NAME: sbm-complaints
+      # Application Configuration
+      DEBUG: "true"
+      HOST: "0.0.0.0"
+      PORT: "8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    networks:
+      - sbm_network
+    restart: unless-stopped
+
+  # MinIO Client for bucket creation
+  createbuckets:
+    image: minio/mc:latest
+    container_name: sbm_createbuckets
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin123;
+      /usr/bin/mc mb myminio/sbm-complaints --ignore-existing;
+      /usr/bin/mc policy set public myminio/sbm-complaints;
+      exit 0;
+      "
+    networks:
+      - sbm_network
+
+  # Frontend React Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sbm_frontend
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=http://localhost:8000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - sbm_network
+    restart: unless-stopped
+
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:latest
+    container_name: sbm_cloudbeaver
+    environment:
+      CB_ADMIN_NAME: admin
+      CB_ADMIN_PASSWORD: admin
+    ports:
+      - "8978:8978"
+    depends_on:
+      - postgres
+    networks:
+      - sbm_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  sbm_network:
+    driver: bridge
