@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from controllers import citizen, event
 from controllers import auth, complaints, admin, public, user_management
-from controllers import reporting, login_management, person_management
+from controllers import login_management, person_management
 from controllers import geography, consolidated_reporting
 
 

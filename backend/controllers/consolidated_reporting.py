@@ -128,30 +128,64 @@ class UnifiedReportingService:
     @staticmethod
     async def get_complaint_stats(db: AsyncSession, jurisdiction_filter=None):
         """Get complaint statistics with optional jurisdiction filtering."""
-        base_query = select(func.count(Complaint.id)).select_from(Complaint)
+        try:
+            base_query = select(func.count(Complaint.id)).select_from(Complaint)
+            
+            if jurisdiction_filter is not None:
+                base_query = base_query.where(jurisdiction_filter)
+            
+            # Total complaints
+            total_result = await db.execute(base_query)
+            total_complaints = total_result.scalar() or 0
+            
+            # Complaints by status with optimized single query
+            status_query = (
+                select(ComplaintStatus.name, func.count(Complaint.id))
+                .select_from(Complaint)
+                .join(ComplaintStatus)
+                .group_by(ComplaintStatus.name)
+            )
+            
+            if jurisdiction_filter is not None:
+                status_query = status_query.where(jurisdiction_filter)
+            
+            status_result = await db.execute(status_query)
+            complaints_by_status = {name: count for name, count in status_result}
+            
+            return total_complaints, complaints_by_status
+            
+        except Exception as e:
+            # Log error in production
+            print(f"Error getting complaint stats: {e}")
+            return 0, {}
+    
+    @staticmethod
+    async def get_user_role_summary(user: User):
+        """Get a summary of user's roles and jurisdiction."""
+        roles = []
+        jurisdictions = []
         
-        if jurisdiction_filter is not None:
-            base_query = base_query.where(jurisdiction_filter)
+        for position in user.positions:
+            if position.role:
+                roles.append(position.role.name)
+                
+                if position.village_id:
+                    jurisdictions.append(f"Village-{position.village_id}")
+                elif position.block_id:
+                    jurisdictions.append(f"Block-{position.block_id}")
+                elif position.district_id:
+                    jurisdictions.append(f"District-{position.district_id}")
         
-        # Total complaints
-        total_result = await db.execute(base_query)
-        total_complaints = total_result.scalar() or 0
-        
-        # Complaints by status
-        status_query = (
-            select(ComplaintStatus.name, func.count(Complaint.id))
-            .select_from(Complaint)
-            .join(ComplaintStatus)
-            .group_by(ComplaintStatus.name)
-        )
-        
-        if jurisdiction_filter is not None:
-            status_query = status_query.where(jurisdiction_filter)
-        
-        status_result = await db.execute(status_query)
-        complaints_by_status = {name: count for name, count in status_result}
-        
-        return total_complaints, complaints_by_status
+        return {
+            "roles": list(set(roles)),
+            "jurisdictions": list(set(jurisdictions)),
+            "is_admin": UserRole.ADMIN in roles,
+            "access_level": "ADMIN" if UserRole.ADMIN in roles else 
+                          "CEO" if UserRole.CEO in roles else
+                          "BDO" if UserRole.BDO in roles else
+                          "VDO" if UserRole.VDO in roles else
+                          "WORKER" if UserRole.WORKER in roles else "PUBLIC"
+        }
 
 
 # Unified Endpoints for All Roles
@@ -754,3 +788,34 @@ async def get_public_complaint_status(
         ))
     
     return response_data
+
+
+# User access information endpoint (for debugging and UI)
+@router.get("/user/access-info")
+async def get_user_access_info(
+    current_user: User = Depends(require_staff_role)
+):
+    """Get current user's access information and permissions."""
+    
+    access_info = await UnifiedReportingService.get_user_role_summary(current_user)
+    
+    # Get some basic stats that user can access
+    jurisdiction_filter = UnifiedReportingService.get_user_jurisdiction_filter(current_user)
+    
+    return {
+        "user_id": current_user.id,
+        "username": current_user.username,
+        "access_summary": access_info,
+        "can_access_all_data": jurisdiction_filter is None,
+        "positions": [
+            {
+                "role": pos.role.name if pos.role else None,
+                "district_id": pos.district_id,
+                "block_id": pos.block_id,
+                "village_id": pos.village_id,
+                "start_date": pos.start_date.isoformat() if pos.start_date else None,
+                "end_date": pos.end_date.isoformat() if pos.end_date else None
+            }
+            for pos in current_user.positions
+        ]
+    }
