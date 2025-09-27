@@ -58,7 +58,7 @@ app.include_router(geography.router, prefix="/api/v1/geography", tags=["Geograph
 # app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(complaints.router, prefix="/api/v1/complaints", tags=["Complaints"])
 app.include_router(event.router, prefix="/api/v1/events", tags=["Events"])
-# app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
+app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
 # app.include_router(reporting.router, prefix="/api/v1/reports", tags=["Reporting (Legacy)"])
 
 # New consolidated reporting router with perfect RBAC and optimized queries
