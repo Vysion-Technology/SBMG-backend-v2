@@ -85,11 +85,16 @@ const CreateComplaint: React.FC = () => {
       setSubmitResult({ success: true, data: result });
       reset();
       setSelectedFiles(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error submitting complaint:', error);
+      let errorMessage = 'Failed to submit complaint. Please try again.';
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as { response?: { data?: { detail?: string } } };
+        errorMessage = axiosError.response?.data?.detail || errorMessage;
+      }
       setSubmitResult({ 
         success: false, 
-        error: error.response?.data?.detail || 'Failed to submit complaint. Please try again.' 
+        error: errorMessage
       });
     } finally {
       setIsSubmitting(false);

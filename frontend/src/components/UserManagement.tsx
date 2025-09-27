@@ -9,10 +9,11 @@ import type {
   District,
   Block,
   Village,
+  User,
 } from '../types';
 
 interface UserManagementProps {
-  currentUser: any;
+  currentUser: User;
 }
 
 const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) => {
@@ -77,8 +78,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) => {
       setRoles(rolesData);
       setPositionHolders(positionHoldersData);
       setDistricts(districtsData);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load data');
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to load data';
+      if (err instanceof Error && 'response' in err) {
+        const axiosError = err as { response?: { data?: { detail?: string } } };
+        errorMessage = axiosError.response?.data?.detail || errorMessage;
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -110,8 +116,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) => {
       setShowCreateRoleForm(false);
       setRoleFormData({ name: '', description: '' });
       await loadData();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create role');
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to create role';
+      if (err instanceof Error && 'response' in err) {
+        const axiosError = err as { response?: { data?: { detail?: string } } };
+        errorMessage = axiosError.response?.data?.detail || errorMessage;
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -138,8 +149,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) => {
         end_date: undefined,
       });
       await loadData();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create user');
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to create user';
+      if (err instanceof Error && 'response' in err) {
+        const axiosError = err as { response?: { data?: { detail?: string } } };
+        errorMessage = axiosError.response?.data?.detail || errorMessage;
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -155,8 +171,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) => {
       setEditingPosition(null);
       setEditFormData({});
       await loadData();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update position');
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to update position';
+      if (err instanceof Error && 'response' in err) {
+        const axiosError = err as { response?: { data?: { detail?: string } } };
+        errorMessage = axiosError.response?.data?.detail || errorMessage;
+      }  
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -198,8 +219,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) => {
       setNewPassword('');
       setConfirmPassword('');
       // You could show a success message here
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to change password');
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to change password';
+      if (err instanceof Error && 'response' in err) {
+        const axiosError = err as { response?: { data?: { detail?: string } } };
+        errorMessage = axiosError.response?.data?.detail || errorMessage;
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

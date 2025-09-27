@@ -33,13 +33,16 @@ const ComplaintStatus: React.FC = () => {
         const updated = [Number(complaintId), ...existing.filter((id: number) => id !== Number(complaintId))].slice(0, 10);
         localStorage.setItem(storageKey, JSON.stringify(updated));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching complaint:', error);
-      if (error.response?.status === 404) {
-        setError('Complaint not found. Please check the ID and try again.');
-      } else {
-        setError('Failed to fetch complaint status. Please try again.');
+      let errorMessage = 'Failed to fetch complaint status. Please try again.';
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as { response?: { status: number } };
+        if (axiosError.response?.status === 404) {
+          errorMessage = 'Complaint not found. Please check the ID and try again.';
+        }
       }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
