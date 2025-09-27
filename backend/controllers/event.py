@@ -67,10 +67,9 @@ async def add_event_media(
     event = await service.get_event_by_id(event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    
 
     # Upload media to S3/MinIO and get the URL
-    media_url = await s3_service.upload_file(media, f"events/{event_id}/{media.filename}")
+    media_url = await s3_service.upload_file(media, f"events/{event_id}")
 
     await service.add_event_media(event_id, media_url)
     await db.refresh(event, ["media"])
@@ -95,6 +94,7 @@ async def remove_event_media(
     await service.remove_event_media(event_id, event_media_id)
     await db.refresh(event, ["media"])
     return event
+
 
 @router.get("/", response_model=List[EventResponse])
 async def list_events(
