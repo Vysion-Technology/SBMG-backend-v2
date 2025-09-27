@@ -1,8 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Search, Users, ChevronRight } from 'lucide-react';
+import { FileText, Search, Users, ChevronRight, Shield, CheckCircle, AlertCircle } from 'lucide-react';
 
-const HomePage: React.FC = () => {
+interface HomePageProps {
+  user?: { username: string; roles: string[] } | null;
+}
+
+const HomePage: React.FC<HomePageProps> = ({ user }) => {
+  // Check if user is authenticated
+  const isAuthenticated = !!user;
+  const userRole = user?.roles?.[0] || null;
+
   return (
     <div className="px-4 py-8">
       {/* Hero Section */}
@@ -11,37 +19,128 @@ const HomePage: React.FC = () => {
           Swachh Bharat Mission - Gramin Rajasthan
         </h1>
         <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          A comprehensive complaint management system to help maintain cleanliness and sanitation in rural Rajasthan. 
-          Submit complaints, track progress, and stay informed about community improvements.
+          A comprehensive complaint management system to help maintain cleanliness and sanitation in rural Rajasthan.
         </p>
+        
+        {/* Welcome message for authenticated users */}
+        {isAuthenticated && (
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg max-w-md mx-auto">
+            <div className="flex items-center justify-center space-x-2">
+              <Shield className="w-5 h-5 text-blue-600" />
+              <span className="text-blue-800 font-medium">
+                Welcome back, {user.username} ({userRole})
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid md:grid-cols-3 gap-6 mb-12">
-        <ActionCard
-          to="/create-complaint"
-          icon={<FileText size={24} />}
-          title="Create Complaint"
-          description="Report issues related to sanitation, water supply, roads, and more"
-          color="bg-blue-50 border-blue-200 hover:bg-blue-100"
-          iconColor="text-blue-600"
-        />
-        <ActionCard
-          to="/complaint-status"
-          icon={<Search size={24} />}
-          title="Check Status"
-          description="Track the progress of your complaint using complaint ID"
-          color="bg-green-50 border-green-200 hover:bg-green-100"
-          iconColor="text-green-600"
-        />
-        <ActionCard
-          to="/login"
-          icon={<Users size={24} />}
-          title="Staff Login"
-          description="Access staff dashboard for complaint management and reporting"
-          color="bg-purple-50 border-purple-200 hover:bg-purple-100"
-          iconColor="text-purple-600"
-        />
+      {/* Role-specific Quick Actions for authenticated users */}
+      {isAuthenticated ? (
+        <div className="mb-12">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">
+            Your Dashboard
+          </h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {(['ADMIN', 'CEO', 'BDO'].includes(userRole!)) && (
+              <ActionCard
+                to="/dashboard"
+                icon={<Users size={24} />}
+                title="Admin Dashboard"
+                description="Comprehensive overview and management tools"
+                color="bg-purple-50 border-purple-200 hover:bg-purple-100"
+                iconColor="text-purple-600"
+              />
+            )}
+            
+            {userRole === 'VDO' && (
+              <ActionCard
+                to="/worker-dashboard"
+                icon={<CheckCircle size={24} />}
+                title="VDO Dashboard"
+                description="Manage and verify village complaints"
+                color="bg-green-50 border-green-200 hover:bg-green-100"
+                iconColor="text-green-600"
+              />
+            )}
+            
+            {userRole === 'WORKER' && (
+              <ActionCard
+                to="/worker-dashboard"
+                icon={<AlertCircle size={24} />}
+                title="Worker Tasks"
+                description="View and complete assigned tasks"
+                color="bg-orange-50 border-orange-200 hover:bg-orange-100"
+                iconColor="text-orange-600"
+              />
+            )}
+            
+            {(['ADMIN', 'CEO'].includes(userRole!)) && (
+              <ActionCard
+                to="/user-management"
+                icon={<Users size={24} />}
+                title="User Management"
+                description="Manage roles and users"
+                color="bg-indigo-50 border-indigo-200 hover:bg-indigo-100"
+                iconColor="text-indigo-600"
+              />
+            )}
+            
+            {userRole === 'ADMIN' && (
+              <ActionCard
+                to="/admin"
+                icon={<Shield size={24} />}
+                title="Admin Panel"
+                description="System configuration and management"
+                color="bg-red-50 border-red-200 hover:bg-red-100"
+                iconColor="text-red-600"
+              />
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Public Actions (always visible) */}
+      <div className="mb-12">
+        <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">
+          {isAuthenticated ? 'Public Services' : 'Quick Actions'}
+        </h2>
+        <div className="grid md:grid-cols-3 gap-6">
+          <ActionCard
+            to="/create-complaint"
+            icon={<FileText size={24} />}
+            title="Create Complaint"
+            description="Report issues related to sanitation, water supply, roads, and more"
+            color="bg-blue-50 border-blue-200 hover:bg-blue-100"
+            iconColor="text-blue-600"
+          />
+          <ActionCard
+            to="/complaint-status"
+            icon={<Search size={24} />}
+            title="Check Status"
+            description="Track the progress of your complaint using complaint ID"
+            color="bg-green-50 border-green-200 hover:bg-green-100"
+            iconColor="text-green-600"
+          />
+          {!isAuthenticated && (
+            <ActionCard
+              to="/login"
+              icon={<Users size={24} />}
+              title="Staff Login"
+              description="Access staff dashboard for complaint management and reporting"
+              color="bg-purple-50 border-purple-200 hover:bg-purple-100"
+              iconColor="text-purple-600"
+            />
+          )}
+          <ActionCard
+            to="/citizen-verification"
+            icon={<CheckCircle size={24} />}
+            title="Verify Resolution"
+            description="Verify if your complaint has been resolved"
+            color="bg-teal-50 border-teal-200 hover:bg-teal-100"
+            iconColor="text-teal-600"
+          />
+        </div>
       </div>
 
       {/* Features Section */}
