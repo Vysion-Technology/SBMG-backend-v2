@@ -7,29 +7,28 @@ import {
   Activity, 
   BarChart3 
 } from 'lucide-react';
-import { staffApi, adminApi } from '../api';
-import type { Complaint, DashboardStats } from '../types';
+import { staffApi } from '../api';
+import type { ComplaintResponse, DashboardStats, User } from '../types';
 import { getUserHighestRole, getUserFullName } from '../utils';
 
 interface DashboardProps {
-  user: any;
+  user: User;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ user }) => {
-  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [complaints, setComplaints] = useState<ComplaintResponse[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const complaintsData = await staffApi.getAllComplaints();
+        // Use new consolidated reporting endpoints
+        const complaintsData = await staffApi.getComplaints();
         setComplaints(complaintsData);
         
-        if (getUserHighestRole(user) === 'ADMIN') {
-          const statsData = await adminApi.getDashboardStats();
-          setDashboardStats(statsData as DashboardStats);
-        }
+        const statsData = await staffApi.getDashboardStats();
+        setDashboardStats(statsData);
       } catch (error) {
         console.error('Failed to load dashboard data:', error);
       } finally {
@@ -88,7 +87,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Total Users</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {dashboardStats.total_users}
+                      {dashboardStats?.total_users || 0}
                     </p>
                   </div>
                   <div className="p-3 bg-gradient-success rounded-full">
@@ -102,7 +101,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Districts</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {dashboardStats.total_districts}
+                      {dashboardStats?.total_districts || 0}
                     </p>
                   </div>
                   <div className="p-3 bg-gradient-warning rounded-full">
@@ -116,7 +115,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Blocks</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {dashboardStats.total_blocks}
+                      {dashboardStats?.total_blocks || 0}
                     </p>
                   </div>
                   <div className="p-3 bg-gradient-info rounded-full">
@@ -133,10 +132,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 Complaint Status Overview
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {dashboardStats.complaints_by_status.map((item) => (
-                  <div key={item.status} className="text-center">
-                    <p className="text-2xl font-bold text-gray-900">{item.count}</p>
-                    <p className="text-sm text-gray-600 capitalize">{item.status.replace('_', ' ')}</p>
+                {dashboardStats && Object.entries(dashboardStats.complaints_by_status).map(([status, count]) => (
+                  <div key={status} className="text-center">
+                    <p className="text-2xl font-bold text-gray-900">{count}</p>
+                    <p className="text-sm text-gray-600 capitalize">{status.replace('_', ' ')}</p>
                   </div>
                 ))}
               </div>
@@ -149,12 +148,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 Top Districts by Complaints
               </h3>
               <div className="space-y-2">
-                {dashboardStats.complaints_by_district.slice(0, 5).map((item) => (
+                {dashboardStats?.complaints_by_district?.slice(0, 5).map((item) => (
                   <div key={item.district} className="flex items-center justify-between">
                     <span className="text-sm text-gray-700">{item.district}</span>
                     <span className="badge badge-secondary">{item.count}</span>
                   </div>
-                ))}
+                )) || (
+                  <p className="text-sm text-gray-500">No district data available</p>
+                )}
               </div>
             </div>
           </div>
