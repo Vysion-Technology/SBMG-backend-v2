@@ -3,19 +3,19 @@ Consolidated advanced reporting router with perfect RBAC and optimized DB querie
 Serves all roles from VDO to ADMIN with unified access control and efficient data fetching.
 """
 
-from typing import List, Optional, Dict, Any
-from datetime import datetime, date
+from typing import List, Optional, Dict, Any, Tuple
+from datetime import datetime, date, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, func, desc, asc, text
 from sqlalchemy.orm import selectinload, joinedload
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from database import get_db
-from models.database.auth import User, PositionHolder, Role
+from models.database.auth import User
 from models.database.complaint import (
-    Complaint, ComplaintStatus, ComplaintAssignment, ComplaintMedia, ComplaintType
+    Complaint, ComplaintStatus, ComplaintAssignment, ComplaintMedia
 )
 from models.database.geography import Village, Block, District
 from auth_utils import (
@@ -88,7 +88,7 @@ class UnifiedReportingService:
         if UserRole.ADMIN in user_roles:
             return None  # Admin can see everything
         
-        jurisdiction_filters = []
+        jurisdiction_filters: List[Any] = []
         
         for position in user.positions:
             if position.role.name == UserRole.CEO and position.district_id:
@@ -126,7 +126,7 @@ class UnifiedReportingService:
         )
     
     @staticmethod
-    async def get_complaint_stats(db: AsyncSession, jurisdiction_filter=None):
+    async def get_complaint_stats(db: AsyncSession, jurisdiction_filter: Optional[Any]=None) -> Tuple[int, Dict[str, int]]:
         """Get complaint statistics with optional jurisdiction filtering."""
         try:
             base_query = select(func.count(Complaint.id)).select_from(Complaint)
@@ -160,10 +160,10 @@ class UnifiedReportingService:
             return 0, {}
     
     @staticmethod
-    async def get_user_role_summary(user: User):
+    async def get_user_role_summary(user: User) -> Dict[str, Any]:
         """Get a summary of user's roles and jurisdiction."""
-        roles = []
-        jurisdictions = []
+        roles: List[str] = []
+        jurisdictions: List[str] = []
         
         for position in user.positions:
             if position.role:
@@ -218,7 +218,7 @@ async def get_unified_dashboard(
     recent_complaints_data = recent_result.scalars().all()
     
     # Build response
-    recent_complaints = []
+    recent_complaints: List[ComplaintResponse] = []
     for complaint in recent_complaints_data:
         assigned_worker_name = None
         if complaint.assignments:
@@ -298,7 +298,7 @@ async def get_complaints(
     limit: int = Query(50, ge=1, le=500, description="Number of records to return"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role)
-):
+) -> List[ComplaintResponse]:
     """Get complaints with advanced filtering, search, and pagination."""
     
     # Start with optimized base query
@@ -362,7 +362,7 @@ async def get_complaints(
     complaints = result.scalars().all()
     
     # Build response
-    response_data = []
+    response_data: List[ComplaintResponse] = []
     for complaint in complaints:
         assigned_worker_name = None
         if complaint.assignments:
@@ -450,7 +450,7 @@ async def get_worker_tasks(
     status_filter: Optional[str] = Query(None, description="Filter by status"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role)
-):
+) -> List[WorkerTaskResponse]:
     """Get tasks assigned to the current worker."""
     
     if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER]):
@@ -475,7 +475,7 @@ async def get_worker_tasks(
     complaints = result.scalars().all()
     
     # Build worker task response
-    tasks = []
+    tasks: List[WorkerTaskResponse] = []
     for complaint in complaints:
         # Get assignment details
         assignment = next((a for a in complaint.assignments if a.user_id == current_user.id), None)
@@ -501,7 +501,7 @@ async def complete_worker_task(
     complaint_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role)
-):
+) -> Dict[str, Any]:
     """Mark a worker task as completed."""
     
     if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER]):
@@ -550,7 +550,7 @@ async def complete_worker_task(
     
     # Update complaint status
     complaint.status_id = completed_status.id
-    complaint.updated_at = datetime.utcnow()
+    complaint.updated_at = datetime.now(timezone.utc)
     
     await db.commit()
     
@@ -563,7 +563,7 @@ async def upload_task_media(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role)
-):
+) -> Dict[str, Any]:
     """Upload media for a worker task."""
     
     if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER]):
@@ -611,7 +611,7 @@ async def verify_complaint(
     complaint_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role)
-):
+) -> Dict[str, Any]:
     """VDO verifies and closes a completed complaint."""
     
     if not PermissionChecker.user_has_role(current_user, [UserRole.VDO]):
@@ -661,7 +661,7 @@ async def verify_complaint(
     
     # Update complaint status
     complaint.status_id = verified_status.id
-    complaint.updated_at = datetime.utcnow()
+    complaint.updated_at = datetime.now(timezone.utc)
     
     await db.commit()
     
@@ -717,7 +717,7 @@ async def get_admin_analytics(
     ]
     
     # Basic system health metrics
-    system_health = {
+    system_health: Dict[str, Any] = {
         "database_status": "healthy",
         "active_users": total_entities["users"],
         "pending_complaints": 0  # Would be calculated from complaint statuses
@@ -741,7 +741,7 @@ async def get_public_complaint_status(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=200, description="Number of records to return"),
     db: AsyncSession = Depends(get_db)
-):
+) -> List[ComplaintResponse]:
     """Public API to see the status of complaints (limited information)."""
     
     query = (
@@ -770,7 +770,7 @@ async def get_public_complaint_status(
     complaints = result.scalars().all()
     
     # Build public response (limited information)
-    response_data = []
+    response_data: List[ComplaintResponse] = []
     for complaint in complaints:
         response_data.append(ComplaintResponse(
             id=complaint.id,
@@ -794,7 +794,7 @@ async def get_public_complaint_status(
 @router.get("/user/access-info")
 async def get_user_access_info(
     current_user: User = Depends(require_staff_role)
-):
+) -> Dict[str, Any]:
     """Get current user's access information and permissions."""
     
     access_info = await UnifiedReportingService.get_user_role_summary(current_user)
