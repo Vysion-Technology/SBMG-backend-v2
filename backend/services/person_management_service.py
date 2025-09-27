@@ -6,10 +6,10 @@ Handles person profiles, designations, role assignments, and position history.
 from typing import List, Optional
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, and_, or_
+from sqlalchemy import ClauseElement, select, update, and_, or_
 from sqlalchemy.orm import selectinload
 
-from models.database.auth import User, Role, PositionHolder
+from models.database.auth import Role, PositionHolder
 from models.database.geography import District, Block, Village
 from auth_utils import UserRole
 
@@ -36,7 +36,7 @@ class PersonManagementService:
         VDO: district.block.village@example.com
         Worker: district.block.village-sbmg-contractor@example.com
         """
-        username_parts = []
+        username_parts: List[str] = []
 
         # Get district name
         if district_id:
@@ -197,7 +197,7 @@ class PersonManagementService:
         )
 
         # Apply filters
-        conditions = []
+        conditions: List[ClauseElement] = []
         if role_id:
             conditions.append(PositionHolder.role_id == role_id)
         if district_id:
@@ -212,7 +212,7 @@ class PersonManagementService:
             conditions.append(or_(PositionHolder.end_date.is_(None), PositionHolder.end_date >= date.today()))
 
         if conditions:
-            query = query.where(and_(*conditions))
+            query = query.where(and_(*conditions))  # type: ignore
 
         query = query.offset(skip).limit(limit)
         result = await self.db.execute(query)
@@ -330,7 +330,7 @@ class PersonManagementService:
             selectinload(PositionHolder.village),
         )
 
-        conditions = []
+        conditions: List[ClauseElement] = []
         if role_id:
             conditions.append(PositionHolder.role_id == role_id)
         if district_id:
@@ -347,7 +347,7 @@ class PersonManagementService:
             conditions.append(or_(PositionHolder.start_date.is_(None), PositionHolder.start_date <= to_date))
 
         if conditions:
-            query = query.where(and_(*conditions))
+            query = query.where(and_(*conditions))  # type: ignore
 
         query = query.order_by(PositionHolder.start_date.desc())
         result = await self.db.execute(query)

@@ -5,10 +5,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from controllers import citizen
+from controllers import citizen, event
 from controllers import auth, complaints, admin, public, user_management
 from controllers import reporting, login_management, person_management
 from controllers import geography
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -56,6 +57,7 @@ app.include_router(geography.router, prefix="/api/v1/geography", tags=["Geograph
 # app.include_router(user_management.router, prefix="/api/v1/user-management", tags=["User Management (Legacy)"])
 # app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(complaints.router, prefix="/api/v1/complaints", tags=["Complaints"])
+app.include_router(event.router, prefix="/api/v1/events", tags=["Events"])
 # app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
 # app.include_router(reporting.router, prefix="/api/v1/reports", tags=["Reporting"])
 
