@@ -1,12 +1,10 @@
-from typing import List, Optional
+from typing import List
 from enum import Enum
 from functools import wraps
 
 from fastapi import HTTPException, status, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from models.database.auth import User, PositionHolder
 from controllers.auth import get_current_active_user
+from models.database.auth import User
 
 
 class UserRole(str, Enum):

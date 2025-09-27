@@ -1,20 +1,28 @@
-from typing import Optional
-from datetime import datetime
+import logging
+from typing import Any, Dict, Optional
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.orm import selectinload
 
+from utils import get_user_jurisdiction_filter
 from database import get_db
 from models.database.auth import User
 from models.database.complaint import (
     Complaint,
+    ComplaintAssignment,
     ComplaintStatus,
     ComplaintMedia,
     ComplaintComment,
 )
-from auth_utils import require_staff_role, PermissionChecker, UserRole, require_worker_role
+from auth_utils import (
+    require_staff_role,
+    PermissionChecker,
+    UserRole,
+    require_worker_role,
+)
 from services.s3_service import s3_service
 
 from models.response.complaint import MediaResponse
@@ -35,8 +43,6 @@ router = APIRouter()
 
 
 # Public endpoints (no authentication required)
-
-
 
 
 @router.patch("/{complaint_id}/status")
@@ -202,6 +208,7 @@ async def add_complaint_comment(
         user_name=user_name,
     )
 
+
 @router.post("/{complaint_id}/media", response_model=MediaResponse)
 async def upload_complaint_media(
     complaint_id: int,
@@ -272,6 +279,7 @@ async def upload_complaint_media(
             detail="Failed to upload media",
         ) from e
 
+
 @router.patch("/{complaint_id}/resolve", response_model=ResolveComplaintResponse)
 async def resolve_complaint(
     complaint_id: int,
@@ -338,3 +346,119 @@ async def resolve_complaint(
     return ResolveComplaintResponse(
         message="Complaint resolved successfully", complaint_id=complaint_id
     )
+
+
+# VDO-specific endpoints
+@router.patch("/vdo/complaints/{complaint_id}/verify")
+async def verify_complaint(
+    complaint_id: int,
+    comment: Optional[str] = Form(...),
+    media: Optional[UploadFile] = File(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> Dict[str, Any]:
+    """VDO verifies and closes a completed complaint."""
+
+    if not PermissionChecker.user_has_role(current_user, [UserRole.VDO]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only VDOs can verify complaints",
+        )
+
+    # Get complaint with jurisdiction check
+    jurisdiction_filter: Any = get_user_jurisdiction_filter(current_user) # type: ignore
+
+    query = (
+        select(Complaint)
+        .options(selectinload(Complaint.status))
+        .where(Complaint.id == complaint_id)
+    )
+
+    if jurisdiction_filter is not None:
+        query = query.where(jurisdiction_filter)  # type: ignore
+
+    result = await db.execute(query)
+    complaint = result.scalar_one_or_none()
+
+    if not complaint:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Complaint not found or not in your jurisdiction",
+        )
+
+    # Check if complaint is in COMPLETED status
+    if complaint.status.name != "COMPLETED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Can only verify complaints that are marked as completed",
+        )
+
+    # Get "VERIFIED" status
+    status_query = select(ComplaintStatus).where(ComplaintStatus.name == "VERIFIED")
+    status_result = await db.execute(status_query)
+    verified_status = status_result.scalar_one_or_none()
+
+    if not verified_status:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="VERIFIED status not found in system",
+        )
+    
+    if comment:
+        # Add verification comment
+        verification_comment = ComplaintComment(
+            complaint_id=complaint_id,
+            user_id=current_user.id,
+            comment=f"[VERIFIED] {comment}",
+            commented_at=datetime(
+                datetime.now(timezone.utc).year,
+                datetime.now(timezone.utc).month,
+                datetime.now(timezone.utc).day,
+            )
+        )
+        db.add(verification_comment)
+        await db.commit()
+    
+    error_msg = ""
+    if media and media.filename:
+        try:
+            # Upload media to S3/MinIO
+            s3_key = await s3_service.upload_file(
+                file=media,
+                folder=f"complaints/{complaint_id}/verification",
+                filename=media.filename,
+            )
+
+            # Get the media URL for database storage
+            if s3_service.is_available():
+                # Use S3 key for database storage
+                media_url = s3_key
+            else:
+                # Fallback to local path
+                media_url = f"/media/complaints/{complaint_id}/verification/{media.filename}"
+
+            # Create media record
+            verification_media = ComplaintMedia(
+                complaint_id=complaint_id, media_url=media_url, uploaded_by_user_id=current_user.id, uploaded_at=datetime(
+                    datetime.now(timezone.utc).year,
+                    datetime.now(timezone.utc).month,
+                    datetime.now(timezone.utc).day,
+                )
+            )
+            db.add(verification_media)
+            await db.commit()
+        except HTTPException:
+            # If S3 upload fails, continue without media
+            logging.warning("Failed to upload verification media, continuing without it.")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to upload verification media",
+            )
+
+    # Update complaint status
+    complaint.status_id = verified_status.id
+    complaint.updated_at = datetime.now()
+
+    await db.commit()
+
+    return {"message": "Complaint verified successfully", "complaint_id": complaint_id, "error": error_msg.strip()}

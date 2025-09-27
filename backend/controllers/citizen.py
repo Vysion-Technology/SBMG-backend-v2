@@ -131,7 +131,7 @@ async def create_complaint_with_media(
                     media_url = f"/media/complaints/{complaint.id}/{file.filename}"
 
                 # Create media record
-                media = ComplaintMedia(complaint_id=complaint.id, media_url=media_url)
+                media = ComplaintMedia(complaint_id=complaint.id, media_url=media_url, uploaded_by_public_mobile=user.mobile_number, uploaded_by_user_id=None)
                 db.add(media)
                 media_urls.append(media_url)
 

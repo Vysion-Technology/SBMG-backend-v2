@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 from datetime import date, datetime
 
 from sqlalchemy.orm import mapped_column, relationship, Mapped
@@ -40,7 +40,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)  # type: ignore
 
     # Relationships
-    positions = relationship("PositionHolder", back_populates="user")
+    positions: Mapped[List["PositionHolder"]] = relationship("PositionHolder", back_populates="user")
     complaint_assignments = relationship("ComplaintAssignment", back_populates="user")
     complaint_comments = relationship("ComplaintComment", back_populates="user")
 
