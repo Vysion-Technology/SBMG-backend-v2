@@ -120,7 +120,7 @@ class Complaint(Base):
     block = relationship("Block", back_populates="complaints")
     district = relationship("District", back_populates="complaints")
     complaint_type = relationship("ComplaintType", back_populates="complaints")
-    status = relationship("ComplaintStatus", back_populates="complaints")
+    status: Mapped[ComplaintStatus] = relationship("ComplaintStatus", back_populates="complaints")
     assignments = relationship("ComplaintAssignment", back_populates="complaint")
     media = relationship("ComplaintMedia", back_populates="complaint")
     comments = relationship("ComplaintComment", back_populates="complaint")

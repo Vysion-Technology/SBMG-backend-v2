@@ -4,18 +4,19 @@ Serves all roles from VDO to ADMIN with unified access control and efficient dat
 """
 
 from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime, date, timezone
+from datetime import datetime, date
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, func, desc, asc, text
+from sqlalchemy import select, and_, func, desc, asc, text
 from sqlalchemy.orm import selectinload, joinedload
 from pydantic import BaseModel
 
+from utils import get_user_jurisdiction_filter
 from database import get_db
 from models.database.auth import User
 from models.database.complaint import (
-    Complaint, ComplaintStatus, ComplaintAssignment, ComplaintMedia
+    Complaint, ComplaintStatus, ComplaintAssignment
 )
 from models.database.geography import Village, Block, District
 from auth_utils import (
@@ -80,34 +81,6 @@ class AdminAnalyticsResponse(BaseModel):
 class UnifiedReportingService:
     """Service class for optimized database queries with perfect RBAC."""
     
-    @staticmethod
-    def get_user_jurisdiction_filter(user: User):
-        """Get jurisdiction filter based on user's roles and positions."""
-        user_roles = [pos.role.name for pos in user.positions if pos.role]
-        
-        if UserRole.ADMIN in user_roles:
-            return None  # Admin can see everything
-        
-        jurisdiction_filters: List[Any] = []
-        
-        for position in user.positions:
-            if position.role.name == UserRole.CEO and position.district_id:
-                jurisdiction_filters.append(Complaint.district_id == position.district_id)
-            elif position.role.name == UserRole.BDO and position.block_id:
-                jurisdiction_filters.append(Complaint.block_id == position.block_id)
-            elif position.role.name == UserRole.VDO and position.village_id:
-                jurisdiction_filters.append(Complaint.village_id == position.village_id)
-            elif position.role.name == UserRole.WORKER:
-                # Workers can only see assigned complaints
-                jurisdiction_filters.append(
-                    Complaint.id.in_(
-                        select(ComplaintAssignment.complaint_id).where(
-                            ComplaintAssignment.user_id == user.id
-                        )
-                    )
-                )
-        
-        return or_(*jurisdiction_filters) if jurisdiction_filters else None
     
     @staticmethod
     def get_optimized_complaint_query():
@@ -199,7 +172,7 @@ async def get_unified_dashboard(
     """Get unified dashboard statistics based on user's access level and jurisdiction."""
     
     # Get jurisdiction filter based on user role
-    jurisdiction_filter = UnifiedReportingService.get_user_jurisdiction_filter(current_user)
+    jurisdiction_filter = get_user_jurisdiction_filter(current_user)
     
     # Get complaint statistics
     total_complaints, complaints_by_status = await UnifiedReportingService.get_complaint_stats(
@@ -305,7 +278,7 @@ async def get_complaints(
     query = UnifiedReportingService.get_optimized_complaint_query()
     
     # Apply jurisdiction filter based on user role
-    jurisdiction_filter = UnifiedReportingService.get_user_jurisdiction_filter(current_user)
+    jurisdiction_filter = get_user_jurisdiction_filter(current_user)
     if jurisdiction_filter is not None:
         query = query.where(jurisdiction_filter)
     
@@ -410,7 +383,7 @@ async def get_complaint_details(
         )
     
     # Check access permissions
-    jurisdiction_filter = UnifiedReportingService.get_user_jurisdiction_filter(current_user)
+    jurisdiction_filter = get_user_jurisdiction_filter(current_user)
     if jurisdiction_filter is not None:
         # Verify user has access to this specific complaint
         access_query = select(Complaint.id).where(
@@ -494,178 +467,6 @@ async def get_worker_tasks(
         ))
     
     return tasks
-
-
-@router.patch("/worker/tasks/{complaint_id}/complete")
-async def complete_worker_task(
-    complaint_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role)
-) -> Dict[str, Any]:
-    """Mark a worker task as completed."""
-    
-    if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER]):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only workers can complete tasks"
-        )
-    
-    # Verify complaint is assigned to the worker
-    assignment_query = select(ComplaintAssignment).where(
-        and_(
-            ComplaintAssignment.complaint_id == complaint_id,
-            ComplaintAssignment.user_id == current_user.id
-        )
-    )
-    assignment_result = await db.execute(assignment_query)
-    assignment = assignment_result.scalar_one_or_none()
-    
-    if not assignment:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found or not assigned to you"
-        )
-    
-    # Get the complaint
-    complaint_query = select(Complaint).where(Complaint.id == complaint_id)
-    complaint_result = await db.execute(complaint_query)
-    complaint = complaint_result.scalar_one_or_none()
-    
-    if not complaint:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Complaint not found"
-        )
-    
-    # Get "COMPLETED" status
-    status_query = select(ComplaintStatus).where(ComplaintStatus.name == "COMPLETED")
-    status_result = await db.execute(status_query)
-    completed_status = status_result.scalar_one_or_none()
-    
-    if not completed_status:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="COMPLETED status not found in system"
-        )
-    
-    # Update complaint status
-    complaint.status_id = completed_status.id
-    complaint.updated_at = datetime.now(timezone.utc)
-    
-    await db.commit()
-    
-    return {"message": "Task completed successfully", "complaint_id": complaint_id}
-
-
-@router.post("/worker/tasks/{complaint_id}/media")
-async def upload_task_media(
-    complaint_id: int,
-    file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role)
-) -> Dict[str, Any]:
-    """Upload media for a worker task."""
-    
-    if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER]):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only workers can upload media"
-        )
-    
-    # Verify task assignment
-    assignment_query = select(ComplaintAssignment).where(
-        and_(
-            ComplaintAssignment.complaint_id == complaint_id,
-            ComplaintAssignment.user_id == current_user.id
-        )
-    )
-    assignment_result = await db.execute(assignment_query)
-    if not assignment_result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found or not assigned to you"
-        )
-    
-    # Create media record (placeholder URL for now)
-    media_url = f"/media/complaints/{complaint_id}/{file.filename}"
-    
-    media = ComplaintMedia(
-        complaint_id=complaint_id,
-        media_url=media_url
-    )
-    
-    db.add(media)
-    await db.commit()
-    await db.refresh(media)
-    
-    return {
-        "message": "Media uploaded successfully",
-        "media_id": media.id,
-        "media_url": media.media_url
-    }
-
-
-# VDO-specific endpoints
-@router.patch("/vdo/complaints/{complaint_id}/verify")
-async def verify_complaint(
-    complaint_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role)
-) -> Dict[str, Any]:
-    """VDO verifies and closes a completed complaint."""
-    
-    if not PermissionChecker.user_has_role(current_user, [UserRole.VDO]):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only VDOs can verify complaints"
-        )
-    
-    # Get complaint with jurisdiction check
-    jurisdiction_filter = UnifiedReportingService.get_user_jurisdiction_filter(current_user)
-    
-    query = (
-        select(Complaint)
-        .options(selectinload(Complaint.status))
-        .where(Complaint.id == complaint_id)
-    )
-    
-    if jurisdiction_filter is not None:
-        query = query.where(jurisdiction_filter)
-    
-    result = await db.execute(query)
-    complaint = result.scalar_one_or_none()
-    
-    if not complaint:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Complaint not found or not in your jurisdiction"
-        )
-    
-    # Check if complaint is in COMPLETED status
-    if complaint.status.name != "COMPLETED":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Can only verify complaints that are marked as completed"
-        )
-    
-    # Get "VERIFIED" status
-    status_query = select(ComplaintStatus).where(ComplaintStatus.name == "VERIFIED")
-    status_result = await db.execute(status_query)
-    verified_status = status_result.scalar_one_or_none()
-    
-    if not verified_status:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="VERIFIED status not found in system"
-        )
-    
-    # Update complaint status
-    complaint.status_id = verified_status.id
-    complaint.updated_at = datetime.now(timezone.utc)
-    
-    await db.commit()
-    
-    return {"message": "Complaint verified successfully", "complaint_id": complaint_id}
 
 
 # Admin analytics endpoints
@@ -800,7 +601,7 @@ async def get_user_access_info(
     access_info = await UnifiedReportingService.get_user_role_summary(current_user)
     
     # Get some basic stats that user can access
-    jurisdiction_filter = UnifiedReportingService.get_user_jurisdiction_filter(current_user)
+    jurisdiction_filter = get_user_jurisdiction_filter(current_user)
     
     return {
         "user_id": current_user.id,
