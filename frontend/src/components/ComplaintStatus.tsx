@@ -27,7 +27,7 @@ const ComplaintStatus: React.FC = () => {
       setComplaintId(urlComplaintId);
       handleSearch(null, urlComplaintId);
     }
-  }, [searchParams]);
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = async (e?: React.FormEvent | null, id?: string) => {
     if (e) e.preventDefault();

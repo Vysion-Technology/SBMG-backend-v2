@@ -319,3 +319,84 @@ export interface AdminAnalyticsResponse {
   geographic_distribution: Record<string, unknown>;
   system_health: Record<string, unknown>;
 }
+
+// Geography Detail Response Models
+export interface DistrictDetailResponse {
+  id: number;
+  name: string;
+  description?: string;
+  blocks_count: number;
+  villages_count: number;
+  complaints_count: number;
+}
+
+export interface BlockDetailResponse {
+  id: number;
+  name: string;
+  description?: string;
+  district_id: number;
+  district_name?: string;
+  villages_count: number;
+  complaints_count: number;
+}
+
+export interface VillageDetailResponse {
+  id: number;
+  name: string;
+  description?: string;
+  block_id: number;
+  district_id: number;
+  block_name?: string;
+  district_name?: string;
+  complaints_count: number;
+}
+
+// Error Response Models
+export interface ErrorResponse {
+  message: string;
+  status_code: number;
+  detail?: string;
+}
+
+export interface ValidationErrorResponse {
+  message: string;
+  status_code: number;
+  errors: Array<Record<string, string>>;
+}
+
+// Pagination Response Models
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
+
+// Hierarchical Geography Models
+export interface DistrictWithBlocksResponse {
+  id: number;
+  name: string;
+  description?: string;
+  blocks: Block[];
+}
+
+export interface BlockWithVillagesResponse {
+  id: number;
+  name: string;
+  description?: string;
+  district_id: number;
+  district_name?: string;
+  villages: Village[];
+}
+
+// Bulk Operation Models
+export interface BulkDeleteRequest {
+  ids: number[];
+}
+
+export interface BulkDeleteResponse {
+  deleted_count: number;
+  failed_ids: number[];
+  errors: string[];
+}
