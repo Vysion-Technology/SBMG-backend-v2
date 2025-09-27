@@ -23,7 +23,9 @@ dependencies = [
     "python-dotenv>=1.0.0,<2.0.0",
     "pillow>=10.1.0,<11.0.0",
     "aiosqlite (>=0.21.0,<0.22.0)",
-    "greenlet (>=3.2.4,<4.0.0)"
+    "greenlet (>=3.2.4,<4.0.0)",
+    "types-botocore (>=1.0.2,<2.0.0)",
+    "types-boto3 (>=1.40.40,<2.0.0)"
 ]
 
 [tool.poetry]
