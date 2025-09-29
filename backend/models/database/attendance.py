@@ -26,6 +26,10 @@ class Attendance(Base):
     )
     date: Mapped[Date] = mapped_column(Date, nullable=False)  # type: ignore
     start_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=False, default=datetime.now)  # type: ignore
+    start_lat: Mapped[Optional[str]] = mapped_column(String, nullable=False)  # type: ignore
+    start_long: Mapped[Optional[str]] = mapped_column(String, nullable=False)  # type: ignore
+    end_lat: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
+    end_long: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     end_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # type: ignore
     remarks: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
 
