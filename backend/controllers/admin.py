@@ -584,20 +584,26 @@ async def initialize_default_data(
     await db.commit()  # to save roles and user
 
     # If the default user has not been assigned ADMIN role, assign it
-    if existing_admin:
-        admin_role = await auth_service.get_role_by_name(UserRole.ADMIN)
-        if admin_role:
-            position_holders_result = await db.execute(
-                select(PositionHolder).where(
-                    PositionHolder.user_id == existing_admin.id, PositionHolder.role_id == admin_role.id
-                )
-            )
-            position_holder = position_holders_result.scalar_one_or_none()
-            if not position_holder:
-                position_holder = await auth_service.create_position_holder(
-                    user_id=existing_admin.id, role_id=admin_role.id, first_name="Admin", last_name="User"
-                )
-                db.add(position_holder)
+    existing_admin = await auth_service.get_user_by_username(admin_username)
+
+    admin_role = await auth_service.get_role_by_name(UserRole.ADMIN)
+    if not admin_role:
+        admin_role = Role(name=UserRole.ADMIN, description="Administrator role with full permissions")
+        db.add(admin_role)
+        await db.commit()
+    
+    admin_role = await auth_service.get_role_by_name(UserRole.ADMIN)
+    position_holders_result = await db.execute(
+        select(PositionHolder).where(
+            PositionHolder.user_id == existing_admin.id, PositionHolder.role_id == admin_role.id
+        )
+    )
+    position_holder = position_holders_result.scalar_one_or_none()
+    if not position_holder:
+        position_holder = await auth_service.create_position_holder(
+            user_id=existing_admin.id, role_id=admin_role.id, first_name="Admin", last_name="User"
+        )
+        db.add(position_holder)
 
     await db.commit()
     
@@ -647,6 +653,18 @@ async def initialize_default_data(
         if not existing_role:
             role = Role(name=role_name, description=f"{role_name} role")
             db.add(role)
+
+    await db.commit()
+    # Assign ADMIN role to the default admin user if not already assigned
+    if not existing_admin:
+        admin_user = await auth_service.get_user_by_username(admin_username)
+        if admin_user:
+            admin_role = await auth_service.get_role_by_name(UserRole.ADMIN)
+            if admin_role:
+                position_holder = await auth_service.create_position_holder(
+                    user_id=admin_user.id, role_id=admin_role.id, first_name="Admin", last_name="User"
+                )
+                db.add(position_holder)
 
 
     return {
