@@ -1,14 +1,17 @@
 from database import Base
-from typing import Optional
+from typing import Optional, List, TYPE_CHECKING
 
-from sqlalchemy.orm import relationship, Mapped
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy import (
     String,
     Integer,
     ForeignKey,
     DateTime
 )
-from models.database.geography import Village
+
+if TYPE_CHECKING:
+    from models.database.attendance import Attendance
+
 
 class Agency(Base):
     """
@@ -17,28 +20,35 @@ class Agency(Base):
 
     __tablename__ = "agencies"
 
-    id: Mapped[int] = relationship(Integer, primary_key=True, autoincrement=True)  # type: ignore
-    name: Mapped[str] = relationship(String, unique=True, nullable=False)  # type: ignore
-    phone: Mapped[Optional[str]] = relationship(String, nullable=True)  # type: ignore
-    email: Mapped[Optional[str]] = relationship(String, nullable=True)  # type: ignore
-    address: Mapped[Optional[str]] = relationship(String, nullable=True)  # type: ignore
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)  # type: ignore
+    phone: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
+    email: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
+    address: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
 
-    villages = relationship("Village", back_populates="agency", uselist=True)
+    contractors = relationship("Contractor", back_populates="agency")
 
 
 class Contractor(Base):
+    """
+    Describes a contractor/worker entity
+    """
 
-    id: Mapped[int] = relationship(Integer, primary_key=True, autoincrement=True)  # type: ignore
-    agency_id: Mapped[int] = relationship(  # type: ignore
+    __tablename__ = "contractors"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
+    agency_id: Mapped[int] = mapped_column(  # type: ignore
         Integer, ForeignKey("agencies.id"), nullable=False
     )
-    person_name: Mapped[Optional[str]] = relationship(String, nullable=True)  # type: ignore
-    person_phone: Mapped[Optional[str]] = relationship(String, nullable=True)  # type: ignore
-    village_id: Mapped[Optional[int]] = relationship(  # type: ignore
+    person_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
+    person_phone: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
+    village_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
         Integer, ForeignKey("villages.id"), nullable=True
     )
-    contract_start_date: Mapped[Optional[DateTime]] = relationship(DateTime, nullable=True)  # type: ignore
-    contract_end_date: Mapped[Optional[DateTime]] = relationship(DateTime, nullable=True)  # type: ignore
+    contract_start_date: Mapped[Optional[DateTime]] = mapped_column(DateTime, nullable=True)  # type: ignore
+    contract_end_date: Mapped[Optional[DateTime]] = mapped_column(DateTime, nullable=True)  # type: ignore
 
+    # Relationships
     agency: Mapped[Agency] = relationship("Agency", back_populates="contractors")
-    village: Mapped[Optional[Village]] = relationship("Village", back_populates="contractors", uselist=True)
+    village = relationship("Village", back_populates="contractors")
+    attendances: Mapped[List["Attendance"]] = relationship("Attendance", back_populates="contractor")

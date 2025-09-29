@@ -137,3 +137,7 @@ test.db
 # Logs
 logs/
 *.log
+
+
+# Project specific
+postgres_data/

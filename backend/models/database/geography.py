@@ -75,4 +75,3 @@ class Village(Base):
     block = relationship("Block", back_populates="villages")
     district = relationship("District", back_populates="villages")
     complaints = relationship("Complaint", back_populates="village")
-    agency = relationship("Agency", back_populates="villages")

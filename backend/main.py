@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from controllers import citizen, event
 from controllers import auth, complaints, admin, public, user_management
 from controllers import login_management, person_management
-from controllers import geography, consolidated_reporting
+from controllers import geography, consolidated_reporting, attendance
 
 
 @asynccontextmanager
@@ -52,13 +52,14 @@ async def health_check():
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(citizen.router, prefix="/api/v1/citizen", tags=["Citizen"])
 app.include_router(geography.router, prefix="/api/v1/geography", tags=["Geography"])
-# app.include_router(login_management.router, prefix="/api/v1/login-management", tags=["Login User Management"])
-# app.include_router(person_management.router, prefix="/api/v1/person-management", tags=["Person Management"])
-# app.include_router(user_management.router, prefix="/api/v1/user-management", tags=["User Management (Legacy)"])
-# app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+app.include_router(login_management.router, prefix="/api/v1/login-management", tags=["Login User Management"])
+app.include_router(person_management.router, prefix="/api/v1/person-management", tags=["Person Management"])
+app.include_router(user_management.router, prefix="/api/v1/user-management", tags=["User Management (Legacy)"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(complaints.router, prefix="/api/v1/complaints", tags=["Complaints"])
 app.include_router(event.router, prefix="/api/v1/events", tags=["Events"])
 app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
+app.include_router(attendance.router, prefix="/api/v1/attendance", tags=["Attendance"])
 # app.include_router(reporting.router, prefix="/api/v1/reports", tags=["Reporting (Legacy)"])
 
 # New consolidated reporting router with perfect RBAC and optimized queries

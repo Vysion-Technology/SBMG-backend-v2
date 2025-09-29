@@ -30,4 +30,3 @@ class Attendance(Base):
     remarks: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
 
     contractor: Mapped[Contractor] = relationship("Contractor", back_populates="attendances")
-    village: Mapped[Optional[int]] = relationship("Village", back_populates="attendances", uselist=True)
