@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Upload, X, AlertCircle, CheckCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Upload, X, AlertCircle, CheckCircle, LogIn } from 'lucide-react';
 import { publicApi, adminApi } from '../api';
 import type { CreateComplaintRequest, ComplaintType, District, Block, Village, Complaint } from '../types';
 
@@ -9,6 +10,7 @@ interface CreateComplaintForm extends CreateComplaintRequest {
 }
 
 const CreateComplaint: React.FC = () => {
+  const navigate = useNavigate();
   const [complaintTypes, setComplaintTypes] = useState<ComplaintType[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -16,11 +18,18 @@ const CreateComplaint: React.FC = () => {
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ success: boolean; data?: Complaint; error?: string } | null>(null);
+  const [citizenToken, setCitizenToken] = useState<string | null>(null);
 
   const { register, handleSubmit, watch, setValue, formState: { errors }, reset } = useForm<CreateComplaintForm>();
 
   const selectedDistrictId = watch('district_id');
   const selectedBlockId = watch('block_id');
+
+  // Check for citizen authentication
+  useEffect(() => {
+    const token = localStorage.getItem('citizen_token');
+    setCitizenToken(token);
+  }, []);
 
   // Load initial data
   useEffect(() => {
@@ -138,6 +147,29 @@ const CreateComplaint: React.FC = () => {
                 Track Status
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!citizenToken) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+          <div className="px-6 py-8 text-center">
+            <LogIn className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Authentication Required</h2>
+            <p className="text-gray-600 mb-6">
+              Please login with your mobile number to create a complaint.
+            </p>
+            <button
+              onClick={() => navigate('/citizen-login')}
+              className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            >
+              Login to Continue
+            </button>
           </div>
         </div>
       </div>

@@ -7,6 +7,7 @@ import HomePage from './components/HomePage';
 import CreateComplaint from './components/CreateComplaint';
 import ComplaintStatus from './components/ComplaintStatus';
 import Login from './components/Login';
+import CitizenLogin from './components/CitizenLogin';
 import Dashboard from './components/Dashboard';
 import WorkerDashboard from './components/WorkerDashboard';
 import UserDashboard from './components/UserDashboard';
@@ -150,6 +151,7 @@ function App() {
             <Route path="/citizen-verification" element={<CitizenComplaintVerification />} />
             <Route path="/complaint/:id" element={<ComplaintDetailPage />} />
             <Route path="/login" element={<Login setUser={setUser} />} />
+            <Route path="/citizen-login" element={<CitizenLogin />} />
             {user && userHasAdminPrivileges(user) && (
               <Route path="/dashboard" element={<Dashboard user={user} />} />
             )}
