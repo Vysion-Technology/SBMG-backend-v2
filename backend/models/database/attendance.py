@@ -33,4 +33,4 @@ class Attendance(Base):
     end_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # type: ignore
     remarks: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
 
-    contractor: Mapped[Contractor] = relationship("Contractor", back_populates="attendances")
+    contractor: Mapped[Contractor] = relationship("Contractor")
