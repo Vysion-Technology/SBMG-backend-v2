@@ -1,12 +1,11 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 
 from services.s3_service import s3_service
 from database import get_db
 from models.response.event import EventResponse
-from models.database.event import Event
 from auth_utils import require_admin
 from services.event import EventService
 
@@ -118,7 +117,7 @@ async def update_event(
     active: Optional[bool] = None,
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-) -> Optional[Event]:
+) -> Optional[EventResponse]:
     """Update an event."""
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
