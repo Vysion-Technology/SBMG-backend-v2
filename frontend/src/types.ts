@@ -136,26 +136,11 @@ export interface MediaUploadResponse {
 
 export interface DashboardStats {
   total_complaints: number;
-  open_complaints: number;
-  in_progress_complaints: number;
-  completed_complaints: number;
-  verified_complaints: number;
-  closed_complaints: number;
-  invalid_complaints: number;
-  total_users: number;
-  total_workers: number;
-  total_districts: number;
-  total_blocks: number;
-  total_villages: number;
-  complaints_by_district: { district: string; count: number }[];
-  complaints_by_status: { status: string; count: number }[];
-  recent_complaints: {
-    id: number;
-    description: string;
-    created_at: string;
-    status_name: string;
-    location: string;
-  }[];
+  complaints_by_status: Record<string, number>;
+  complaints_by_type?: Record<string, number>;
+  recent_complaints: Complaint[];
+  geographic_summary?: Record<string, any>;
+  performance_metrics?: Record<string, any>;
 }
 
 export interface ComplaintStatusResponse {
