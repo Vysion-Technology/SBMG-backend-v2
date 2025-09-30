@@ -50,5 +50,5 @@ class Contractor(Base):
 
     # Relationships
     agency: Mapped[Agency] = relationship("Agency", back_populates="contractors")
-    village = relationship("Village", back_populates="contractors")
-    attendances: Mapped[List["Attendance"]] = relationship("Attendance", back_populates="contractor")
+    village = relationship("Village")
+    attendances: Mapped[List["Attendance"]] = relationship("Attendance")
