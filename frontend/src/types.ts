@@ -3,6 +3,7 @@ export interface Complaint {
   description: string;
   mobile_number?: string | null;
   status_name: string;
+  complaint_type_name?: string;
   village_name: string;
   block_name: string;
   district_name: string;
@@ -10,6 +11,8 @@ export interface Complaint {
   updated_at: string | null;
   media_urls?: string[];
   assigned_worker?: string | null;
+  assigned_worker_name?: string | null;
+  media_count?: number;
 }
 
 export interface CreateComplaintRequest {

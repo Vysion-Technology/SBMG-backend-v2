@@ -1,21 +1,15 @@
 import React, { useState } from 'react';
-import { Search, CheckCircle, AlertCircle, FileText, User, Calendar, MapPin, Camera } from 'lucide-react';
+import { Search, AlertCircle, FileText, User, Calendar, MapPin, Camera } from 'lucide-react';
 import { publicApi } from '../api';
 import type { 
-  ComplaintDetailsResponse, 
-  VerifyComplaintStatusRequest,
-  VerifyComplaintStatusResponse 
+  ComplaintDetailsResponse
 } from '../types';
 
 const CitizenComplaintVerification: React.FC = () => {
   const [complaintId, setComplaintId] = useState('');
-  const [mobileNumber, setMobileNumber] = useState('');
   const [complaint, setComplaint] = useState<ComplaintDetailsResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [showMobileInput, setShowMobileInput] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [verificationResult, setVerificationResult] = useState<VerifyComplaintStatusResponse | null>(null);
 
   const handleFetchComplaint = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,9 +21,6 @@ const CitizenComplaintVerification: React.FC = () => {
     setLoading(true);
     setError(null);
     setComplaint(null);
-    setVerificationResult(null);
-    setShowMobileInput(false);
-    setMobileNumber(''); // Reset mobile number
 
     try {
       const result = await publicApi.getComplaintDetails(Number(complaintId));
@@ -43,42 +34,6 @@ const CitizenComplaintVerification: React.FC = () => {
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleVerifyButtonClick = () => {
-    setShowMobileInput(true);
-    setError(null);
-    setVerificationResult(null);
-  };
-
-  const handleVerifyStatus = async () => {
-    if (!complaintId.trim() || !mobileNumber.trim()) {
-      setError('Please enter both complaint ID and mobile number.');
-      return;
-    }
-
-    setVerifying(true);
-    setError(null);
-    setVerificationResult(null);
-
-    try {
-      const request: VerifyComplaintStatusRequest = {
-        complaint_id: Number(complaintId),
-        mobile_number: mobileNumber
-      };
-
-      const result = await publicApi.verifyComplaintStatus(request);
-      setVerificationResult(result);
-    } catch (error: any) {
-      console.error('Error verifying status:', error);
-      if (error.response?.status === 404) {
-        setError('Complaint not found or mobile number does not match our records.');
-      } else {
-        setError('Failed to verify complaint status. Please try again.');
-      }
-    } finally {
-      setVerifying(false);
     }
   };
 
@@ -165,48 +120,10 @@ const CitizenComplaintVerification: React.FC = () => {
             </div>
           )}
 
-          {/* Verification Result */}
-          {verificationResult && (
-            <div className={`mb-6 border rounded-md p-4 ${
-              verificationResult.is_resolved ? 'bg-teal-50 border-teal-200' :
-              verificationResult.is_verified ? 'bg-emerald-50 border-emerald-200' :
-              verificationResult.is_completed ? 'bg-green-50 border-green-200' :
-              'bg-blue-50 border-blue-200'
-            }`}>
-              <div className="flex">
-                <CheckCircle className={`w-5 h-5 ${
-                  verificationResult.is_resolved ? 'text-teal-400' :
-                  verificationResult.is_verified ? 'text-emerald-400' :
-                  verificationResult.is_completed ? 'text-green-400' :
-                  'text-blue-400'
-                }`} />
-                <div className="ml-3">
-                  <p className={`font-medium ${
-                    verificationResult.is_resolved ? 'text-teal-700' :
-                    verificationResult.is_verified ? 'text-emerald-700' :
-                    verificationResult.is_completed ? 'text-green-700' :
-                    'text-blue-700'
-                  }`}>{verificationResult.message}</p>
-                  <div className={`text-sm mt-2 space-y-1 ${
-                    verificationResult.is_resolved ? 'text-teal-600' :
-                    verificationResult.is_verified ? 'text-emerald-600' :
-                    verificationResult.is_completed ? 'text-green-600' :
-                    'text-blue-600'
-                  }`}>
-                    <div>Status: <strong>{verificationResult.current_status.replace('_', ' ').toUpperCase()}</strong></div>
-                    {verificationResult.is_resolved && <div>✅ Complaint is fully resolved</div>}
-                    {verificationResult.is_verified && !verificationResult.is_resolved && <div>✅ Complaint is verified as completed</div>}
-                    {verificationResult.is_completed && !verificationResult.is_verified && <div>⏳ Complaint is completed and ready for verification</div>}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Complaint Details */}
           {complaint && (
             <div className="space-y-6">
-              {/* Status and Verification */}
+              {/* Status */}
               <div className="bg-gray-50 rounded-lg p-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>
@@ -215,60 +132,7 @@ const CitizenComplaintVerification: React.FC = () => {
                       {complaint.status_name.replace('_', ' ').toUpperCase()}
                     </span>
                   </div>
-                  
-                  {/* Verify Button */}
-                  {!showMobileInput && (
-                    <button
-                      onClick={handleVerifyButtonClick}
-                      className="bg-green-600 text-white px-6 py-3 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center text-lg font-medium"
-                    >
-                      <CheckCircle className="w-5 h-5 mr-2" />
-                      Verify This Complaint
-                    </button>
-                  )}
                 </div>
-
-                {/* Mobile Number Input (shown when verify button is clicked) */}
-                {showMobileInput && (
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <div className="bg-white rounded-lg p-4 border border-gray-200">
-                      <h4 className="text-lg font-medium text-gray-900 mb-3">Verify Your Identity</h4>
-                      <p className="text-gray-600 text-sm mb-4">
-                        Please enter the mobile number associated with this complaint to verify your identity.
-                      </p>
-                      
-                      <div className="flex gap-3">
-                        <div className="flex-1">
-                          <input
-                            type="tel"
-                            value={mobileNumber}
-                            onChange={(e) => setMobileNumber(e.target.value)}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                            placeholder="Enter mobile number"
-                            maxLength={10}
-                          />
-                        </div>
-                        <button
-                          onClick={handleVerifyStatus}
-                          disabled={verifying || !mobileNumber.trim()}
-                          className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                        >
-                          {verifying ? 'Verifying...' : 'Verify'}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowMobileInput(false);
-                            setMobileNumber('');
-                            setError(null);
-                          }}
-                          className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Basic Details */}
