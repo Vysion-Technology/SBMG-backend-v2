@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 
@@ -107,18 +108,27 @@ async def list_events(
     return events
 
 
+class EventUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    active: Optional[bool] = None
+
+
 @router.put("/{event_id}", response_model=Optional[EventResponse])
 async def update_event(
     event_id: int,
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    start_time: Optional[datetime] = None,
-    end_time: Optional[datetime] = None,
-    active: Optional[bool] = None,
+    event_update: EventUpdateRequest,
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[EventResponse]:
     """Update an event."""
+    name = event_update.name
+    description = event_update.description
+    start_time = event_update.start_time
+    end_time = event_update.end_time
+    active = event_update.active
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
 

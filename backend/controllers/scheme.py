@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 
@@ -118,20 +119,30 @@ async def list_schemes(
     schemes = await service.get_all_schemes(skip=skip, limit=limit, active=active)
     return schemes
 
+class SchemeUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    eligibility: Optional[str] = None
+    benefits: Optional[str] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    active: Optional[bool] = None
+
 @router.put("/{scheme_id}", response_model=Optional[SchemeResponse])
 async def update_scheme(
     scheme_id: int,
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    eligibility: Optional[str] = None,
-    benefits: Optional[str] = None,
-    start_time: Optional[datetime] = None,
-    end_time: Optional[datetime] = None,
-    active: Optional[bool] = None,
+    scheme_update: SchemeUpdateRequest,
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[SchemeResponse]:
     """Update scheme details."""
+    name = scheme_update.name
+    description = scheme_update.description
+    eligibility = scheme_update.eligibility
+    benefits = scheme_update.benefits
+    start_time = scheme_update.start_time
+    end_time = scheme_update.end_time
+    active = scheme_update.active
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
 
