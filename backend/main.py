@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from controllers import citizen, event
+from controllers import citizen, event, scheme
 from controllers import auth, complaints, admin, public, user_management
 from controllers import login_management, person_management
 from controllers import geography, consolidated_reporting, attendance
@@ -60,6 +60,7 @@ app.include_router(complaints.router, prefix="/api/v1/complaints", tags=["Compla
 app.include_router(event.router, prefix="/api/v1/events", tags=["Events"])
 app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
 app.include_router(attendance.router, prefix="/api/v1/attendance", tags=["Attendance"])
+app.include_router(scheme.router, prefix="/api/v1/schemes", tags=["Schemes"])
 # app.include_router(reporting.router, prefix="/api/v1/reports", tags=["Reporting (Legacy)"])
 
 # New consolidated reporting router with perfect RBAC and optimized queries
