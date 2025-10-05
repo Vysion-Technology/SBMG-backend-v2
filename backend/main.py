@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from controllers import citizen, event, scheme
 from controllers import auth, complaints, admin, public, user_management
 from controllers import login_management, person_management
-from controllers import geography, consolidated_reporting, attendance
+from controllers import geography, consolidated_reporting, attendance, survey
 
 
 @asynccontextmanager
@@ -65,6 +65,7 @@ app.include_router(scheme.router, prefix="/api/v1/schemes", tags=["Schemes"])
 
 # New consolidated reporting router with perfect RBAC and optimized queries
 app.include_router(consolidated_reporting.router, prefix="/api/v1/reports", tags=["Advanced Reporting"])
+app.include_router(survey.router, prefix="/api/v1/surveys", tags=["Surveys"])
 
 
 @app.exception_handler(HTTPException)
