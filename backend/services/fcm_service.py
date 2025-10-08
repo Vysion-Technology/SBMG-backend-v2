@@ -5,9 +5,15 @@ from typing import List, Dict, Optional
 import firebase_admin
 from firebase_admin.credentials import Certificate
 from firebase_admin.messaging import Notification, MulticastMessage, send_multicast # type: ignore
+from pydantic import BaseModel # type: ignore
 
 logger = logging.getLogger(__name__)
 
+
+class SendNotificationResponse(BaseModel):
+    success_count: int
+    failure_count: int
+    invalid_tokens: List[str] = []
 
 class FCMService:
     """Service for sending Firebase Cloud Messaging notifications"""
@@ -54,7 +60,7 @@ class FCMService:
         title: str,
         body: str,
         data: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, int]:
+    ) -> SendNotificationResponse       :
         """
         Send notification to multiple devices
 
@@ -69,11 +75,11 @@ class FCMService:
         """
         if not self.is_available():
             logger.warning("FCM service not available, skipping notification")
-            return {"success_count": 0, "failure_count": 0}
+            return SendNotificationResponse(success_count=0, failure_count=len(tokens), invalid_tokens=tokens)
 
         if not tokens:
             logger.info("No tokens provided, skipping notification")
-            return {"success_count": 0, "failure_count": 0}
+            return SendNotificationResponse(success_count=0, failure_count=0)
 
         try:
             message = MulticastMessage(
@@ -104,15 +110,15 @@ class FCMService:
                 f"{response.failure_count} failed" # type: ignore
             )
 
-            return {
-                "success_count": response.success_count, # type: ignore
-                "failure_count": response.failure_count, # type: ignore
-                "invalid_tokens": invalid_tokens if response.failure_count > 0 else [], # type: ignore
-            }
+            return SendNotificationResponse(
+                success_count=response.success_count, # type: ignore
+                failure_count=response.failure_count, # type: ignore
+                invalid_tokens=invalid_tokens if response.failure_count > 0 else [], # type: ignore
+            )
 
         except Exception as e:
             logger.error(f"Error sending FCM notification: {e}")
-            return {"success_count": 0, "failure_count": len(tokens), "invalid_tokens": []} # type: ignore
+            return SendNotificationResponse(success_count=0, failure_count=len(tokens), invalid_tokens=[])
 
     async def send_to_user(
         self,
@@ -120,7 +126,7 @@ class FCMService:
         title: str,
         body: str,
         data: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, int]:
+    ) -> SendNotificationResponse:
         """
         Convenience method to send notification to a user's devices
 

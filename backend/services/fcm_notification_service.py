@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import List, Union
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
@@ -38,7 +38,7 @@ async def notify_workers_on_new_complaint(
                 and_(
                     Role.name == "WORKER",
                     PositionHolder.village_id == complaint.village_id,
-                    User.is_active == True,
+                    User.is_active.is_(True),
                 )
             )
             .distinct()
@@ -74,11 +74,11 @@ async def notify_workers_on_new_complaint(
         )
         
         # Clean up invalid tokens
-        if result.get("invalid_tokens"):
-            await _cleanup_invalid_tokens(db, result["invalid_tokens"], UserDeviceToken)
+        if result.invalid_tokens:
+            await _cleanup_invalid_tokens(db, result.invalid_tokens, UserDeviceToken)
         
         logger.info(
-            f"Sent new complaint notification to {result['success_count']} workers "
+            f"Sent new complaint notification to {result.success_count} workers "
             f"for complaint {complaint.id}"
         )
         
@@ -135,11 +135,11 @@ async def notify_user_on_complaint_status_update(
         )
         
         # Clean up invalid tokens
-        if result.get("invalid_tokens"):
-            await _cleanup_invalid_tokens(db, result["invalid_tokens"], PublicUserDeviceToken)
+        if result.invalid_tokens:
+            await _cleanup_invalid_tokens(db, result.invalid_tokens, PublicUserDeviceToken)
         
         logger.info(
-            f"Sent status update notification to {result['success_count']} devices "
+            f"Sent status update notification to {result.success_count} devices "
             f"for complaint {complaint.id}"
         )
         
@@ -150,7 +150,7 @@ async def notify_user_on_complaint_status_update(
 async def _cleanup_invalid_tokens(
     db: AsyncSession,
     invalid_tokens: List[str],
-    model_class,
+    model_class: type[Union[UserDeviceToken, PublicUserDeviceToken]],
 ) -> None:
     """
     Remove invalid FCM tokens from the database
