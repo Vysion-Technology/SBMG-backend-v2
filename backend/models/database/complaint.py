@@ -27,7 +27,7 @@ class ComplaintType(Base):  # type: ignore
 
     # Relationships
     geographical_eligibilities = relationship(
-        "ComplaintTypeGeographicalEligibility", back_populates="complaint_type"
+        "ComplaintTypeGeographicalIneligibility", back_populates="complaint_type"
     )
     complaints = relationship("Complaint", back_populates="complaint_type")
 
@@ -62,7 +62,7 @@ class ComplaintTypeGeographicalIneligibility(Base):  # type: ignore
     )
     district = relationship("District")
     block = relationship("Block")
-    village = relationship("Village")
+    village = relationship("GramPanchayat")
 
 
 class ComplaintStatus(Base):  # type: ignore
@@ -116,7 +116,7 @@ class Complaint(Base):  # type: ignore
     )
 
     # Relationships
-    village = relationship("Village", back_populates="complaints")
+    village = relationship("GramPanchayat", back_populates="complaints")
     block = relationship("Block", back_populates="complaints")
     district = relationship("District", back_populates="complaints")
     complaint_type = relationship("ComplaintType", back_populates="complaints")

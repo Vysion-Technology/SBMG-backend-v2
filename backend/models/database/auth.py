@@ -87,7 +87,7 @@ class PositionHolder(Base):  # type: ignore
     # Relationships
     user = relationship("User", back_populates="positions")
     role: Mapped[Role] = relationship("Role")
-    village: Mapped[GramPanchayat] = relationship("Village")
+    village: Mapped[GramPanchayat] = relationship("GramPanchayat")
     block: Mapped[Block] = relationship("Block")
     district: Mapped[District] = relationship("District")
 

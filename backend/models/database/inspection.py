@@ -40,7 +40,7 @@ class Inspection(Base):  # type: ignore
 
     district: Mapped[District] = relationship("District")
     block: Mapped[Block] = relationship("Block")
-    village: Mapped[GramPanchayat] = relationship("Village")
+    village: Mapped[GramPanchayat] = relationship("GramPanchayat")
 
     media: Mapped[List["InspectionImage"]] = relationship(
         "InspectionImage", back_populates="inspection"

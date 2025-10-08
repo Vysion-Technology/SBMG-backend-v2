@@ -24,7 +24,7 @@ class District(Base):  # type: ignore
 
     # Relationships
     blocks = relationship("Block", back_populates="district")
-    villages = relationship("Village", back_populates="district")
+    villages = relationship("GramPanchayat", back_populates="district")
     complaints = relationship("Complaint", back_populates="district")
 
 
@@ -49,7 +49,7 @@ class Block(Base):  # type: ignore
 
     # Relationships
     district = relationship("District", back_populates="blocks")
-    villages = relationship("Village", back_populates="block")
+    villages = relationship("GramPanchayat", back_populates="block")
     complaints = relationship("Complaint", back_populates="block")
 
 

@@ -25,7 +25,9 @@ class Notice(Base):  # type: ignore
     date: Mapped[date] = mapped_column(Date, nullable=False, default=date.today)  # type: ignore
     text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # type: ignore
 
-    sender: Mapped[PositionHolder] = relationship("PositionHolder")
+    media: Mapped[list["NoticeMedia"]] = relationship(
+        "NoticeMedia", back_populates="notice", cascade="all, delete-orphan"
+    )
 
 
 class NoticeMedia(Base):  # type: ignore
