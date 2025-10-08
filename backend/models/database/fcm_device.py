@@ -10,10 +10,10 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-from database import Base
+from database import Base # type: ignore
 
 
-class UserDeviceToken(Base):
+class UserDeviceToken(Base): # type: ignore
     """
     Stores FCM device tokens for staff users (Workers, VDOs, BDOs, CEOs, Admins)
     """
@@ -44,7 +44,7 @@ class UserDeviceToken(Base):
     )
 
 
-class PublicUserDeviceToken(Base):
+class PublicUserDeviceToken(Base): # type: ignore
     """
     Stores FCM device tokens for public users (citizens who create complaints)
     """

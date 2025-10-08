@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +8,7 @@ from database import get_db
 from models.database.auth import User, PublicUser, PublicUserToken
 from models.database.fcm_device import UserDeviceToken, PublicUserDeviceToken
 from models.requests.fcm_device import DeviceRegistrationRequest, DeviceRegistrationResponse
-from auth_utils import get_current_user
+from auth_utils import get_current_active_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -19,7 +18,7 @@ logger = logging.getLogger(__name__)
 async def register_staff_device(
     request: DeviceRegistrationRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Register or update FCM device token for staff users (Workers, VDOs, BDOs, etc.)
@@ -150,7 +149,7 @@ async def register_public_device(
 async def remove_staff_device(
     device_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Remove FCM device token for staff user

@@ -3,7 +3,8 @@ import logging
 from typing import List, Dict, Optional
 
 import firebase_admin
-from firebase_admin import credentials, messaging
+from firebase_admin.credentials import Certificate
+from firebase_admin.messaging import Notification, MulticastMessage, send_multicast # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ class FCMService:
             return
 
         # Check if already initialized
-        if firebase_admin._apps:
+        if firebase_admin._apps:  # type: ignore
             self._initialized = True
             logger.info("Firebase Admin SDK already initialized")
             return
@@ -31,7 +32,7 @@ class FCMService:
 
         if fcm_credential_path and os.path.exists(fcm_credential_path):
             try:
-                cred = credentials.Certificate(fcm_credential_path)
+                cred = Certificate(fcm_credential_path) # type: ignore
                 firebase_admin.initialize_app(cred)
                 self._initialized = True
                 logger.info(f"Firebase Admin SDK initialized from {fcm_credential_path}")
@@ -75,8 +76,8 @@ class FCMService:
             return {"success_count": 0, "failure_count": 0}
 
         try:
-            message = messaging.MulticastMessage(
-                notification=messaging.Notification(
+            message = MulticastMessage(
+                notification=Notification(
                     title=title,
                     body=body,
                 ),
@@ -84,34 +85,34 @@ class FCMService:
                 tokens=tokens,
             )
 
-            response = messaging.send_multicast(message)
+            response = send_multicast(message) # type: ignore
 
             # Log invalid tokens
-            if response.failure_count > 0:
+            if response.failure_count > 0:  # type: ignore
                 invalid_tokens = []
-                for i, result in enumerate(response.responses):
-                    if not result.success and result.exception:
-                        if result.exception.code in ("UNREGISTERED", "NOT_FOUND"):
-                            invalid_tokens.append(tokens[i])
+                for i, result in enumerate(response.responses): # type: ignore
+                    if not result.success and result.exception: # type: ignore
+                        if result.exception.code in ("UNREGISTERED", "NOT_FOUND"): # type: ignore 
+                            invalid_tokens.append(tokens[i]) # type: ignore
                             logger.warning(f"Invalid token detected: {tokens[i][:20]}...")
 
                 if invalid_tokens:
-                    logger.info(f"Found {len(invalid_tokens)} invalid tokens for cleanup")
+                    logger.info(f"Found {len(invalid_tokens)} invalid tokens for cleanup") # type: ignore
 
             logger.info(
-                f"Sent FCM notification: {response.success_count} successful, "
-                f"{response.failure_count} failed"
+                f"Sent FCM notification: {response.success_count} successful, " # type: ignore
+                f"{response.failure_count} failed" # type: ignore
             )
 
             return {
-                "success_count": response.success_count,
-                "failure_count": response.failure_count,
-                "invalid_tokens": invalid_tokens if response.failure_count > 0 else [],
+                "success_count": response.success_count, # type: ignore
+                "failure_count": response.failure_count, # type: ignore
+                "invalid_tokens": invalid_tokens if response.failure_count > 0 else [], # type: ignore
             }
 
         except Exception as e:
             logger.error(f"Error sending FCM notification: {e}")
-            return {"success_count": 0, "failure_count": len(tokens), "invalid_tokens": []}
+            return {"success_count": 0, "failure_count": len(tokens), "invalid_tokens": []} # type: ignore
 
     async def send_to_user(
         self,
