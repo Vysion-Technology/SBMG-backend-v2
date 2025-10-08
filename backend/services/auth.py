@@ -151,6 +151,12 @@ class AuthService:
         """Get role by name."""
         result = await self.db.execute(select(Role).where(Role.name == role_name))
         role = result.scalar_one_or_none()
+        # If role does not exist, create it
+        if not role:
+            role = Role(name=role_name, description=f"Auto-created role {role_name}")
+            self.db.add(role)
+            await self.db.commit()
+            await self.db.refresh(role)
         return role
 
     async def create_position_holder(

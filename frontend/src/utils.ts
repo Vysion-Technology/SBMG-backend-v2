@@ -3,7 +3,7 @@ import type { User } from './types';
 /**
  * Role precedence order (highest to lowest)
  */
-export const ROLE_PRECEDENCE = ['ADMIN', 'CEO', 'BDO', 'VDO'] as const;
+export const ROLE_PRECEDENCE = ['SUPERADMIN', 'ADMIN', 'CEO', 'BDO', 'VDO'] as const;
 
 /**
  * Get the highest precedence role for a user
@@ -41,12 +41,12 @@ export const userHasRole = (user: User, roles: string[]): boolean => {
 };
 
 /**
- * Check if user has admin privileges (ADMIN, CEO, BDO)
+ * Check if user has admin privileges (SUPERADMIN, ADMIN, CEO, BDO)
  * @param user User object
  * @returns true if user has admin privileges
  */
 export const userHasAdminPrivileges = (user: User): boolean => {
-  return userHasRole(user, ['ADMIN', 'CEO', 'BDO']);
+  return userHasRole(user, ['SUPERADMIN', 'ADMIN']);
 };
 
 /**

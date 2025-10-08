@@ -6,13 +6,14 @@ A comprehensive complaint management system for Swachh Bharat Mission (Gramin) i
 
 ### 🔐 Authentication & Authorization
 - **JWT-based Authentication**: Secure token-based authentication with bcrypt password hashing
-- **Role-based Access Control (RBAC)**: Six distinct user roles with hierarchical permissions
+- **Role-based Access Control (RBAC)**: Seven distinct user roles with hierarchical permissions
 - **Geographical Access Control**: Users can only access data within their jurisdiction
 
 ### 👥 User Roles & Permissions
 
 | Role | Description | Permissions |
 |------|-------------|-------------|
+| **SUPERADMIN** | Super Administrator | Full system access with highest privileges, can do all what ADMIN can do |
 | **ADMIN** | System Administrator | Full system access, can create/manage all users and data |
 | **CEO** | District Collector | View/manage all data within their district |
 | **BDO** | Block Development Officer | View/manage all data within their block |

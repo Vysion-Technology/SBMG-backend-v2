@@ -8,11 +8,12 @@ This document describes the comprehensive user management system implemented for
 
 ### 1. Role-Based User Creation
 The system supports creating users with the following roles:
+- **SUPERADMIN** (Super Administrator - highest privileges)
+- **ADMIN** (System Administrator)
 - **CEO** (District Collector)
 - **BDO** (Block Development Officer)  
 - **VDO** (Village Development Officer)
 - **WORKER** (Contractor Worker)
-- **ADMIN** (System Administrator)
 
 ### 2. Geography-Based Username Generation
 Usernames are automatically generated based on the user's role and geographical assignment:

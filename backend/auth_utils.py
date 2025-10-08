@@ -9,6 +9,7 @@ from models.database.auth import User
 
 class UserRole(str, Enum):
     """User roles in the system."""
+    SUPERADMIN = "SUPERADMIN"
     ADMIN = "ADMIN"
     CEO = "CEO"  # District Collector
     BDO = "BDO"  # Block Development Officer
@@ -29,8 +30,8 @@ class PermissionChecker:
     @staticmethod
     def user_can_access_district(user: User, district_id: int) -> bool:
         """Check if user can access a specific district."""
-        # Admin can access everything
-        if PermissionChecker.user_has_role(user, [UserRole.ADMIN]):
+        # SuperAdmin and Admin can access everything
+        if PermissionChecker.user_has_role(user, [UserRole.SUPERADMIN, UserRole.ADMIN]):
             return True
         
         # CEO can access their district
@@ -55,8 +56,8 @@ class PermissionChecker:
     @staticmethod
     def user_can_access_block(user: User, block_id: int) -> bool:
         """Check if user can access a specific block."""
-        # Admin can access everything
-        if PermissionChecker.user_has_role(user, [UserRole.ADMIN]):
+        # SuperAdmin and Admin can access everything
+        if PermissionChecker.user_has_role(user, [UserRole.SUPERADMIN, UserRole.ADMIN]):
             return True
         
         for position in user.positions:
@@ -82,8 +83,8 @@ class PermissionChecker:
     @staticmethod
     def user_can_access_village(user: User, village_id: int) -> bool:
         """Check if user can access a specific village."""
-        # Admin can access everything
-        if PermissionChecker.user_has_role(user, [UserRole.ADMIN]):
+        # SuperAdmin and Admin can access everything
+        if PermissionChecker.user_has_role(user, [UserRole.SUPERADMIN, UserRole.ADMIN]):
             return True
         
         for position in user.positions:
@@ -138,9 +139,19 @@ def require_roles(required_roles: List[str]):
 
 
 # Dependency functions for common role checks
+async def require_superadmin(current_user: User = Depends(get_current_active_user)) -> User:
+    """Require superadmin role."""
+    if not PermissionChecker.user_has_role(current_user, [UserRole.SUPERADMIN]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="SuperAdmin role required"
+        )
+    return current_user
+
+
 async def require_admin(current_user: User = Depends(get_current_active_user)) -> User:
-    """Require admin role."""
-    if not PermissionChecker.user_has_role(current_user, [UserRole.ADMIN]):
+    """Require admin or superadmin role."""
+    if not PermissionChecker.user_has_role(current_user, [UserRole.SUPERADMIN, UserRole.ADMIN]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin role required"
@@ -149,8 +160,8 @@ async def require_admin(current_user: User = Depends(get_current_active_user)) -
 
 
 async def require_admin_or_ceo(current_user: User = Depends(get_current_active_user)) -> User:
-    """Require admin or CEO role."""
-    if not PermissionChecker.user_has_role(current_user, [UserRole.ADMIN, UserRole.CEO]):
+    """Require admin, superadmin, or CEO role."""
+    if not PermissionChecker.user_has_role(current_user, [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.CEO]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin or CEO role required"
@@ -159,8 +170,8 @@ async def require_admin_or_ceo(current_user: User = Depends(get_current_active_u
 
 
 async def require_admin_or_ceo_or_bdo(current_user: User = Depends(get_current_active_user)) -> User:
-    """Require admin, CEO, or BDO role."""
-    if not PermissionChecker.user_has_role(current_user, [UserRole.ADMIN, UserRole.CEO, UserRole.BDO]):
+    """Require admin, superadmin, CEO, or BDO role."""
+    if not PermissionChecker.user_has_role(current_user, [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.CEO, UserRole.BDO]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin, CEO, or BDO role required"
@@ -170,7 +181,7 @@ async def require_admin_or_ceo_or_bdo(current_user: User = Depends(get_current_a
 
 async def require_staff_role(current_user: User = Depends(get_current_active_user)) -> User:
     """Require any staff role (not public)."""
-    staff_roles = [UserRole.ADMIN, UserRole.CEO, UserRole.BDO, UserRole.VDO, UserRole.WORKER]
+    staff_roles = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.CEO, UserRole.BDO, UserRole.VDO, UserRole.WORKER]
     if not PermissionChecker.user_has_role(current_user, staff_roles):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

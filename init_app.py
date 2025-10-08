@@ -24,6 +24,7 @@ async def create_default_roles():
     """Create default roles."""
     async with AsyncSessionLocal() as session:
         roles = [
+            ("SUPERADMIN", "Super Administrator with full system access"),
             ("ADMIN", "System Administrator"),
             ("CEO", "District Collector"),
             ("BDO", "Block Development Officer"),

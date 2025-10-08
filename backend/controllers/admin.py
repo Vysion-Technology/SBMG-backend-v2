@@ -609,6 +609,7 @@ async def initialize_default_data(
     
     # Create default roles
     default_roles = [
+        UserRole.SUPERADMIN,
         UserRole.ADMIN,
         UserRole.CEO,
         UserRole.BDO,
@@ -666,6 +667,23 @@ async def initialize_default_data(
                 )
                 db.add(position_holder)
 
+    superadmin_username = "superadmin"
+    existing_superadmin = await auth_service.get_user_by_username(superadmin_username)
+    if not existing_superadmin:
+        await auth_service.create_user(
+            username=superadmin_username,
+            email=f"{superadmin_username}@sbm-rajasthan.gov.in",
+            password=f"{superadmin_username}123",  # In production, use a secure password and environment variable
+        )
+        # Assign SUPERADMIN role to the superadmin user
+        superadmin_user = await auth_service.get_user_by_username(superadmin_username)
+        if superadmin_user:
+            superadmin_role = await auth_service.get_role_by_name(UserRole.SUPERADMIN)
+            if superadmin_role:
+                position_holder = await auth_service.create_position_holder(
+                    user_id=superadmin_user.id, role_id=superadmin_role.id, first_name="Super", last_name="Admin"
+                )
+                db.add(position_holder)
 
     return {
         "message": "Default data initialized successfully",
