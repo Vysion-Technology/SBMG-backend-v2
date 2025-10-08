@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
 
@@ -18,8 +19,8 @@ class CreatePositionHolderRequest(BaseModel):
     village_id: Optional[int] = None
     block_id: Optional[int] = None
     district_id: Optional[int] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
 
 
 class CreateRoleRequest(BaseModel):

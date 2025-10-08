@@ -50,21 +50,29 @@ class LoginUserService:
         return user
 
     # Token Management
-    def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    def create_access_token(
+        self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None
+    ) -> str:
         """Create JWT access token."""
-        to_encode = data.copy()
+        to_encode: dict[str, Any] = data.copy()  # type: ignore
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(tz=timezone.utc) + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+            expire = datetime.now(tz=timezone.utc) + timedelta(
+                minutes=settings.access_token_expire_minutes
+            )
         to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+        encoded_jwt = jwt.encode(
+            to_encode, settings.secret_key, algorithm=settings.algorithm
+        )
         return encoded_jwt
 
     async def get_current_user_from_token(self, token: str) -> Optional[User]:
         """Get current user from JWT token."""
         try:
-            payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+            payload = jwt.decode(
+                token, settings.secret_key, algorithms=[settings.algorithm]
+            )
             username = payload.get("sub")
             if username is None:
                 return None
@@ -106,7 +114,12 @@ class LoginUserService:
                 raise ValueError(f"Email '{email}' already exists")
 
         hashed_password = self.get_password_hash(password)
-        user = User(username=username, email=email, hashed_password=hashed_password, is_active=is_active)
+        user = User(
+            username=username,
+            email=email,
+            hashed_password=hashed_password,
+            is_active=is_active,
+        )
         self.db.add(user)
         await self.db.commit()
         await self.db.refresh(user)
@@ -148,7 +161,9 @@ class LoginUserService:
             update_data["is_active"] = is_active
 
         if update_data:
-            await self.db.execute(update(User).where(User.id == user_id).values(**update_data))
+            await self.db.execute(
+                update(User).where(User.id == user_id).values(**update_data)
+            )
             await self.db.commit()
             # Refresh user object
             await self.db.refresh(user)
@@ -157,18 +172,26 @@ class LoginUserService:
 
     async def deactivate_user(self, user_id: int) -> bool:
         """Deactivate a user account."""
-        result = await self.db.execute(update(User).where(User.id == user_id).values(is_active=False))
+        result = await self.db.execute(
+            update(User).where(User.id == user_id).values(is_active=False)
+        )
         await self.db.commit()
         return result.rowcount > 0
 
     async def activate_user(self, user_id: int) -> bool:
         """Activate a user account."""
-        result = await self.db.execute(update(User).where(User.id == user_id).values(is_active=True))
+        result = await self.db.execute(
+            update(User).where(User.id == user_id).values(is_active=True)
+        )
         await self.db.commit()
         return result.rowcount > 0
 
     async def get_all_login_users(
-        self, username_like: str = "", skip: int = 0, limit: int = 100, include_inactive: bool = False
+        self,
+        username_like: str = "",
+        skip: int = 0,
+        limit: int = 100,
+        include_inactive: bool = False,
     ) -> List[User]:
         """Get all login users for management purposes."""
         query = select(User)
@@ -184,7 +207,9 @@ class LoginUserService:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def change_password(self, user_id: int, old_password: str, new_password: str) -> bool:
+    async def change_password(
+        self, user_id: int, old_password: str, new_password: str
+    ) -> bool:
         """Change user password with old password verification."""
         user = await self.get_user_by_id(user_id)
         if not user:
@@ -196,14 +221,20 @@ class LoginUserService:
 
         # Update to new password
         new_hashed_password = self.get_password_hash(new_password)
-        await self.db.execute(update(User).where(User.id == user_id).values(hashed_password=new_hashed_password))
+        await self.db.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(hashed_password=new_hashed_password)
+        )
         await self.db.commit()
         return True
 
     async def reset_password(self, user_id: int, new_password: str) -> bool:
         """Admin function to reset user password without old password."""
         result = await self.db.execute(
-            update(User).where(User.id == user_id).values(hashed_password=self.get_password_hash(new_password))
+            update(User)
+            .where(User.id == user_id)
+            .values(hashed_password=self.get_password_hash(new_password))
         )
         await self.db.commit()
         return result.rowcount > 0

@@ -2,19 +2,13 @@ from typing import List, Optional
 from datetime import date, datetime
 
 from sqlalchemy.orm import mapped_column, relationship, Mapped
-from sqlalchemy import (
-    String,
-    Integer,
-    Boolean,
-    ForeignKey,
-    Date
-)
+from sqlalchemy import String, Integer, Boolean, ForeignKey, Date
 
-from models.database.geography import District, Block, Village
-from database import Base
+from models.database.geography import District, Block, GramPanchayat
+from database import Base  # type: ignore
 
 
-class Role(Base):
+class Role(Base):  # type: ignore
     """
     Describes a generic role
     Can be: WORKER/VDO/BDO/CEO/ADMIN
@@ -27,31 +21,35 @@ class Role(Base):
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
 
 
-class User(Base):
+class User(Base):  # type: ignore
     """
     Describes a user in the system
     """
 
-    __tablename__ = "users"
+    __tablename__ = "authority_users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
-    username: Mapped[str] = mapped_column(String, unique=True, nullable=False)  # type: ignore
+    username: Mapped[str] = mapped_column(
+        String, unique=True, nullable=False, index=True
+    )  # type: ignore
     email: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)  # type: ignore
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)  # type: ignore
 
     # Relationships
-    positions: Mapped[List["PositionHolder"]] = relationship("PositionHolder", back_populates="user")
+    positions: Mapped[List["PositionHolder"]] = relationship(
+        "PositionHolder", back_populates="user"
+    )
     complaint_assignments = relationship("ComplaintAssignment", back_populates="user")
     complaint_comments = relationship("ComplaintComment", back_populates="user")
 
 
-class PositionHolder(Base):
+class PositionHolder(Base):  # type: ignore
     """
     Describes a user holding a position (like VDO/BDO/CEO) with geographical assignment.
     """
 
-    __tablename__ = "user_position_holders"
+    __tablename__ = "authority_holder_persons"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
     role_id: Mapped[int] = mapped_column(  # type: ignore
@@ -76,7 +74,7 @@ class PositionHolder(Base):
     )
     user_id: Mapped[int] = mapped_column(  # type: ignore
         Integer,
-        ForeignKey("users.id"),
+        ForeignKey("authority_users.id"),
         nullable=False,
     )
     first_name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
@@ -89,12 +87,12 @@ class PositionHolder(Base):
     # Relationships
     user = relationship("User", back_populates="positions")
     role: Mapped[Role] = relationship("Role")
-    village: Mapped[Village] = relationship("Village")
+    village: Mapped[GramPanchayat] = relationship("Village")
     block: Mapped[Block] = relationship("Block")
     district: Mapped[District] = relationship("District")
 
 
-class PublicUser(Base):
+class PublicUser(Base):  # type: ignore
     """
     Describes a public user (like a complainant)
     """
@@ -104,10 +102,15 @@ class PublicUser(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
     name: Mapped[str] = mapped_column(String, nullable=True)  # type: ignore
     email: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)  # type: ignore
-    mobile_number: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=False)  # type: ignore
+    mobile_number: Mapped[Optional[str]] = mapped_column(
+        String,
+        unique=True,
+        nullable=False,
+        index=True,
+    )
 
 
-class PublicUserOTP(Base):
+class PublicUserOTP(Base):  # type: ignore
     """
     Describes an OTP sent to a public user for verification
     """
@@ -119,6 +122,7 @@ class PublicUserOTP(Base):
         Integer,
         ForeignKey("public_users.id"),
         nullable=False,
+        index=True,
     )
     otp: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)  # type: ignore
@@ -128,7 +132,7 @@ class PublicUserOTP(Base):
     public_user = relationship("PublicUser")
 
 
-class PublicUserToken(Base):
+class PublicUserToken(Base):  # type: ignore
     """
     Describes a token issued to a public user after OTP verification
     """
@@ -140,6 +144,7 @@ class PublicUserToken(Base):
         Integer,
         ForeignKey("public_users.id"),
         nullable=False,
+        index=True,
     )
     token: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     created_at: Mapped[datetime] = mapped_column(Date, nullable=False)  # type: ignore - Format: YYYY-MM-DD

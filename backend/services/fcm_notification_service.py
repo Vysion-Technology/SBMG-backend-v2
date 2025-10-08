@@ -7,7 +7,7 @@ from sqlalchemy import select, and_
 from models.database.auth import User, PublicUser
 from models.database.fcm_device import UserDeviceToken, PublicUserDeviceToken
 from models.database.complaint import Complaint
-from models.database.geography import Village
+from models.database.geography import GramPanchayat
 from services.fcm_service import fcm_service
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ async def notify_workers_on_new_complaint(
 ) -> None:
     """
     Send notification to all workers in the village where the complaint was created
-    
+
     Args:
         db: Database session
         complaint: The newly created complaint
@@ -28,7 +28,7 @@ async def notify_workers_on_new_complaint(
         # Get all users who are workers in this village
         # We need to find users with WORKER role assigned to this village
         from models.database.auth import PositionHolder, Role
-        
+
         result = await db.execute(
             select(User, UserDeviceToken.fcm_token)
             .join(PositionHolder, User.id == PositionHolder.user_id)
@@ -43,23 +43,23 @@ async def notify_workers_on_new_complaint(
             )
             .distinct()
         )
-        
+
         workers = result.all()
-        
+
         if not workers:
             logger.info(f"No workers found for village {complaint.village_id}")
             return
-        
+
         # Collect all FCM tokens
         tokens = [worker[1] for worker in workers]
-        
+
         # Get village name for better notification
         village_result = await db.execute(
-            select(Village).where(Village.id == complaint.village_id)
+            select(GramPanchayat).where(GramPanchayat.id == complaint.village_id)
         )
         village = village_result.scalar_one_or_none()
         village_name = village.name if village else "your village"
-        
+
         # Send notification
         result = await fcm_service.send_notification(
             tokens=tokens,
@@ -72,16 +72,16 @@ async def notify_workers_on_new_complaint(
                 "village_name": village_name,
             },
         )
-        
+
         # Clean up invalid tokens
         if result.invalid_tokens:
             await _cleanup_invalid_tokens(db, result.invalid_tokens, UserDeviceToken)
-        
+
         logger.info(
             f"Sent new complaint notification to {result.success_count} workers "
             f"for complaint {complaint.id}"
         )
-        
+
     except Exception as e:
         logger.error(f"Error sending notification to workers: {e}")
 
@@ -93,7 +93,7 @@ async def notify_user_on_complaint_status_update(
 ) -> None:
     """
     Send notification to the user who created the complaint when status is updated
-    
+
     Args:
         db: Database session
         complaint: The complaint that was updated
@@ -102,26 +102,33 @@ async def notify_user_on_complaint_status_update(
     try:
         # Check if complaint was created by a public user (has mobile_number)
         if not complaint.mobile_number:
-            logger.info(f"Complaint {complaint.id} has no mobile number, skipping notification")
+            logger.info(
+                f"Complaint {complaint.id} has no mobile number, skipping notification"
+            )
             return
-        
+
         # Get public user and their device tokens
         result = await db.execute(
             select(PublicUser, PublicUserDeviceToken.fcm_token)
-            .join(PublicUserDeviceToken, PublicUser.id == PublicUserDeviceToken.public_user_id)
+            .join(
+                PublicUserDeviceToken,
+                PublicUser.id == PublicUserDeviceToken.public_user_id,
+            )
             .where(PublicUser.mobile_number == complaint.mobile_number)
             .distinct()
         )
-        
+
         public_users = result.all()
-        
+
         if not public_users:
-            logger.info(f"No public user devices found for mobile {complaint.mobile_number}")
+            logger.info(
+                f"No public user devices found for mobile {complaint.mobile_number}"
+            )
             return
-        
+
         # Collect all FCM tokens
         tokens = [user[1] for user in public_users]
-        
+
         # Send notification
         result = await fcm_service.send_notification(
             tokens=tokens,
@@ -133,16 +140,18 @@ async def notify_user_on_complaint_status_update(
                 "new_status": new_status_name,
             },
         )
-        
+
         # Clean up invalid tokens
         if result.invalid_tokens:
-            await _cleanup_invalid_tokens(db, result.invalid_tokens, PublicUserDeviceToken)
-        
+            await _cleanup_invalid_tokens(
+                db, result.invalid_tokens, PublicUserDeviceToken
+            )
+
         logger.info(
             f"Sent status update notification to {result.success_count} devices "
             f"for complaint {complaint.id}"
         )
-        
+
     except Exception as e:
         logger.error(f"Error sending notification to public user: {e}")
 
@@ -154,7 +163,7 @@ async def _cleanup_invalid_tokens(
 ) -> None:
     """
     Remove invalid FCM tokens from the database
-    
+
     Args:
         db: Database session
         invalid_tokens: List of invalid FCM tokens
@@ -166,13 +175,13 @@ async def _cleanup_invalid_tokens(
                 select(model_class).where(model_class.fcm_token == token)
             )
             device = result.scalar_one_or_none()
-            
+
             if device:
                 await db.delete(device)
                 logger.info(f"Deleted invalid FCM token: {token[:20]}...")
-        
+
         await db.commit()
-        
+
     except Exception as e:
         logger.error(f"Error cleaning up invalid tokens: {e}")
         await db.rollback()

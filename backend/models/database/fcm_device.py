@@ -10,10 +10,10 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-from database import Base # type: ignore
+from database import Base  # type: ignore
 
 
-class UserDeviceToken(Base): # type: ignore
+class UserDeviceToken(Base):  # type: ignore
     """
     Stores FCM device tokens for staff users (Workers, VDOs, BDOs, CEOs, Admins)
     """
@@ -22,7 +22,7 @@ class UserDeviceToken(Base): # type: ignore
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        Integer, ForeignKey("authority_users.id", ondelete="CASCADE"), nullable=False
     )  # type: ignore
     device_id: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     fcm_token: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
@@ -39,12 +39,10 @@ class UserDeviceToken(Base): # type: ignore
     user = relationship("User", backref="device_tokens")
 
     # Unique constraint: one device_id per user
-    __table_args__ = (
-        UniqueConstraint("user_id", "device_id", name="uq_user_device"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "device_id", name="uq_user_device"),)
 
 
-class PublicUserDeviceToken(Base): # type: ignore
+class PublicUserDeviceToken(Base):  # type: ignore
     """
     Stores FCM device tokens for public users (citizens who create complaints)
     """

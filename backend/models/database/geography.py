@@ -8,10 +8,10 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-from database import Base
+from database import Base  # type: ignore
 
 
-class District(Base):
+class District(Base):  # type: ignore
     """
     Describes a district entity
     """
@@ -28,7 +28,7 @@ class District(Base):
     complaints = relationship("Complaint", back_populates="district")
 
 
-class Block(Base):
+class Block(Base):  # type: ignore
     """
     Describes a block entity within a district
     """
@@ -53,7 +53,7 @@ class Block(Base):
     complaints = relationship("Complaint", back_populates="block")
 
 
-class Village(Base):
+class GramPanchayat(Base):  # type: ignore
     """
     Describes a village entity within a block
     """
@@ -62,8 +62,12 @@ class Village(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
     name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
-    block_id: Mapped[int] = mapped_column(Integer, ForeignKey("blocks.id"), nullable=False)  # type: ignore
-    district_id: Mapped[int] = mapped_column(Integer, ForeignKey("districts.id"), nullable=False)  # type: ignore
+    block_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("blocks.id"), nullable=False
+    )  # type: ignore
+    district_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("districts.id"), nullable=False
+    )  # type: ignore
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
 
     # Unique constraint on name within block

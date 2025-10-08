@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from models.database.auth import User, Role, PositionHolder
-from models.database.geography import District, Block, Village
+from models.database.geography import District, Block, GramPanchayat
 from services.auth import AuthService
 from auth_utils import UserRole
 
@@ -36,21 +36,27 @@ class UserManagementService:
 
         # Get district name
         if district_id:
-            district_result = await self.db.execute(select(District).where(District.id == district_id))
+            district_result = await self.db.execute(
+                select(District).where(District.id == district_id)
+            )
             district = district_result.scalar_one_or_none()
             if district:
                 username_parts.append(district.name.lower().replace(" ", "."))
 
         # Get block name for BDO, VDO, Worker
         if role_name in [UserRole.BDO, UserRole.VDO, UserRole.WORKER] and block_id:
-            block_result = await self.db.execute(select(Block).where(Block.id == block_id))
+            block_result = await self.db.execute(
+                select(Block).where(Block.id == block_id)
+            )
             block = block_result.scalar_one_or_none()
             if block:
                 username_parts.append(block.name.lower().replace(" ", "."))
 
         # Get village name for VDO, Worker
         if role_name in [UserRole.VDO, UserRole.WORKER] and village_id:
-            village_result = await self.db.execute(select(Village).where(Village.id == village_id))
+            village_result = await self.db.execute(
+                select(GramPanchayat).where(GramPanchayat.id == village_id)
+            )
             village = village_result.scalar_one_or_none()
             if village:
                 username_parts.append(village.name.lower().replace(" ", "."))
@@ -93,7 +99,10 @@ class UserManagementService:
         return list(result.scalars().all())
 
     async def update_role(
-        self, role_id: int, name: Optional[str] = None, description: Optional[str] = None
+        self,
+        role_id: int,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
     ) -> Optional[Role]:
         """Update an existing role."""
         role = await self.get_role_by_id(role_id)
@@ -136,7 +145,9 @@ class UserManagementService:
             raise ValueError(f"Role '{role_name}' not found")
 
         # Generate username
-        username = await self.generate_username(role_name, district_id, block_id, village_id, contractor_name)
+        username = await self.generate_username(
+            role_name, district_id, block_id, village_id, contractor_name
+        )
 
         # Generate email from username
         email = username
@@ -146,7 +157,9 @@ class UserManagementService:
             password = "DefaultPassword123!"  # Should be changed on first login
 
         # Create user
-        user = await self.auth_service.create_user(username=username, email=email, password=password, is_active=True)
+        user = await self.auth_service.create_user(
+            username=username, email=email, password=password, is_active=True
+        )
 
         # Create position holder
         position = await self.auth_service.create_position_holder(
@@ -165,7 +178,9 @@ class UserManagementService:
 
         return user, position
 
-    async def get_position_holder_by_id(self, position_id: int) -> Optional[PositionHolder]:
+    async def get_position_holder_by_id(
+        self, position_id: int
+    ) -> Optional[PositionHolder]:
         """Get position holder by ID with all relationships loaded."""
         result = await self.db.execute(
             select(PositionHolder)
@@ -217,7 +232,9 @@ class UserManagementService:
         await self.db.refresh(position)
         return position
 
-    async def get_all_position_holders(self, skip: int = 0, limit: int = 100) -> List[PositionHolder]:
+    async def get_all_position_holders(
+        self, skip: int = 0, limit: int = 100
+    ) -> List[PositionHolder]:
         """Get all position holders with relationships loaded."""
         result = await self.db.execute(
             select(PositionHolder)
@@ -257,18 +274,18 @@ class UserManagementService:
         """Change user password (Admin only operation)."""
         if not new_password or len(new_password.strip()) < 8:
             raise ValueError("Password must be at least 8 characters long")
-            
+
         # Get the user
         user = await self.auth_service.get_user_by_id(user_id)
         if not user:
             return False
-            
+
         # Hash the new password
         hashed_password = self.auth_service.get_password_hash(new_password)
-        
+
         # Update the user's password
         user.hashed_password = hashed_password
         await self.db.commit()
         await self.db.refresh(user)
-        
+
         return True

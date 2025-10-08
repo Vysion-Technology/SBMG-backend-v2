@@ -1,4 +1,4 @@
-from typing import List, Optional, Any
+from typing import List, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from database import get_db
 from models.database.auth import User, Role, PositionHolder
 from models.database.complaint import Complaint, ComplaintStatus, ComplaintType
-from models.database.geography import District, Block, Village
+from models.database.geography import District, Block, GramPanchayat
 from models.requests.geography import CreateDistrictRequest
 from models.response.geography import (
     CreateBlockRequest,
@@ -19,23 +19,22 @@ from models.response.geography import (
 )
 from services.auth import AuthService
 from auth_utils import require_admin, UserRole
-from models.database.admin import (
+from backend.models.requests.admin import (
     CreateUserRequest,
     CreatePositionHolderRequest,
     CreateRoleRequest,
 )
 from models.response.admin import UserResponse, RoleResponse
+
 router = APIRouter()
-
-
-
-
 
 
 # User Management
 @router.post("/users", response_model=UserResponse)
 async def create_user(
-    user_request: CreateUserRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)
+    user_request: CreateUserRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
     """Create a new user (Admin only)."""
     auth_service = AuthService(db)
@@ -43,7 +42,9 @@ async def create_user(
     # Check if username already exists
     existing_user = await auth_service.get_user_by_username(user_request.username)
     if existing_user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already exists")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Username already exists"
+        )
 
     user = await auth_service.create_user(
         username=user_request.username,
@@ -52,7 +53,9 @@ async def create_user(
         is_active=user_request.is_active,
     )
 
-    return UserResponse(id=user.id, username=user.username, email=user.email, is_active=user.is_active)
+    return UserResponse(
+        id=user.id, username=user.username, email=user.email, is_active=user.is_active
+    )
 
 
 @router.get("/users", response_model=List[UserResponse])
@@ -68,7 +71,13 @@ async def get_all_users(
     users = await auth_service.get_all_users(username_like, skip, limit)
 
     return [
-        UserResponse(id=user.id, username=user.username, email=user.email, is_active=user.is_active) for user in users
+        UserResponse(
+            id=user.id,
+            username=user.username,
+            email=user.email,
+            is_active=user.is_active,
+        )
+        for user in users
     ]
 
 
@@ -85,12 +94,16 @@ async def create_position_holder(
     # Get role by name
     role = await auth_service.get_role_by_name(position_request.role_name)
     if not role:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
+        )
 
     # Verify user exists
     user = await auth_service.get_user_by_id(position_request.user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     position = await auth_service.create_position_holder(
         user_id=position_request.user_id,
@@ -111,13 +124,17 @@ async def create_position_holder(
 # Role Management
 @router.post("/roles", response_model=RoleResponse)
 async def create_role(
-    role_request: CreateRoleRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)
+    role_request: CreateRoleRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
     """Create a new role (Admin only)."""
     # Check if role already exists
     existing_role = await AuthService(db).get_role_by_name(role_request.name)
     if existing_role:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Role already exists")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Role already exists"
+        )
 
     role = Role(name=role_request.name, description=role_request.description)
     db.add(role)
@@ -128,14 +145,19 @@ async def create_role(
 
 
 @router.get("/roles", response_model=List[RoleResponse])
-async def get_all_roles(db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)):
+async def get_all_roles(
+    db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)
+):
     """Get all roles (Admin only)."""
     from sqlalchemy import select
 
     result = await db.execute(select(Role))
     roles = result.scalars().all()
 
-    return [RoleResponse(id=role.id, name=role.name, description=role.description) for role in roles]
+    return [
+        RoleResponse(id=role.id, name=role.name, description=role.description)
+        for role in roles
+    ]
 
 
 # Geography Management
@@ -147,41 +169,65 @@ async def create_district(
 ):
     """Create a new district (Admin only)."""
     # Check if district name is unique
-    existing_result = await db.execute(select(District).where(District.name == district_request.name))
+    existing_result = await db.execute(
+        select(District).where(District.name == district_request.name)
+    )
     if existing_result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="District name already exists")
 
-    district = District(name=district_request.name, description=district_request.description)
+    district = District(
+        name=district_request.name, description=district_request.description
+    )
     db.add(district)
     await db.commit()
     await db.refresh(district)
 
-    return DistrictResponse(id=district.id, name=district.name, description=district.description)
+    return DistrictResponse(
+        id=district.id, name=district.name, description=district.description
+    )
 
 
 @router.post("/blocks", response_model=BlockResponse)
 async def create_block(
-    block_request: CreateBlockRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)
+    block_request: CreateBlockRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
     """Create a new block (Admin only)."""
     # Validate district exists
-    district_result = await db.execute(select(District).where(District.id == block_request.district_id))
+    district_result = await db.execute(
+        select(District).where(District.id == block_request.district_id)
+    )
     if not district_result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="District not found")
 
     # Check if block name is unique within district
     existing_result = await db.execute(
-        select(Block).where(Block.name == block_request.name, Block.district_id == block_request.district_id)
+        select(Block).where(
+            Block.name == block_request.name,
+            Block.district_id == block_request.district_id,
+        )
     )
     if existing_result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Block name already exists in this district")
+        raise HTTPException(
+            status_code=400, detail="Block name already exists in this district"
+        )
 
-    block = Block(name=block_request.name, description=block_request.description, district_id=block_request.district_id)
+    block = Block(
+        name=block_request.name,
+        description=block_request.description,
+        district_id=block_request.district_id,
+    )
     db.add(block)
     await db.commit()
     await db.refresh(block)
 
-    return BlockResponse(id=block.id, name=block.name, description=block.description, district_id=block.district_id)
+    return BlockResponse(
+        id=block.id,
+        name=block.name,
+        description=block.description,
+        district_id=block.district_id,
+    )
 
 
 @router.post("/villages", response_model=VillageResponse)
@@ -192,25 +238,38 @@ async def create_village(
 ):
     """Create a new village (Admin only)."""
     # Validate district exists
-    district_result = await db.execute(select(District).where(District.id == village_request.district_id))
+    district_result = await db.execute(
+        select(District).where(District.id == village_request.district_id)
+    )
     if not district_result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="District not found")
 
     # Validate block exists and belongs to the district
     block_result = await db.execute(
-        select(Block).where(Block.id == village_request.block_id, Block.district_id == village_request.district_id)
+        select(Block).where(
+            Block.id == village_request.block_id,
+            Block.district_id == village_request.district_id,
+        )
     )
     if not block_result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Block not found or doesn't belong to the specified district")
+        raise HTTPException(
+            status_code=400,
+            detail="Block not found or doesn't belong to the specified district",
+        )
 
     # Check if village name is unique within block
     existing_result = await db.execute(
-        select(Village).where(Village.name == village_request.name, Village.block_id == village_request.block_id)
+        select(GramPanchayat).where(
+            GramPanchayat.name == village_request.name,
+            GramPanchayat.block_id == village_request.block_id,
+        )
     )
     if existing_result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Village name already exists in this block")
+        raise HTTPException(
+            status_code=400, detail="Village name already exists in this block"
+        )
 
-    village = Village(
+    village = GramPanchayat(
         name=village_request.name,
         description=village_request.description,
         block_id=village_request.block_id,
@@ -230,6 +289,7 @@ async def create_village(
 
 
 # Additional Geography CRUD operations
+
 
 @router.put("/districts/{district_id}", response_model=DistrictResponse)
 async def update_district(
@@ -251,12 +311,16 @@ async def update_district(
     await db.commit()
     await db.refresh(district)
 
-    return DistrictResponse(id=district.id, name=district.name, description=district.description)
+    return DistrictResponse(
+        id=district.id, name=district.name, description=district.description
+    )
 
 
 @router.delete("/districts/{district_id}")
 async def delete_district(
-    district_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)
+    district_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
     """Delete a district (Admin only)."""
     result = await db.execute(select(District).where(District.id == district_id))
@@ -266,17 +330,21 @@ async def delete_district(
         raise HTTPException(status_code=404, detail="District not found")
 
     # Check if district has associated blocks
-    blocks_result = await db.execute(select(func.count(Block.id)).where(Block.district_id == district_id))
+    blocks_result = await db.execute(
+        select(func.count(Block.id)).where(Block.district_id == district_id)
+    )
     blocks_count = blocks_result.scalar() or 0
 
     if blocks_count > 0:
-        raise HTTPException(status_code=400, detail=f"Cannot delete district. It has {blocks_count} associated blocks.")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete district. It has {blocks_count} associated blocks.",
+        )
 
     await db.delete(district)
     await db.commit()
 
     return {"message": "District deleted successfully"}
-
 
 
 @router.put("/blocks/{block_id}", response_model=BlockResponse)
@@ -294,7 +362,9 @@ async def update_block(
         raise HTTPException(status_code=404, detail="Block not found")
 
     # Validate district exists
-    district_result = await db.execute(select(District).where(District.id == block_request.district_id))
+    district_result = await db.execute(
+        select(District).where(District.id == block_request.district_id)
+    )
     if not district_result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="District not found")
 
@@ -305,11 +375,20 @@ async def update_block(
     await db.commit()
     await db.refresh(block)
 
-    return BlockResponse(id=block.id, name=block.name, description=block.description, district_id=block.district_id)
+    return BlockResponse(
+        id=block.id,
+        name=block.name,
+        description=block.description,
+        district_id=block.district_id,
+    )
 
 
 @router.delete("/blocks/{block_id}")
-async def delete_block(block_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)):
+async def delete_block(
+    block_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     """Delete a block (Admin only)."""
     result = await db.execute(select(Block).where(Block.id == block_id))
     block = result.scalar_one_or_none()
@@ -318,19 +397,21 @@ async def delete_block(block_id: int, db: AsyncSession = Depends(get_db), curren
         raise HTTPException(status_code=404, detail="Block not found")
 
     # Check if block has associated villages
-    villages_result = await db.execute(select(func.count(Village.id)).where(Village.block_id == block_id))
+    villages_result = await db.execute(
+        select(func.count(GramPanchayat.id)).where(GramPanchayat.block_id == block_id)
+    )
     villages_count = villages_result.scalar() or 0
 
     if villages_count > 0:
         raise HTTPException(
-            status_code=400, detail=f"Cannot delete block. It has {villages_count} associated villages."
+            status_code=400,
+            detail=f"Cannot delete block. It has {villages_count} associated villages.",
         )
 
     await db.delete(block)
     await db.commit()
 
     return {"message": "Block deleted successfully"}
-
 
 
 @router.put("/villages/{village_id}", response_model=VillageResponse)
@@ -341,23 +422,33 @@ async def update_village(
     current_user: User = Depends(require_admin),
 ):
     """Update a village (Admin only)."""
-    result = await db.execute(select(Village).where(Village.id == village_id))
+    result = await db.execute(
+        select(GramPanchayat).where(GramPanchayat.id == village_id)
+    )
     village = result.scalar_one_or_none()
 
     if not village:
         raise HTTPException(status_code=404, detail="Village not found")
 
     # Validate district exists
-    district_result = await db.execute(select(District).where(District.id == village_request.district_id))
+    district_result = await db.execute(
+        select(District).where(District.id == village_request.district_id)
+    )
     if not district_result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="District not found")
 
     # Validate block exists and belongs to the district
     block_result = await db.execute(
-        select(Block).where(Block.id == village_request.block_id, Block.district_id == village_request.district_id)
+        select(Block).where(
+            Block.id == village_request.block_id,
+            Block.district_id == village_request.district_id,
+        )
     )
     if not block_result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Block not found or doesn't belong to the specified district")
+        raise HTTPException(
+            status_code=400,
+            detail="Block not found or doesn't belong to the specified district",
+        )
 
     village.name = village_request.name
     village.description = village_request.description
@@ -378,30 +469,35 @@ async def update_village(
 
 @router.delete("/villages/{village_id}")
 async def delete_village(
-    village_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)
+    village_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
     """Delete a village (Admin only)."""
-    result = await db.execute(select(Village).where(Village.id == village_id))
+    result = await db.execute(
+        select(GramPanchayat).where(GramPanchayat.id == village_id)
+    )
     village = result.scalar_one_or_none()
 
     if not village:
         raise HTTPException(status_code=404, detail="Village not found")
 
     # Check if village has associated complaints
-    complaints_result = await db.execute(select(func.count(Complaint.id)).where(Complaint.village_id == village_id))
+    complaints_result = await db.execute(
+        select(func.count(Complaint.id)).where(Complaint.village_id == village_id)
+    )
     complaints_count = complaints_result.scalar() or 0
 
     if complaints_count > 0:
         raise HTTPException(
-            status_code=400, detail=f"Cannot delete village. It has {complaints_count} associated complaints."
+            status_code=400,
+            detail=f"Cannot delete village. It has {complaints_count} associated complaints.",
         )
 
     await db.delete(village)
     await db.commit()
 
     return {"message": "Village deleted successfully"}
-
-
 
 
 # Analytics and Dashboard endpoints
@@ -424,7 +520,9 @@ class DashboardStatsResponse(BaseModel):
 
 
 @router.get("/dashboard/stats", response_model=DashboardStatsResponse)
-async def get_dashboard_stats(db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)):
+async def get_dashboard_stats(
+    db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin)
+):
     """Get comprehensive dashboard statistics (Admin only)."""
 
     # Complaint statistics
@@ -441,7 +539,7 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db), current_user: 
 
     open_complaints = status_dict.get("OPEN", 0)
     in_progress_complaints = status_dict.get("IN_PROGRESS", 0)
-    completed_complaints = status_dict.get("COMPLETED", 0)
+    completed_complaints = status_dict.get("RESOLVED", 0)
     verified_complaints = status_dict.get("VERIFIED", 0)
     closed_complaints = status_dict.get("CLOSED", 0)
     invalid_complaints = status_dict.get("INVALID", 0)
@@ -467,7 +565,7 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db), current_user: 
     total_blocks_result = await db.execute(select(func.count(Block.id)))
     total_blocks = total_blocks_result.scalar() or 0
 
-    total_villages_result = await db.execute(select(func.count(Village.id)))
+    total_villages_result = await db.execute(select(func.count(GramPanchayat.id)))
     total_villages = total_villages_result.scalar() or 0
 
     # Complaints by district
@@ -477,10 +575,15 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db), current_user: 
         .group_by(District.name)
         .order_by(func.count(Complaint.id).desc())
     )
-    complaints_by_district = [{"district": district, "count": count} for district, count in district_complaints]
+    complaints_by_district = [
+        {"district": district, "count": count}
+        for district, count in district_complaints
+    ]
 
     # Complaints by status for chart
-    complaints_by_status = [{"status": status, "count": count} for status, count in status_dict.items()]
+    complaints_by_status = [
+        {"status": status, "count": count} for status, count in status_dict.items()
+    ]
 
     # Recent complaints (last 10)
     recent_complaints_result = await db.execute(
@@ -490,18 +593,20 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db), current_user: 
             Complaint.created_at,
             ComplaintStatus.name.label("status_name"),
             District.name.label("district_name"),
-            Village.name.label("village_name"),
+            GramPanchayat.name.label("village_name"),
         )
         .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
         .join(District, Complaint.district_id == District.id)
-        .join(Village, Complaint.village_id == Village.id)
+        .join(GramPanchayat, Complaint.village_id == GramPanchayat.id)
         .order_by(Complaint.created_at.desc())
         .limit(10)
     )
     recent_complaints: List[Any] = [
         {
             "id": row.id,
-            "description": row.description[:100] + "..." if len(row.description) > 100 else row.description,
+            "description": row.description[:100] + "..."
+            if len(row.description) > 100
+            else row.description,
             "created_at": row.created_at.isoformat(),
             "status_name": row.status_name,
             "location": f"{row.village_name}, {row.district_name}",
@@ -552,26 +657,34 @@ async def initialize_default_data(
     existing_admin = await auth_service.get_user_by_username(admin_username)
 
     admin_role = await auth_service.get_role_by_name(UserRole.ADMIN)
+    assert existing_admin is not None, "Admin user should exist here"
     if not admin_role:
-        admin_role = Role(name=UserRole.ADMIN, description="Administrator role with full permissions")
+        admin_role = Role(
+            name=UserRole.ADMIN, description="Administrator role with full permissions"
+        )
         db.add(admin_role)
         await db.commit()
-    
+
     admin_role = await auth_service.get_role_by_name(UserRole.ADMIN)
+    assert admin_role is not None, "Admin role should exist here"
     position_holders_result = await db.execute(
         select(PositionHolder).where(
-            PositionHolder.user_id == existing_admin.id, PositionHolder.role_id == admin_role.id
+            PositionHolder.user_id == existing_admin.id,
+            PositionHolder.role_id == admin_role.id,
         )
     )
     position_holder = position_holders_result.scalar_one_or_none()
     if not position_holder:
         position_holder = await auth_service.create_position_holder(
-            user_id=existing_admin.id, role_id=admin_role.id, first_name="Admin", last_name="User"
+            user_id=existing_admin.id,
+            role_id=admin_role.id,
+            first_name="Admin",
+            last_name="User",
         )
         db.add(position_holder)
 
     await db.commit()
-    
+
     # Create default roles
     default_roles = [
         UserRole.SUPERADMIN,
@@ -603,15 +716,23 @@ async def initialize_default_data(
     ]
 
     for status_name in workflow_statuses:
-        existing_status = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == status_name))
+        existing_status = await db.execute(
+            select(ComplaintStatus).where(ComplaintStatus.name == status_name)
+        )
         if not existing_status.scalar_one_or_none():
-            status = ComplaintStatus(name=status_name, description=f"{status_name} status")
+            status = ComplaintStatus(
+                name=status_name, description=f"{status_name} status"
+            )
             db.add(status)
 
     for complaint_type_name in default_complaint_types:
-        existing_type = await db.execute(select(ComplaintType).where(ComplaintType.name == complaint_type_name))
+        existing_type = await db.execute(
+            select(ComplaintType).where(ComplaintType.name == complaint_type_name)
+        )
         if not existing_type.scalar_one_or_none():
-            complaint_type = ComplaintType(name=complaint_type_name, description=f"{complaint_type_name} type")
+            complaint_type = ComplaintType(
+                name=complaint_type_name, description=f"{complaint_type_name} type"
+            )
             db.add(complaint_type)
 
     for role_name in default_roles:
@@ -628,7 +749,10 @@ async def initialize_default_data(
             admin_role = await auth_service.get_role_by_name(UserRole.ADMIN)
             if admin_role:
                 position_holder = await auth_service.create_position_holder(
-                    user_id=admin_user.id, role_id=admin_role.id, first_name="Admin", last_name="User"
+                    user_id=admin_user.id,
+                    role_id=admin_role.id,
+                    first_name="Admin",
+                    last_name="User",
                 )
                 db.add(position_holder)
 
@@ -646,7 +770,10 @@ async def initialize_default_data(
             superadmin_role = await auth_service.get_role_by_name(UserRole.SUPERADMIN)
             if superadmin_role:
                 position_holder = await auth_service.create_position_holder(
-                    user_id=superadmin_user.id, role_id=superadmin_role.id, first_name="Super", last_name="Admin"
+                    user_id=superadmin_user.id,
+                    role_id=superadmin_role.id,
+                    first_name="Super",
+                    last_name="Admin",
                 )
                 db.add(position_holder)
 

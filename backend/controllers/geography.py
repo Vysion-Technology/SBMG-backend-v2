@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from database import get_db
 from models.database.auth import User
-from models.database.geography import District, Block, Village
+from models.database.geography import District, Block, GramPanchayat
 from models.response.geography import (
     DistrictResponse,
     BlockResponse,
@@ -74,12 +74,12 @@ async def list_villages(
     db: AsyncSession = Depends(get_db),
 ):
     """List all villages with pagination (Admin only)."""
-    query = select(Village)
+    query = select(GramPanchayat)
 
     if block_id:
-        query = query.where(Village.block_id == block_id)
+        query = query.where(GramPanchayat.block_id == block_id)
     elif district_id:
-        query = query.where(Village.district_id == district_id)
+        query = query.where(GramPanchayat.district_id == district_id)
 
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
@@ -103,7 +103,9 @@ async def get_village(
     db: AsyncSession = Depends(get_db),
 ):
     """Get a specific village by ID (Admin only)."""
-    result = await db.execute(select(Village).where(Village.id == village_id))
+    result = await db.execute(
+        select(GramPanchayat).where(GramPanchayat.id == village_id)
+    )
     village = result.scalar_one_or_none()
 
     if not village:

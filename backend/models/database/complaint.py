@@ -1,5 +1,5 @@
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import mapped_column, relationship, Mapped
 from sqlalchemy import (
@@ -11,10 +11,10 @@ from sqlalchemy import (
     DateTime,
 )
 
-from database import Base
+from database import Base  # type: ignore
 
 
-class ComplaintType(Base):
+class ComplaintType(Base):  # type: ignore
     """
     Describes a type of complaint
     """
@@ -32,12 +32,12 @@ class ComplaintType(Base):
     complaints = relationship("Complaint", back_populates="complaint_type")
 
 
-class ComplaintTypeGeographicalEligibility(Base):
+class ComplaintTypeGeographicalIneligibility(Base):  # type: ignore
     """
-    Describes the geographical eligibility of a complaint type
+    Describes the geographical ineligibility of a complaint type
     """
 
-    __tablename__ = "complaint_type_geographical_eligibilities"
+    __tablename__ = "complaint_type_geographical_ineligibilities"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
     complaint_type_id: Mapped[int] = mapped_column(  # type: ignore
@@ -65,7 +65,7 @@ class ComplaintTypeGeographicalEligibility(Base):
     village = relationship("Village")
 
 
-class ComplaintStatus(Base):
+class ComplaintStatus(Base):  # type: ignore
     """
     Describes the status of a complaint
     """
@@ -80,7 +80,7 @@ class ComplaintStatus(Base):
     complaints = relationship("Complaint", back_populates="status")
 
 
-class Complaint(Base):
+class Complaint(Base):  # type: ignore
     """
     Describes a complaint lodged by a user
     """
@@ -106,12 +106,12 @@ class Complaint(Base):
         Integer, ForeignKey("complaint_statuses.id"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(  # type: ignore
-        DateTime,
-        default=datetime.utcnow,
+        DateTime(timezone=True),
+        default=datetime.now(tz=timezone.utc),
     )
     updated_at: Mapped[Optional[datetime]] = mapped_column(  # type: ignore
-        DateTime,
-        onupdate=datetime.utcnow,
+        DateTime(timezone=True),
+        onupdate=datetime.now(tz=timezone.utc),
         nullable=True,
     )
 
@@ -120,13 +120,15 @@ class Complaint(Base):
     block = relationship("Block", back_populates="complaints")
     district = relationship("District", back_populates="complaints")
     complaint_type = relationship("ComplaintType", back_populates="complaints")
-    status: Mapped[ComplaintStatus] = relationship("ComplaintStatus", back_populates="complaints")
+    status: Mapped[ComplaintStatus] = relationship(
+        "ComplaintStatus", back_populates="complaints"
+    )
     assignments = relationship("ComplaintAssignment", back_populates="complaint")
     media = relationship("ComplaintMedia", back_populates="complaint")
     comments = relationship("ComplaintComment", back_populates="complaint")
 
 
-class ComplaintAssignment(Base):
+class ComplaintAssignment(Base):  # type: ignore
     """
     Describes the assignment of a complaint to a user
     """
@@ -138,11 +140,11 @@ class ComplaintAssignment(Base):
         Integer, ForeignKey("complaints.id"), nullable=False
     )  # type: ignore
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False
+        Integer, ForeignKey("authority_users.id"), nullable=False
     )  # type: ignore
     assigned_at: Mapped[datetime] = mapped_column(  # type: ignore
         DateTime,
-        default=datetime.utcnow,
+        default=datetime.now(tz=timezone.utc),
     )
 
     # Relationships
@@ -150,7 +152,7 @@ class ComplaintAssignment(Base):
     user = relationship("User", back_populates="complaint_assignments")
 
 
-class ComplaintMedia(Base):
+class ComplaintMedia(Base):  # type: ignore
     """
     Describes media (images, videos, etc.) associated with a complaint
     """
@@ -164,13 +166,13 @@ class ComplaintMedia(Base):
     media_url: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     uploaded_at: Mapped[datetime] = mapped_column(  # type: ignore
         DateTime,
-        default=datetime.utcnow,
+        default=datetime.now(tz=timezone.utc),
     )
     uploaded_by_public_mobile: Mapped[Optional[str]] = mapped_column(  # type: ignore
         String, nullable=True
     )
     uploaded_by_user_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
-        Integer, ForeignKey("users.id"), nullable=True
+        Integer, ForeignKey("authority_users.id"), nullable=True
     )
 
     # Relationships
@@ -180,16 +182,16 @@ class ComplaintMedia(Base):
     __table_args__ = (
         CheckConstraint(
             (uploaded_by_public_mobile.isnot(None)) | (uploaded_by_user_id.isnot(None)),
-            name="uploaded_by_constraint"
+            name="uploaded_by_constraint",
         ),
         CheckConstraint(
             (uploaded_by_public_mobile.is_(None)) | (uploaded_by_user_id.is_(None)),
-            name="uploaded_by_exclusivity_constraint"
-        )
+            name="uploaded_by_exclusivity_constraint",
+        ),
     )
 
 
-class ComplaintComment(Base):
+class ComplaintComment(Base):  # type: ignore
     """
     Describes comments made on a complaint
     """
@@ -201,13 +203,13 @@ class ComplaintComment(Base):
         Integer, ForeignKey("complaints.id"), nullable=False
     )  # type: ignore
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=True
+        Integer, ForeignKey("authority_users.id"), nullable=True
     )  # type: ignore
     mobile_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     comment: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     commented_at: Mapped[datetime] = mapped_column(  # type: ignore
         DateTime,
-        default=datetime.utcnow,
+        default=datetime.now(tz=timezone.utc),
     )
 
     # Relationships

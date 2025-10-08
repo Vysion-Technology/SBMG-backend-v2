@@ -10,7 +10,7 @@ from sqlalchemy import ClauseElement, select, update, and_, or_
 from sqlalchemy.orm import selectinload
 
 from models.database.auth import Role, PositionHolder
-from models.database.geography import District, Block, Village
+from models.database.geography import District, Block, GramPanchayat
 from auth_utils import UserRole
 
 
@@ -40,21 +40,27 @@ class PersonManagementService:
 
         # Get district name
         if district_id:
-            district_result = await self.db.execute(select(District).where(District.id == district_id))
+            district_result = await self.db.execute(
+                select(District).where(District.id == district_id)
+            )
             district = district_result.scalar_one_or_none()
             if district:
                 username_parts.append(district.name.lower().replace(" ", "."))
 
         # Get block name for BDO, VDO, Worker
         if role_name in [UserRole.BDO, UserRole.VDO, UserRole.WORKER] and block_id:
-            block_result = await self.db.execute(select(Block).where(Block.id == block_id))
+            block_result = await self.db.execute(
+                select(Block).where(Block.id == block_id)
+            )
             block = block_result.scalar_one_or_none()
             if block:
                 username_parts.append(block.name.lower().replace(" ", "."))
 
         # Get village name for VDO, Worker
         if role_name in [UserRole.VDO, UserRole.WORKER] and village_id:
-            village_result = await self.db.execute(select(Village).where(Village.id == village_id))
+            village_result = await self.db.execute(
+                select(GramPanchayat).where(GramPanchayat.id == village_id)
+            )
             village = village_result.scalar_one_or_none()
             if village:
                 username_parts.append(village.name.lower().replace(" ", "."))
@@ -103,7 +109,10 @@ class PersonManagementService:
         return list(result.scalars().all())
 
     async def update_role(
-        self, role_id: int, name: Optional[str] = None, description: Optional[str] = None
+        self,
+        role_id: int,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
     ) -> Optional[Role]:
         """Update an existing role."""
         role = await self.get_role_by_id(role_id)
@@ -122,7 +131,9 @@ class PersonManagementService:
             update_data["description"] = description
 
         if update_data:
-            await self.db.execute(update(Role).where(Role.id == role_id).values(**update_data))
+            await self.db.execute(
+                update(Role).where(Role.id == role_id).values(**update_data)
+            )
             await self.db.commit()
             await self.db.refresh(role)
 
@@ -162,7 +173,9 @@ class PersonManagementService:
         await self.db.refresh(position)
         return position
 
-    async def get_position_holder_by_id(self, position_id: int) -> Optional[PositionHolder]:
+    async def get_position_holder_by_id(
+        self, position_id: int
+    ) -> Optional[PositionHolder]:
         """Get position holder by ID with all related data."""
         result = await self.db.execute(
             select(PositionHolder)
@@ -209,7 +222,12 @@ class PersonManagementService:
 
         if active_only:
             # Consider active if no end_date or end_date is in the future
-            conditions.append(or_(PositionHolder.end_date.is_(None), PositionHolder.end_date >= date.today()))
+            conditions.append(
+                or_(
+                    PositionHolder.end_date.is_(None),
+                    PositionHolder.end_date >= date.today(),
+                )
+            )
 
         if conditions:
             query = query.where(and_(*conditions))  # type: ignore
@@ -263,7 +281,11 @@ class PersonManagementService:
             update_data["end_date"] = end_date
 
         if update_data:
-            await self.db.execute(update(PositionHolder).where(PositionHolder.id == position_id).values(**update_data))
+            await self.db.execute(
+                update(PositionHolder)
+                .where(PositionHolder.id == position_id)
+                .values(**update_data)
+            )
             await self.db.commit()
             await self.db.refresh(position)
 
@@ -290,7 +312,9 @@ class PersonManagementService:
 
         # End the current position
         await self.db.execute(
-            update(PositionHolder).where(PositionHolder.id == current_position_id).values(end_date=transfer_date)
+            update(PositionHolder)
+            .where(PositionHolder.id == current_position_id)
+            .values(end_date=transfer_date)
         )
 
         # Create new position for the new person
@@ -342,9 +366,19 @@ class PersonManagementService:
 
         # Date range filtering
         if from_date:
-            conditions.append(or_(PositionHolder.end_date.is_(None), PositionHolder.end_date >= from_date))
+            conditions.append(
+                or_(
+                    PositionHolder.end_date.is_(None),
+                    PositionHolder.end_date >= from_date,
+                )
+            )
         if to_date:
-            conditions.append(or_(PositionHolder.start_date.is_(None), PositionHolder.start_date <= to_date))
+            conditions.append(
+                or_(
+                    PositionHolder.start_date.is_(None),
+                    PositionHolder.start_date <= to_date,
+                )
+            )
 
         if conditions:
             query = query.where(and_(*conditions))  # type: ignore
@@ -362,11 +396,17 @@ class PersonManagementService:
     ) -> List[PositionHolder]:
         """Get currently active position holders."""
         return await self.get_all_position_holders(
-            role_id=role_id, district_id=district_id, block_id=block_id, village_id=village_id, active_only=True
+            role_id=role_id,
+            district_id=district_id,
+            block_id=block_id,
+            village_id=village_id,
+            active_only=True,
         )
 
     # Person Search and Lookup
-    async def search_persons_by_name(self, name_query: str, skip: int = 0, limit: int = 100) -> List[PositionHolder]:
+    async def search_persons_by_name(
+        self, name_query: str, skip: int = 0, limit: int = 100
+    ) -> List[PositionHolder]:
         """Search persons by first, middle, or last name."""
         search_pattern = f"%{name_query}%"
         result = await self.db.execute(

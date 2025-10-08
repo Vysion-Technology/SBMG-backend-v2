@@ -8,7 +8,7 @@ from fastapi import (
     File,
     UploadFile,
     Form,
-    Header
+    Header,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -16,7 +16,7 @@ from sqlalchemy.orm import selectinload
 
 from database import get_db
 from models.database.complaint import Complaint, ComplaintStatus, ComplaintMedia
-from models.database.geography import Village
+from models.database.geography import GramPanchayat
 from services.s3_service import s3_service
 
 from models.response.complaint import ComplaintResponse, MediaResponse
@@ -32,6 +32,7 @@ from models.database.complaint import (
 )
 
 router = APIRouter()
+
 
 async def get_public_user_by_token(
     db: AsyncSession, token: str
@@ -60,15 +61,17 @@ async def create_complaint_with_media(
     description: str = Form(...),
     files: List[UploadFile] = File(default=[]),
     db: AsyncSession = Depends(get_db),
-    token: str = Header(..., description="Public user token")
+    token: str = Header(..., description="Public user token"),
 ) -> ComplaintResponse:
     """Create a new complaint with optional media files (Public access)."""
     # Create the complaint first using similar logic to create_complaint
     # Verify village exists
     village_result = await db.execute(
-        select(Village)
-        .options(selectinload(Village.block), selectinload(Village.district))
-        .where(Village.id == village_id)
+        select(GramPanchayat)
+        .options(
+            selectinload(GramPanchayat.block), selectinload(GramPanchayat.district)
+        )
+        .where(GramPanchayat.id == village_id)
     )
     village = village_result.scalar_one_or_none()
     if not village:
@@ -131,7 +134,12 @@ async def create_complaint_with_media(
                     media_url = f"/media/complaints/{complaint.id}/{file.filename}"
 
                 # Create media record
-                media = ComplaintMedia(complaint_id=complaint.id, media_url=media_url, uploaded_by_public_mobile=user.mobile_number, uploaded_by_user_id=None)
+                media = ComplaintMedia(
+                    complaint_id=complaint.id,
+                    media_url=media_url,
+                    uploaded_by_public_mobile=user.mobile_number,
+                    uploaded_by_user_id=None,
+                )
                 db.add(media)
                 media_urls.append(media_url)
 
@@ -162,11 +170,13 @@ async def create_complaint_with_media(
 
     # Send notification to workers in the village (async, non-blocking)
     from services.fcm_notification_service import notify_workers_on_new_complaint
+
     try:
         await notify_workers_on_new_complaint(db, complaint)
     except Exception as e:
         # Log error but don't fail the request
         import logging
+
         logging.error(f"Failed to send FCM notification: {e}")
 
     return ComplaintResponse(
@@ -264,7 +274,7 @@ async def upload_complaint_media(
 
     # Validate file type
     allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-    filename, file_extension = os.path.splitext(file.filename.lower()) # type: ignore
+    filename, file_extension = os.path.splitext(file.filename.lower())  # type: ignore
 
     if file_extension not in allowed_extensions:
         raise HTTPException(
@@ -304,7 +314,7 @@ async def upload_complaint_media(
         "file_name": file.filename,
         "s3_key": s3_key,
         "content_type": file.content_type,
-        "uploaded_at": datetime.now(timezone.utc)
+        "uploaded_at": datetime.now(timezone.utc),
     }
 
 
