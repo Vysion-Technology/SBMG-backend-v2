@@ -9,6 +9,7 @@ from services.survey import SurveyService
 from controllers.auth import get_current_active_user
 from auth_utils import require_admin
 from models.database.auth import User
+from models.response.survey import FormResponse, FilledFormResponse, AssignmentResponse
 
 
 router = APIRouter()
@@ -81,9 +82,9 @@ async def update_form(
         raise HTTPException(status_code=403, detail="Only creator can update this form")
     try:
         form.title = req.title
-        form.description = req.description
-        form.start_date = req.start_date
-        form.end_date = req.end_date
+        form.description = req.description  # type: ignore
+        form.start_date = req.start_date  # type: ignore
+        form.end_date = req.end_date  # type: ignore
         await db.commit()
         return {"id": form.id}
     except Exception as e:
@@ -116,7 +117,9 @@ async def add_option(
 ):
     svc = SurveyService(db)
     try:
-        opt = await svc.add_option(question_id, req.answer_type, req.text, req.description, current_user.id)
+        opt = await svc.add_option(
+            question_id, req.answer_type, req.text, req.description, current_user.id
+        )
         return {"id": opt.id}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -140,7 +143,9 @@ async def submit_form(
     # get user roles
     user_roles = [pos.role.name for pos in current_user.positions if pos.role]
     if form.role not in user_roles and "ADMIN" not in user_roles:
-        raise HTTPException(status_code=403, detail="User not authorized to submit this form")
+        raise HTTPException(
+            status_code=403, detail="User not authorized to submit this form"
+        )
 
     try:
         created = await svc.submit_responses(form_id, current_user.id, req.answers)
@@ -164,7 +169,9 @@ async def assign_form(
 
     user_roles = [pos.role.name for pos in current_user.positions if pos.role]
     if form.created_by != current_user.id and "ADMIN" not in user_roles:
-        raise HTTPException(status_code=403, detail="Only creator or admin can assign this form")
+        raise HTTPException(
+            status_code=403, detail="Only creator or admin can assign this form"
+        )
 
     try:
         assignments = await svc.assign_form_to_users(form_id, current_user.id, user_ids)
@@ -173,25 +180,31 @@ async def assign_form(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+
+
 @router.get("/forms/available")
 async def available_forms(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
-):
+) -> List[FormResponse]:
     svc = SurveyService(db)
     user_roles = [pos.role.name for pos in current_user.positions if pos.role]
     forms = await svc.get_available_forms_for_roles(user_roles)
-    return [{"id": f.id, "title": f.title, "role": f.role} for f in forms]
+    return [FormResponse(id=f.id, title=f.title, role=f.role.name) for f in forms]
+
 
 
 @router.get("/forms/filled")
 async def filled_forms(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
-):
+) -> List[FilledFormResponse]:
     svc = SurveyService(db)
     forms = await svc.get_filled_forms_for_user(current_user.id)
-    return [{"id": f.id, "title": f.title} for f in forms]
+    return [FilledFormResponse(id=f.id, title=f.title) for f in forms]
+
+
+
 
 
 @router.get("/forms/assignments")
@@ -201,4 +214,9 @@ async def assignments(
 ):
     svc = SurveyService(db)
     assigns = await svc.get_assignments_for_user(current_user.id)
-    return [{"id": a.id, "form_id": a.form_id, "assigned_at": a.assigned_at, "completed": a.completed} for a in assigns]
+    return [
+        AssignmentResponse(
+            id=a.id, form_id=a.form_id, assigned_at=a.assigned_at, completed=a.completed
+        )
+        for a in assigns
+    ]

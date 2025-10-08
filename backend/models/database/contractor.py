@@ -1,19 +1,14 @@
-from database import Base
+from database import Base  # type: ignore
 from typing import Optional, List, TYPE_CHECKING
 
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy import (
-    String,
-    Integer,
-    ForeignKey,
-    DateTime
-)
+from sqlalchemy import String, Integer, ForeignKey, DateTime
 
 if TYPE_CHECKING:
-    from models.database.attendance import Attendance
+    from models.database.attendance import DailyAttendance
 
 
-class Agency(Base):
+class Agency(Base):  # type: ignore
     """
     Describes an agency entity
     """
@@ -29,7 +24,7 @@ class Agency(Base):
     contractors = relationship("Contractor", back_populates="agency")
 
 
-class Contractor(Base):
+class Contractor(Base):  # type: ignore
     """
     Describes a contractor/worker entity
     """
@@ -45,10 +40,14 @@ class Contractor(Base):
     village_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
         Integer, ForeignKey("villages.id"), nullable=True
     )
-    contract_start_date: Mapped[Optional[DateTime]] = mapped_column(DateTime, nullable=True)  # type: ignore
-    contract_end_date: Mapped[Optional[DateTime]] = mapped_column(DateTime, nullable=True)  # type: ignore
+    contract_start_date: Mapped[Optional[DateTime]] = mapped_column(
+        DateTime, nullable=True
+    )  # type: ignore
+    contract_end_date: Mapped[Optional[DateTime]] = mapped_column(
+        DateTime, nullable=True
+    )  # type: ignore
 
-        # Relationships
+    # Relationships
     agency: Mapped[Agency] = relationship("Agency", back_populates="contractors")
-    village = relationship("Village")
-    attendances: Mapped[List["Attendance"]] = relationship("Attendance", lazy="select")
+    village = relationship("GramPanchayat")
+    attendances: Mapped[List["DailyAttendance"]] = relationship("DailyAttendance")

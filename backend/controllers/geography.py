@@ -3,16 +3,15 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload
 
 from database import get_db
-from models.database.geography import District, Block, Village
-from models.database.contractor import Contractor
+from models.database.geography import District, Block, GramPanchayat
 from models.response.geography import (
     DistrictResponse,
     BlockResponse,
-    VillageResponse,
+    VillageResponse as GramPanchayatResponse,
 )
+from models.database.contractor import Contractor
 from models.response.contractor import AgencyResponse, ContractorResponse
 
 
@@ -66,7 +65,7 @@ async def list_blocks(
     ]
 
 
-@router.get("/villages", response_model=List[VillageResponse])
+@router.get("/villages", response_model=List[GramPanchayatResponse])
 async def list_villages(
     block_id: Optional[int] = None,
     district_id: Optional[int] = None,
@@ -75,19 +74,19 @@ async def list_villages(
     db: AsyncSession = Depends(get_db),
 ):
     """List all villages with pagination (Admin only)."""
-    query = select(Village)
+    query = select(GramPanchayat)
 
     if block_id:
-        query = query.where(Village.block_id == block_id)
+        query = query.where(GramPanchayat.block_id == block_id)
     elif district_id:
-        query = query.where(Village.district_id == district_id)
+        query = query.where(GramPanchayat.district_id == district_id)
 
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
     villages = result.scalars().all()
 
     return [
-        VillageResponse(
+        GramPanchayatResponse(
             id=village.id,
             name=village.name,
             description=village.description,
@@ -98,19 +97,21 @@ async def list_villages(
     ]
 
 
-@router.get("/villages/{village_id}", response_model=VillageResponse)
+@router.get("/villages/{village_id}", response_model=GramPanchayatResponse)
 async def get_village(
     village_id: int,
     db: AsyncSession = Depends(get_db),
 ):
     """Get a specific village by ID (Admin only)."""
-    result = await db.execute(select(Village).where(Village.id == village_id))
+    result = await db.execute(
+        select(GramPanchayat).where(GramPanchayat.id == village_id)
+    )
     village = result.scalar_one_or_none()
 
     if not village:
-        raise HTTPException(status_code=404, detail="Village not found")
+        raise HTTPException(status_code=404, detail="GramPanchayat not found")
 
-    return VillageResponse(
+    return GramPanchayatResponse(
         id=village.id,
         name=village.name,
         description=village.description,
@@ -163,28 +164,23 @@ async def get_contractors_by_village(
 ) -> ContractorResponse:
     """Get all contractors for a specific village."""
     # First check if village exists
-    village_result = await db.execute(select(Village).where(Village.id == village_id))
+    village_result = await db.execute(
+        select(GramPanchayat).where(GramPanchayat.id == village_id)
+    )
     village = village_result.scalar_one_or_none()
 
     if not village:
-        raise HTTPException(status_code=404, detail="Village not found")
+        raise HTTPException(status_code=404, detail="GramPanchayat not found")
 
     # Get contractors for this village with related data
-    query = (
-        select(Contractor)
-        .options(
-            joinedload(Contractor.agency),
-            joinedload(Contractor.village)
-            .joinedload(Village.block)
-            .joinedload(Block.district),
-        )
-        .where(Contractor.village_id == village_id)
-    )
+    query = select(Contractor).where(Contractor.village_id == village_id)
 
     result = await db.execute(query)
     contractor = result.unique().scalar_one_or_none()
     if not contractor:
-        raise HTTPException(status_code=404, detail="No contractors found for this village")
+        raise HTTPException(
+            status_code=404, detail="No contractors found for this village"
+        )
     agency = contractor.agency if contractor else None
 
     return ContractorResponse(

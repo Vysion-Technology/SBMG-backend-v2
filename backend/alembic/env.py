@@ -8,6 +8,8 @@ from alembic import context
 from dotenv import load_dotenv
 
 from database import Base  # Import your Base where models are defined
+# Import all models to register them with Base.metadata
+import models  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -1,6 +1,7 @@
 from datetime import datetime
 import enum
 
+from models.response.admin import Role
 from database import Base
 
 
@@ -13,19 +14,29 @@ class Form(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
-    role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id"), nullable=False)
+    role_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("roles.id"), nullable=False
+    )
     description: Mapped[str] = mapped_column(String, nullable=True)
     start_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     end_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    created_by: Mapped[int] = mapped_column(
+        ForeignKey("authority_users.id"), nullable=False
+    )
     active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    updated_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_by: Mapped[int] = mapped_column(
+        ForeignKey("authority_users.id"), nullable=False
+    )
+    updated_by: Mapped[int] = mapped_column(
+        ForeignKey("authority_users.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
-    role = relationship("Role")
+    role: Mapped["Role"] = relationship("Role")
 
 
 class Question(Base):
@@ -39,7 +50,9 @@ class Question(Base):
     type: Mapped[str] = mapped_column(String, nullable=False)
     required: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    options: Mapped[list["QuestionOption"]] = relationship(back_populates="question", cascade="all, delete-orphan")
+    options: Mapped[list["QuestionOption"]] = relationship(
+        back_populates="question", cascade="all, delete-orphan"
+    )
 
 
 class AnswerType(str, enum.Enum):
@@ -56,15 +69,23 @@ class QuestionOption(Base):
     __tablename__ = "survey_question_options"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    question_id: Mapped[int] = mapped_column(ForeignKey("survey_questions.id"), nullable=False)
+    question_id: Mapped[int] = mapped_column(
+        ForeignKey("survey_questions.id"), nullable=False
+    )
     answer_type: Mapped[AnswerType] = mapped_column(Enum(AnswerType), nullable=False)
     text: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(String, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    updated_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[int] = mapped_column(
+        ForeignKey("authority_users.id"), nullable=False
+    )
+    updated_by: Mapped[int] = mapped_column(
+        ForeignKey("authority_users.id"), nullable=True
+    )
 
     # Relationships
     question: Mapped["Question"] = relationship(back_populates="options")
@@ -84,12 +105,22 @@ class Response(Base):
     form_id: Mapped[int] = mapped_column(Integer, nullable=False)
     question_id: Mapped[int] = mapped_column(Integer, nullable=False)
     answer: Mapped[str] = mapped_column(String, nullable=False)
-    submitted_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    submitted_by: Mapped[int] = mapped_column(
+        ForeignKey("authority_users.id"), nullable=False
+    )
+    submitted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     submission_notes: Mapped[str] = mapped_column(String, nullable=True)
-    modified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
-    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
-    reviewed_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    reviewed_by: Mapped[int] = mapped_column(
+        ForeignKey("authority_users.id"), nullable=True
+    )
     review_notes: Mapped[str] = mapped_column(String, nullable=True)
     status: Mapped[ResponseReviewStatus] = mapped_column(
         Enum(ResponseReviewStatus),
@@ -97,8 +128,12 @@ class Response(Base):
         default=ResponseReviewStatus.PENDING,
     )
     approved: Mapped[bool] = mapped_column(Boolean, nullable=True)
-    approved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
-    approved_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
+    approved_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    approved_by: Mapped[int] = mapped_column(
+        ForeignKey("authority_users.id"), nullable=True
+    )
 
 
 class FormAssignment(Base):
@@ -106,9 +141,17 @@ class FormAssignment(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     form_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    assigned_to: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    assigned_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    assigned_to: Mapped[int] = mapped_column(
+        ForeignKey("authority_users.id"), nullable=False
+    )
+    assigned_by: Mapped[int] = mapped_column(
+        ForeignKey("authority_users.id"), nullable=False
+    )
+    assigned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     due_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
-    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

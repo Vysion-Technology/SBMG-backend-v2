@@ -81,6 +81,14 @@ async def update_complaint_status(
 
     await db.commit()
 
+    # Send notification to the user who created the complaint
+    from services.fcm_notification_service import notify_user_on_complaint_status_update
+    try:
+        await notify_user_on_complaint_status_update(db, complaint, new_status.name)
+    except Exception as e:
+        # Log error but don't fail the request
+        logging.error(f"Failed to send FCM notification: {e}")
+
     return {"message": "Complaint status updated successfully"}
 
 

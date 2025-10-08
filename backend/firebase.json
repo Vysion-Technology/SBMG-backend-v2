@@ -1,8 +1,13 @@
 {
-    "apiKey": "AIzaSyBZyHW6mEU2b-zUT8QICLsGL0Z9i1oKFis",
-    "authDomain": "sbmg-504f0.firebaseapp.com",
-    "projectId": "sbmg-504f0",
-    "storageBucket": "sbmg-504f0.firebasestorage.app",
-    "messagingSenderId": "959280236765",
-    "appId": "1:959280236765:web:bb1f274a8cb58ad5a6b334"
+  "type": "service_account",
+  "project_id": "sbmg-504f0",
+  "private_key_id": "de4c70fedc4d75be85d3f28c90aed8c43876129c",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC13WgcYSd3EVN/\nEm3U+bqFkOVIYvWDHWmdqhkxZ+Ea7C9UriBcXmSh7uJFWpPgzUsLFxQqmUhQUXFA\njm1mn4Duh3kwNAgl3yeqXdQblSxLwfQJRfNdXQ05OCOEEtYa1KsB4ceAgqfiXJFj\nXeTiK65t2LFM7IcXtLFJhsA6hiZuAPKFys77HdQN9NU4E2F2Qdfgfb0pqKFzpQ1+\nqf7sFjBC49kp1xWEz6fmwUPUR2EkgDyRUm/jkSFZznUjgrCsG+2+h0hQAest7KrE\nI1//85zS9RNuBbJ5bU37oFPviIMeqy4J5k3+TIgZFGT1qwVjqMzqz375pbrUoWk8\nh7uAPx6JAgMBAAECggEABz8N4+lN82VLMa7XA3uM+b9xPHYhhnYIjpHQ63JSTNOa\n6OYkZDwWCPiYJyi1MSCTyePDYPDbcuj3Qhnz2R2n3+t9GNC8NmBgl8uhkqc1Y+kT\nw3WvD26QcL+k4qFPOKGap0yvlQP7JVn2A+dqj7NP3TV2sw+FmeV98S7ECSxbfREX\nFx1wNZMfSTKsrz8w+BBdbzJ78QN3RtG+zSKdRDJIgrCzaUycwNNytToMsNSdYCXb\nFjyct9izdB77dkCgVcK+/vwX5POMhtJcxT4eRqpoWt0r2+wGZP0ydyeLrDe15q5e\nYvCh701jJbAiTomhl3EQNjsOEiC0FGwykjsbtH9iFQKBgQDj5O+ZQbff0Oy08hWg\n65ZFep4njHMVJtNy2PHhvvfvWCR1an1wcAdLeyevTGzB0N3344X6EKFTnDs5HOa1\nVkkehYUVzGp/utCBrYwSlA23tV22PyFPNIkL0Zhg4tIHHHsow7HS4A3J9jipT2Z4\nv1bFr25HJ4Pj6j1/4fmNPvh0hwKBgQDMSzuo1MmvMI6Z2ILdJKbqUrjqqRoDdLQI\nzztRGQ0Kv2izrL/ATmTi3AsAfnuMnHAbWsqsCPEFTWhAZoIDwaQgS/2kvE+VHuFE\nT5pVLGpsctvngLi3ewwrqlvtW9ioyV7KiM/EqmCBzwKORumvc5aeDXHax9/iCY1z\njnY8+JSobwKBgBUBsFhHJ4TZBEi1m+rGbIahA90PZDhJ6OnIN5ugd8g3Lr0oAMIR\ngYqioojVGZ1P/HXyIhJn4AcN+qOMF3QVrQ3ELv1QZ2y4sqmRbrzzqsQJUscO0Ko1\nZICTZGFh5wxCwtOCHm0avAqmyJhKul5c/MmiHx8t9ElY+SxFjzRG3q4XAoGADXkA\nrDesPVN0dAzlRHRAVb+y1jbkskml/da80LJYO9c3rnG8C5Cf8p4UU6oDt9gxRHyO\nVR4Z1wGt2GFqPZktm7unNI/+p5TrwjeFtAxD0HcarX+9rsv8l3yap2KhPTBagfzX\nxt59ktH2Fy/yBVIYIsA8O/Nmfl+m5nIEtiymkR0CgYBNm8lgWZOv8JRbXrq1Ew5z\nilDLR1Y8D3r2GATeiYtkcCL3xgXnNXxuWbPfauD5WBjA4clAF+5uOjYkpdlVMwOq\n5Z7bE0XiwTZsOqpg08XeIQ7ugVkAc7uWBV6TCboEdakfRKjXBLpeJ3upHVqfClal\n9AwQuX4Rzzs3bfbQKKqAhA==\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-omoga@sbmg-504f0.iam.gserviceaccount.com",
+  "client_id": "111099299857450714359",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-omoga%40sbmg-504f0.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
 }

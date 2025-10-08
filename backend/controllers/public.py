@@ -12,7 +12,7 @@ from models.database.complaint import (
     ComplaintComment,
     ComplaintAssignment,
 )
-from models.database.geography import Village, Block
+from models.database.geography import GramPanchayat, Block
 from services.s3_service import s3_service
 
 from models.response.complaint import MediaResponse
@@ -60,7 +60,6 @@ class ComplaintTypeResponse(BaseModel):
     id: int
     name: str
     description: Optional[str]
-
 
 
 @router.get("/complaint-types", response_model=List[ComplaintTypeResponse])
@@ -138,6 +137,7 @@ async def serve_media(file_path: str):
         headers={"Cache-Control": "public, max-age=3600"},  # Cache for 1 hour
     )
 
+
 @router.get("/{complaint_id}/details", response_model=DetailedComplaintResponse)
 async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(get_db)):
     """Get detailed complaint information with all related data (Public access)."""
@@ -148,7 +148,7 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
             selectinload(Complaint.complaint_type),
             selectinload(Complaint.status),
             selectinload(Complaint.village)
-            .selectinload(Village.block)
+            .selectinload(GramPanchayat.block)
             .selectinload(Block.district),
             selectinload(Complaint.media),
             selectinload(Complaint.comments)

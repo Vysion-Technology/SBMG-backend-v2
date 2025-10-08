@@ -25,7 +25,8 @@ dependencies = [
     "aiosqlite (>=0.21.0,<0.22.0)",
     "greenlet (>=3.2.4,<4.0.0)",
     "types-botocore (>=1.0.2,<2.0.0)",
-    "types-boto3 (>=1.40.40,<2.0.0)"
+    "types-boto3 (>=1.40.40,<2.0.0)",
+    "firebase-admin (>=7.1.0,<8.0.0)"
 ]
 
 [tool.poetry]
@@ -33,6 +34,8 @@ package-mode = false
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
+types-firebase-admin = "^0.1.1"
+pandas = "^2.3.3"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

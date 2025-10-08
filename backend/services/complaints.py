@@ -1,9 +1,13 @@
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models.database.complaint import Complaint, ComplaintType, ComplaintStatus, ComplaintComment
-from models.database.auth import User
+from models.database.complaint import (
+    Complaint,
+    ComplaintType,
+    ComplaintStatus,
+    ComplaintComment,
+)
 
 
 class ComplaintService:
@@ -53,9 +57,13 @@ class ComplaintService:
         statuses = result.scalars().all()
         return list(statuses)
 
-    async def add_complaint_comment(self, complaint_id: int, user_id: int, comment_text: str) -> ComplaintComment:
+    async def add_complaint_comment(
+        self, complaint_id: int, user_id: int, comment_text: str
+    ) -> ComplaintComment:
         """Add a comment to a complaint."""
-        comment = ComplaintComment(complaint_id=complaint_id, user_id=user_id, comment=comment_text)
+        comment = ComplaintComment(
+            complaint_id=complaint_id, user_id=user_id, comment=comment_text
+        )
 
         self.db.add(comment)
         await self.db.commit()
@@ -67,27 +75,35 @@ class ComplaintService:
     ) -> bool:
         """Mark a complaint as resolved and optionally add a resolution comment."""
         # Get or create "RESOLVED" status
-        status_result = await self.db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "RESOLVED"))
+        status_result = await self.db.execute(
+            select(ComplaintStatus).where(ComplaintStatus.name == "RESOLVED")
+        )
         resolved_status = status_result.scalar_one_or_none()
         if not resolved_status:
-            resolved_status = ComplaintStatus(name="RESOLVED", description="Complaint has been resolved")
+            resolved_status = ComplaintStatus(
+                name="RESOLVED", description="Complaint has been resolved"
+            )
             self.db.add(resolved_status)
             await self.db.commit()
             await self.db.refresh(resolved_status)
 
         # Update complaint status
-        complaint_result = await self.db.execute(select(Complaint).where(Complaint.id == complaint_id))
+        complaint_result = await self.db.execute(
+            select(Complaint).where(Complaint.id == complaint_id)
+        )
         complaint = complaint_result.scalar_one_or_none()
         if not complaint:
             return False
 
         complaint.status_id = resolved_status.id
-        complaint.updated_at = datetime.utcnow()  # type: ignore
+        complaint.updated_at = datetime.now(tz=timezone.utc)
 
         # Add resolution comment if provided
         if resolution_comment:
             comment = ComplaintComment(
-                complaint_id=complaint_id, user_id=user_id, comment=f"[RESOLVED] {resolution_comment}"
+                complaint_id=complaint_id,
+                user_id=user_id,
+                comment=f"[RESOLVED] {resolution_comment}",
             )
             self.db.add(comment)
 
