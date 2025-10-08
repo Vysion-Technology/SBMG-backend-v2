@@ -48,7 +48,7 @@ class Contractor(Base):
     contract_start_date: Mapped[Optional[DateTime]] = mapped_column(DateTime, nullable=True)  # type: ignore
     contract_end_date: Mapped[Optional[DateTime]] = mapped_column(DateTime, nullable=True)  # type: ignore
 
-    # Relationships
+        # Relationships
     agency: Mapped[Agency] = relationship("Agency", back_populates="contractors")
     village = relationship("Village")
-    attendances: Mapped[List["Attendance"]] = relationship("Attendance")
+    attendances: Mapped[List["Attendance"]] = relationship("Attendance", lazy="select")

@@ -3,16 +3,17 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 
 from database import get_db
-from models.database.auth import User
 from models.database.geography import District, Block, Village
+from models.database.contractor import Contractor
 from models.response.geography import (
     DistrictResponse,
     BlockResponse,
     VillageResponse,
 )
-from auth_utils import require_admin
+from models.response.contractor import AgencyResponse, ContractorResponse
 
 
 router = APIRouter()
@@ -152,4 +153,63 @@ async def get_district(
 
     return DistrictResponse(
         id=district.id, name=district.name, description=district.description
+    )
+
+
+@router.get("/villages/{village_id}/contractor", response_model=ContractorResponse)
+async def get_contractors_by_village(
+    village_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> ContractorResponse:
+    """Get all contractors for a specific village."""
+    # First check if village exists
+    village_result = await db.execute(select(Village).where(Village.id == village_id))
+    village = village_result.scalar_one_or_none()
+
+    if not village:
+        raise HTTPException(status_code=404, detail="Village not found")
+
+    # Get contractors for this village with related data
+    query = (
+        select(Contractor)
+        .options(
+            joinedload(Contractor.agency),
+            joinedload(Contractor.village)
+            .joinedload(Village.block)
+            .joinedload(Block.district),
+        )
+        .where(Contractor.village_id == village_id)
+    )
+
+    result = await db.execute(query)
+    contractor = result.unique().scalar_one_or_none()
+    if not contractor:
+        raise HTTPException(status_code=404, detail="No contractors found for this village")
+    agency = contractor.agency if contractor else None
+
+    return ContractorResponse(
+        id=contractor.id,
+        agency=AgencyResponse(
+            id=agency.id,
+            name=agency.name,
+            phone=agency.phone,
+            email=agency.email,
+            address=agency.address,
+        )
+        if agency
+        else None,
+        person_name=contractor.person_name,
+        person_phone=contractor.person_phone,
+        village_id=contractor.village_id,
+        village_name=contractor.village.name if contractor.village else None,
+        block_name=contractor.village.block.name
+        if contractor.village and contractor.village.block
+        else None,
+        district_name=contractor.village.block.district.name
+        if contractor.village
+        and contractor.village.block
+        and contractor.village.block.district
+        else None,
+        contract_start_date=contractor.contract_start_date,
+        contract_end_date=contractor.contract_end_date,
     )
