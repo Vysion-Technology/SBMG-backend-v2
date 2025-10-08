@@ -160,6 +160,15 @@ async def create_complaint_with_media(
     else:
         media_details = []
 
+    # Send notification to workers in the village (async, non-blocking)
+    from services.fcm_notification_service import notify_workers_on_new_complaint
+    try:
+        await notify_workers_on_new_complaint(db, complaint)
+    except Exception as e:
+        # Log error but don't fail the request
+        import logging
+        logging.error(f"Failed to send FCM notification: {e}")
+
     return ComplaintResponse(
         id=complaint.id,
         description=complaint.description,

@@ -9,6 +9,7 @@ from controllers import citizen, event, scheme
 from controllers import auth, complaints, admin, public, user_management
 from controllers import login_management, person_management
 from controllers import geography, consolidated_reporting, attendance, survey
+from controllers import fcm_device
 
 
 @asynccontextmanager
@@ -61,6 +62,7 @@ app.include_router(event.router, prefix="/api/v1/events", tags=["Events"])
 app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
 app.include_router(attendance.router, prefix="/api/v1/attendance", tags=["Attendance"])
 app.include_router(scheme.router, prefix="/api/v1/schemes", tags=["Schemes"])
+app.include_router(fcm_device.router, prefix="/api/v1/notifications", tags=["FCM Notifications"])
 # app.include_router(reporting.router, prefix="/api/v1/reports", tags=["Reporting (Legacy)"])
 
 # New consolidated reporting router with perfect RBAC and optimized queries
