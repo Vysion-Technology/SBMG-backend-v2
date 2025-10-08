@@ -333,7 +333,7 @@ async def resolve_complaint(
         db.add(verified_status)
         await db.commit()
         await db.refresh(verified_status)
-    complaint.status = verified_status.id
+    complaint.status = verified_status.id  # type: ignore
     # Add a new comment indicating resolution
     public_user = await get_public_user_by_token(db, user_token)
     if not public_user:

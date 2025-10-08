@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta, date, timezone
 import uuid
 
@@ -43,13 +43,13 @@ class AuthService:
             return None
         return user
 
-    def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    def create_access_token(self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
         """Create JWT access token."""
-        to_encode = data.copy()
+        to_encode: Dict[str, Any] = data.copy()  # type: ignore
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+            expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
         return encoded_jwt
@@ -58,8 +58,8 @@ class AuthService:
         """Get current user from JWT token."""
         try:
             payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-            username: str = payload.get("sub")
-            if username is None:
+            username: str = payload.get("sub")  # type: ignore
+            if username is None:  # type: ignore
                 return None
         except JWTError:
             return None
@@ -210,6 +210,7 @@ class AuthService:
             public_user = public_user.scalar_one_or_none()
         # Insert OTP into PublicUserOTP table
         # Delete all the existing OTPs for this user
+        assert public_user is not None, "The user could not be created due to internal errors"
         await self.db.execute(
             delete(PublicUserOTP).where(PublicUserOTP.public_user_id == public_user.id)
         )

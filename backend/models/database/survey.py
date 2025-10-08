@@ -1,6 +1,7 @@
 from datetime import datetime
 import enum
 
+from models.response.admin import Role
 from database import Base
 
 
@@ -25,7 +26,7 @@ class Form(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
-    role = relationship("Role")
+    role: Mapped["Role"] = relationship("Role")
 
 
 class Question(Base):

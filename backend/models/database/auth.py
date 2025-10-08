@@ -10,6 +10,7 @@ from sqlalchemy import (
     Date
 )
 
+from models.database.geography import District, Block, Village
 from database import Base
 
 
@@ -87,10 +88,10 @@ class PositionHolder(Base):
 
     # Relationships
     user = relationship("User", back_populates="positions")
-    role = relationship("Role")
-    village = relationship("Village")
-    block = relationship("Block")
-    district = relationship("District")
+    role: Mapped[Role] = relationship("Role")
+    village: Mapped[Village] = relationship("Village")
+    block: Mapped[Block] = relationship("Block")
+    district: Mapped[District] = relationship("District")
 
 
 class PublicUser(Base):

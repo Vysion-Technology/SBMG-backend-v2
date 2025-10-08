@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
@@ -21,3 +22,16 @@ class PositionHolder(BaseModel):
     last_name: str
     start_date: str | None
     end_date: str | None
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: Optional[str]
+    is_active: bool
+
+
+class RoleResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]

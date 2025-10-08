@@ -19,52 +19,17 @@ from models.response.geography import (
 )
 from services.auth import AuthService
 from auth_utils import require_admin, UserRole
-
+from models.database.admin import (
+    CreateUserRequest,
+    CreatePositionHolderRequest,
+    CreateRoleRequest,
+)
+from models.response.admin import UserResponse, RoleResponse
 router = APIRouter()
 
 
-# Pydantic models for requests/responses
-class CreateUserRequest(BaseModel):
-    username: str
-    email: Optional[str]
-    password: str
-    is_active: bool = True
 
 
-class CreatePositionHolderRequest(BaseModel):
-    user_id: int
-    role_name: str
-    first_name: str
-    middle_name: Optional[str] = None
-    last_name: str
-    village_id: Optional[int] = None
-    block_id: Optional[int] = None
-    district_id: Optional[int] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-
-
-class CreateRoleRequest(BaseModel):
-    name: str
-    description: Optional[str] = None
-
-
-class CreateGeographyRequest(BaseModel):
-    name: str
-    description: Optional[str] = None
-
-
-class UserResponse(BaseModel):
-    id: int
-    username: str
-    email: Optional[str]
-    is_active: bool
-
-
-class RoleResponse(BaseModel):
-    id: int
-    name: str
-    description: Optional[str]
 
 
 # User Management
