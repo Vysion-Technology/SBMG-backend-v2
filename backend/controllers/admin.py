@@ -19,7 +19,7 @@ from models.response.geography import (
 )
 from services.auth import AuthService
 from auth_utils import require_admin, UserRole
-from backend.models.requests.admin import (
+from models.requests.admin import (
     CreateUserRequest,
     CreatePositionHolderRequest,
     CreateRoleRequest,
