@@ -141,3 +141,5 @@ logs/
 
 # Project specific
 postgres_data/
+
+*.json

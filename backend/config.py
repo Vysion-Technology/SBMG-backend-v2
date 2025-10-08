@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     s3_bucket_name: str = os.getenv("S3_BUCKET_NAME") or "sbm-complaints"
     
     # FCM Settings
-    fcm_credential_path: Optional[str] = os.getenv("FCM_CREDENTIAL_PATH")
+    fcm_credential_path: Optional[str] = os.getenv("FCM_CREDENTIAL_PATH") or "firebase.json"
     
     # Application
     debug: bool = False
