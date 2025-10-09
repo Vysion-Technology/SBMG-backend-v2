@@ -9,7 +9,7 @@ from controllers import citizen, event, scheme
 from controllers import auth, complaints, admin, public, user_management
 from controllers import login_management, person_management
 from controllers import geography, consolidated_reporting, attendance, survey
-from controllers import fcm_device
+from controllers import fcm_device, inspection
 
 
 @asynccontextmanager
@@ -78,6 +78,9 @@ app.include_router(
 app.include_router(scheme.router, prefix="/api/v1/schemes", tags=["Schemes"])
 app.include_router(
     fcm_device.router, prefix="/api/v1/notifications", tags=["FCM Notifications"]
+)
+app.include_router(
+    inspection.router, prefix="/api/v1/inspections", tags=["Inspections"]
 )
 # app.include_router(reporting.router, prefix="/api/v1/reports", tags=["Reporting (Legacy)"])
 

@@ -36,7 +36,14 @@ from models.database.survey import (
     Response,
     FormAssignment,
 )
-from models.database.inspection import Inspection, InspectionImage
+from models.database.inspection import (
+    Inspection,
+    InspectionImage,
+    HouseHoldWasteCollectionAndDisposalInspectionItem,
+    RoadAndDrainCleaningInspectionItem,
+    CommunitySanitationInspectionItem,
+    OtherInspectionItem,
+)
 from models.database.notice import Notice, NoticeMedia
 
 __all__ = [
@@ -83,6 +90,10 @@ __all__ = [
     # Inspection models
     "Inspection",
     "InspectionImage",
+    "HouseHoldWasteCollectionAndDisposalInspectionItem",
+    "RoadAndDrainCleaningInspectionItem",
+    "CommunitySanitationInspectionItem",
+    "OtherInspectionItem",
     # Notice models
     "Notice",
     "NoticeMedia",
