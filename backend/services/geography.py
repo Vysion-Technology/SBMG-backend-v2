@@ -200,6 +200,21 @@ class GeographyService:
             "complaints_count": complaints_count,
         }
 
+    async def get_village(self, village_id: int) -> GramPanchayat:
+        """Get village details."""
+        village = await self.validate_village_exists(village_id)
+        return village
+
+    async def get_block(self, block_id: int) -> Block:
+        """Get block details."""
+        block = await self.validate_block_exists(block_id)
+        return block
+
+    async def get_district(self, district_id: int) -> District:
+        """Get district details."""
+        district = await self.validate_district_exists(district_id)
+        return district
+
     async def get_village_with_counts(self, village_id: int) -> Dict[str, Any]:
         """Get village with associated counts."""
         village = await self.validate_village_exists(village_id)

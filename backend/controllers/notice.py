@@ -3,6 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.services.permission import PermissionService
 from services.user import UserService
 from database import get_db
 from models.database.auth import User
@@ -35,6 +36,7 @@ async def create_notice(
     """
     notice_service = NoticeService(db)
     user_service = UserService(db)
+    perm_service = PermissionService(db)
 
     receivers = await user_service.get_users_by_geo(
         district_id=request.district_id,
@@ -46,6 +48,10 @@ async def create_notice(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No user found for the specified location",
         )
+
+    assert perm_service.valid_sender_receiver_pair(current_user, receivers[0]), (
+        "Insufficient permissions to send notice to the selected location"
+    )
 
     # Create the notice
     notices = [
