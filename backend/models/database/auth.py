@@ -63,7 +63,9 @@ class User(Base):  # type: ignore
         # i.e., only one VDO per village, one BDO per block, etc.
         # Note: This does not prevent a user from holding multiple roles or positions in different areas
         # but prevents role duplication in the same area.
-        UniqueConstraint("village_id", "block_id", "district_id", name="uix_user_geo"),
+        UniqueConstraint(
+            "village_id", "block_id", "district_id", "username", name="uix_user_geo"
+        ),
     )
 
 

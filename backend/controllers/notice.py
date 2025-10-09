@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.services.permission import PermissionService
+from services.permission import PermissionService
 from services.user import UserService
 from database import get_db
 from models.database.auth import User
