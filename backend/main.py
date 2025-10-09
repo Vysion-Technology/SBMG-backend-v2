@@ -9,7 +9,7 @@ from controllers import citizen, event, scheme
 from controllers import auth, complaints, admin, public, user_management
 from controllers import login_management, person_management
 from controllers import geography, consolidated_reporting, attendance, survey
-from controllers import fcm_device, inspection
+from controllers import fcm_device, inspection, notice
 
 
 @asynccontextmanager
@@ -82,6 +82,7 @@ app.include_router(
 app.include_router(
     inspection.router, prefix="/api/v1/inspections", tags=["Inspections"]
 )
+app.include_router(notice.router, prefix="/api/v1/notices", tags=["Notices"])
 # app.include_router(reporting.router, prefix="/api/v1/reports", tags=["Reporting (Legacy)"])
 
 # New consolidated reporting router with perfect RBAC and optimized queries
@@ -115,7 +116,7 @@ if __name__ == "__main__":
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "8000"))
 
-    uvicorn.run(
+    uvicorn.run(  # type: ignore
         "main:app",
         host=host,
         port=port,

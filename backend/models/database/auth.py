@@ -2,7 +2,7 @@ from typing import List, Optional
 from datetime import date, datetime
 
 from sqlalchemy.orm import mapped_column, relationship, Mapped
-from sqlalchemy import String, Integer, Boolean, ForeignKey, Date
+from sqlalchemy import String, Integer, Boolean, ForeignKey, Date, UniqueConstraint
 
 from models.database.geography import District, Block, GramPanchayat
 from database import Base  # type: ignore
@@ -57,6 +57,14 @@ class User(Base):  # type: ignore
     )
     complaint_assignments = relationship("ComplaintAssignment", back_populates="user")
     complaint_comments = relationship("ComplaintComment", back_populates="user")
+
+    __table_args__ = (
+        # Ensures no two position holders have the same role in the same geographical area
+        # i.e., only one VDO per village, one BDO per block, etc.
+        # Note: This does not prevent a user from holding multiple roles or positions in different areas
+        # but prevents role duplication in the same area.
+        UniqueConstraint("village_id", "block_id", "district_id", name="uix_user_geo"),
+    )
 
 
 class PositionHolder(Base):  # type: ignore
