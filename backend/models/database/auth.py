@@ -35,6 +35,21 @@ class User(Base):  # type: ignore
     email: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)  # type: ignore
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)  # type: ignore
+    village_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
+        Integer,
+        ForeignKey("villages.id"),
+        nullable=True,
+    )
+    block_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
+        Integer,
+        ForeignKey("blocks.id"),
+        nullable=True,
+    )
+    district_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
+        Integer,
+        ForeignKey("districts.id"),
+        nullable=True,
+    )
 
     # Relationships
     positions: Mapped[List["PositionHolder"]] = relationship(

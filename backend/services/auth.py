@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta, date, timezone
 import uuid
@@ -42,6 +43,9 @@ class AuthService:
     async def authenticate_user(self, username: str, password: str) -> Optional[User]:
         """Authenticate a user with username and password."""
         user = await self.get_user_by_username(username)
+        logging.info(
+            f"Attempting to authenticate user: {username} and user: {user.id} with password {password}"
+        )
         if not user:
             return None
         if not self.verify_password(password, user.hashed_password):
@@ -104,7 +108,14 @@ class AuthService:
         return user
 
     async def create_user(
-        self, username: str, email: Optional[str], password: str, is_active: bool = True
+        self,
+        username: str,
+        email: Optional[str],
+        password: str,
+        is_active: bool = True,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        village_id: Optional[int] = None,
     ) -> User:
         """Create a new user."""
         hashed_password = self.get_password_hash(password)
@@ -113,6 +124,9 @@ class AuthService:
             email=email,
             hashed_password=hashed_password,
             is_active=is_active,
+            district_id=district_id,
+            block_id=block_id,
+            village_id=village_id,
         )
         self.db.add(user)
         await self.db.commit()
