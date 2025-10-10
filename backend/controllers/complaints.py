@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from services.complaints import ComplaintService
+from services.complaints import ComplaintOrderByEnum, ComplaintService
 from utils import get_user_jurisdiction_filter
 from database import get_db
 from models.database.auth import User
@@ -25,7 +25,7 @@ from auth_utils import (
 )
 from services.s3_service import s3_service
 
-from models.response.complaint import ComplaintTypeCountResponse, GeoTypeEnum, MediaResponse
+from models.response.complaint import ComplaintTypeCountResponse, DetailedComplaintResponse, GeoTypeEnum, MediaResponse
 from models.requests.complaint import (
     UpdateComplaintStatusRequest,
     ResolveComplaintRequest,
@@ -472,4 +472,28 @@ async def get_complaint_counts_by_status(
         block_id=block_id,
         gp_id=gp_id,
         level=level,
+    )
+
+
+@router.get("")
+async def get_all_complaints(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+    district_id: Optional[int] = None,
+    block_id: Optional[int] = None,
+    gp_id: Optional[int] = None,
+    complaint_status_id: Optional[int] = None,
+    skip: Optional[int] = None,
+    limit: Optional[int] = 500,
+    order_by: ComplaintOrderByEnum = ComplaintOrderByEnum.NEWEST,
+) -> List[DetailedComplaintResponse]:
+    """Get all complaints (Staff only)."""
+    return await ComplaintService(db).get_all_complaints(
+        district_id=district_id,
+        block_id=block_id,
+        village_id=gp_id,
+        complaint_status_id=complaint_status_id,
+        skip=skip,
+        limit=limit,
+        order_by=order_by,
     )

@@ -60,12 +60,14 @@ class DetailedComplaintResponse(BaseModel):
     id: int
     description: str
     mobile_number: Optional[str] = None
-    complaint_type_name: str
-    status_name: str
-    village_name: str
-    block_name: str
-    district_name: str
+    complaint_type_id: int
     created_at: datetime
+    status_id: int
+    complaint_type: Optional[str] = None
+    status: Optional[str] = None
+    village_name: Optional[str] = None
+    block_name: Optional[str] = None
+    district_name: Optional[str] = None
     updated_at: Optional[datetime]
     media_urls: List[str] = []
     media: List[MediaResponse] = []

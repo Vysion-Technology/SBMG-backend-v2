@@ -1,7 +1,9 @@
+from enum import Enum
 from typing import Optional
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 from models.database.complaint import (
     Complaint,
     ComplaintType,
@@ -10,10 +12,22 @@ from models.database.complaint import (
 )
 from models.database.geography import Block, District, GramPanchayat as Village
 from models.response.complaint import (
+    ComplaintCommentResponse,
+    DetailedComplaintResponse,
     GeoGraphyComplaintCountByStatusResponse,
     GeoTypeEnum,
     ComplaintTypeCountResponse,
+    MediaResponse,
 )
+
+
+class ComplaintOrderByEnum(str, Enum):
+    NEWEST = "newest"
+    OLDEST = "oldest"
+    STATUS = "status"
+    DISTRICT = "district"
+    BLOCK = "block"
+    GP = "gp"
 
 
 class ComplaintService:
@@ -34,16 +48,43 @@ class ComplaintService:
         district_id: Optional[int] = None,
         block_id: Optional[int] = None,
         village_id: Optional[int] = None,
+        complaint_status_id: Optional[int] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = 500,
-    ) -> list[Complaint]:
-        query = select(Complaint)
+        order_by: ComplaintOrderByEnum = ComplaintOrderByEnum.NEWEST,
+    ) -> list[DetailedComplaintResponse]:
+        query = select(Complaint).options(
+            selectinload(Complaint.status),
+            selectinload(Complaint.village),
+            selectinload(Complaint.block),
+            selectinload(Complaint.district),
+            selectinload(Complaint.complaint_type),
+            # selectinload(Complaint.media_urls),
+            selectinload(Complaint.media),
+            selectinload(Complaint.comments),
+        )
         if district_id is not None:
             query = query.where(Complaint.district_id == district_id)  # type: ignore
         if block_id is not None:
             query = query.where(Complaint.block_id == block_id)  # type: ignore
         if village_id is not None:
             query = query.where(Complaint.village_id == village_id)  # type: ignore
+        if complaint_status_id is not None:
+            query = query.where(Complaint.status_id == complaint_status_id)  # type: ignore
+
+        if order_by == ComplaintOrderByEnum.NEWEST:
+            query = query.order_by(Complaint.created_at.desc())
+        elif order_by == ComplaintOrderByEnum.OLDEST:
+            query = query.order_by(Complaint.created_at.asc())
+        elif order_by == ComplaintOrderByEnum.STATUS:
+            query = query.order_by(Complaint.status_id)
+        elif order_by == ComplaintOrderByEnum.DISTRICT:
+            query = query.order_by(Complaint.district_id)
+        elif order_by == ComplaintOrderByEnum.BLOCK:
+            query = query.order_by(Complaint.block_id)
+        elif order_by == ComplaintOrderByEnum.GP:
+            query = query.order_by(Complaint.village_id)
+
         if skip is not None:
             query = query.offset(skip)
         if limit is not None:
@@ -51,7 +92,44 @@ class ComplaintService:
 
         result = await self.db.execute(query)
         complaints = result.scalars().all()
-        return list(complaints)
+        return [
+            DetailedComplaintResponse(
+                id=complaint.id,
+                description=complaint.description,
+                complaint_type_id=complaint.complaint_type_id,
+                mobile_number=complaint.mobile_number,
+                created_at=complaint.created_at,
+                updated_at=complaint.updated_at,
+                status_id=complaint.status_id,
+                complaint_type=complaint.complaint_type.name if complaint.complaint_type else None,
+                status=complaint.status.name if complaint.status else None,
+                village_name=complaint.village.name if complaint.village else None,
+                block_name=complaint.block.name if complaint.block else None,
+                district_name=complaint.district.name if complaint.district else None,
+                media_urls=[media.media_url for media in complaint.media] if complaint.media else [],
+                media=[
+                    MediaResponse(
+                        id=media.id,
+                        media_url=media.media_url,
+                        uploaded_at=media.uploaded_at,
+                    )
+                    for media in complaint.media
+                ]
+                if complaint.media
+                else [],
+                comments=[
+                    ComplaintCommentResponse(
+                        id=comment.id,
+                        complaint_id=comment.complaint_id,
+                        comment=comment.comment,
+                        commented_at=comment.commented_at,
+                        user_name=comment.user.name if comment.user else "",
+                    )
+                    for comment in complaint.comments
+                ],
+            )
+            for complaint in complaints
+        ]
 
     async def get_complaint_types(self) -> list[ComplaintType]:
         result = await self.db.execute(select(ComplaintType))
