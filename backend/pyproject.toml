@@ -26,7 +26,8 @@ dependencies = [
     "greenlet (>=3.2.4,<4.0.0)",
     "types-botocore (>=1.0.2,<2.0.0)",
     "types-boto3 (>=1.40.40,<2.0.0)",
-    "firebase-admin (>=7.1.0,<8.0.0)"
+    "firebase-admin (>=7.1.0,<8.0.0)",
+    "aiocache (>=0.12.3,<0.13.0)"
 ]
 
 [tool.poetry]
