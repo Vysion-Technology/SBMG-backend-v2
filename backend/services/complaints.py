@@ -49,6 +49,8 @@ class ComplaintService:
         block_id: Optional[int] = None,
         village_id: Optional[int] = None,
         complaint_status_id: Optional[int] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = 500,
         order_by: ComplaintOrderByEnum = ComplaintOrderByEnum.NEWEST,
@@ -71,6 +73,10 @@ class ComplaintService:
             query = query.where(Complaint.village_id == village_id)  # type: ignore
         if complaint_status_id is not None:
             query = query.where(Complaint.status_id == complaint_status_id)  # type: ignore
+        if start_date is not None:
+            query = query.where(Complaint.created_at >= start_date)
+        if end_date is not None:
+            query = query.where(Complaint.created_at <= end_date)
 
         if order_by == ComplaintOrderByEnum.NEWEST:
             query = query.order_by(Complaint.created_at.desc())

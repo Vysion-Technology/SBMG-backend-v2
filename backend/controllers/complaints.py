@@ -1,6 +1,6 @@
 import logging
 from typing import Any, Dict, List, Optional
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -484,6 +484,8 @@ async def get_all_complaints(
     gp_id: Optional[int] = None,
     complaint_status_id: Optional[int] = None,
     skip: Optional[int] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
     limit: Optional[int] = 500,
     order_by: ComplaintOrderByEnum = ComplaintOrderByEnum.NEWEST,
 ) -> List[DetailedComplaintResponse]:
@@ -493,6 +495,12 @@ async def get_all_complaints(
         block_id=block_id,
         village_id=gp_id,
         complaint_status_id=complaint_status_id,
+        start_date=datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0, tzinfo=timezone.utc)
+        if start_date
+        else None,
+        end_date=datetime(end_date.year, end_date.month, end_date.day, 23, 59, 59, tzinfo=timezone.utc)
+        if end_date
+        else None,
         skip=skip,
         limit=limit,
         order_by=order_by,
