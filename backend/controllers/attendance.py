@@ -8,12 +8,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from models.database.auth import User
 from models.database.contractor import Contractor
+from models.database.geography import GramPanchayat
 from models.requests.attendance import AttendanceLogRequest, AttendanceEndRequest, AttendanceFilterRequest
-from models.response.attendance import AttendanceResponse, AttendanceListResponse, AttendanceStatsResponse
+from models.response.attendance import (
+    AttendanceResponse,
+    AttendanceListResponse,
+    AttendanceStatsResponse,
+    DayAttendanceSummaryResponse,
+    AttendanceAnalyticsResponse,
+)
 from models.internal import GeoTypeEnum
 from services.auth import AuthService
 from services.attendance import AttendanceService
 from exceptions.attendance import NoContractorForVillageError, AttemptingToLogAttendanceForAnotherUserError
+from services.geography import GeographyService
 
 # Security
 security = HTTPBearer()
@@ -75,24 +83,21 @@ async def log_attendance(
         if not full_attendance:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attendance record not found")
 
+        geo_service = GeographyService(db)
+
+        assert current_user.village_id is not None, "User must have a village_id"
+
+        village: GramPanchayat = await geo_service.get_village(current_user.village_id)
+
         return AttendanceResponse(
             id=full_attendance.id,
             contractor_id=full_attendance.contractor_id,
-            contractor_name=full_attendance.contractor.person_name if full_attendance.contractor else None,
-            village_id=full_attendance.contractor.village_id,
-            village_name=full_attendance.contractor.village.name
-            if full_attendance.contractor and full_attendance.contractor.village
-            else None,
-            block_name=full_attendance.contractor.village.block.name
-            if full_attendance.contractor
-            and full_attendance.contractor.village
-            and full_attendance.contractor.village.block
-            else None,
-            district_name=full_attendance.contractor.village.block.district.name
-            if full_attendance.contractor
-            and full_attendance.contractor.village
-            and full_attendance.contractor.village.block
-            and full_attendance.contractor.village.block.district
+            contractor_name=contractor.person_name if full_attendance.contractor else None,
+            village_id=village.id,
+            village_name=village.name,
+            block_name=village.block.name if full_attendance.contractor and village and village.block else None,
+            district_name=village.block.district.name
+            if full_attendance.contractor and village and village.block and village.block.district
             else None,
             date=full_attendance.date,
             start_time=full_attendance.start_time,
@@ -139,18 +144,20 @@ async def end_attendance(
         if not full_attendance:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attendance record not found")
 
+        geo_service: GeographyService = GeographyService(db)
+
+        assert contractor.village_id is not None, "Contractor must have a village_id"
+
+        village: GramPanchayat = await geo_service.get_village(contractor.village_id)
+
         return AttendanceResponse(
             id=full_attendance.id,
             contractor_id=full_attendance.contractor_id,
-            contractor_name=full_attendance.contractor.person_name if full_attendance.contractor else None,
-            village_id=full_attendance.village_id,
-            village_name=full_attendance.village.name if full_attendance.village else None,
-            block_name=full_attendance.village.block.name
-            if full_attendance.village and full_attendance.village.block
-            else None,
-            district_name=full_attendance.village.district.name
-            if full_attendance.village and full_attendance.village.district
-            else None,
+            contractor_name=contractor.person_name if full_attendance.contractor else None,
+            village_id=village.id,
+            village_name=village.name,
+            block_name=village.block.name if village.block else None,
+            district_name=village.block.district.name if village.block and village.block.district else None,
             date=full_attendance.date,
             start_time=full_attendance.start_time,
             start_lat=full_attendance.start_lat or "",
@@ -287,6 +294,121 @@ async def get_attendance_stats(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while fetching attendance statistics",
         ) from e
+
+
+@router.get("/analytics")
+async def get_attendance_analytics(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    district_id: Optional[int] = None,
+    block_id: Optional[int] = None,
+    gp_id: Optional[int] = None,
+    level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    skip: Optional[int] = None,
+    limit: Optional[int] = 500,
+) -> AttendanceAnalyticsResponse:
+    """
+    Get attendance analytics aggregated by geographic level.
+    Returns attendance statistics for each geographic unit at the specified level.
+    """
+    try:
+        print("Hi" * 100)
+        # Permission checks based on user's jurisdiction
+        if current_user.block_id is not None and level == GeoTypeEnum.DISTRICT:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access district-level analytics",
+            )
+        if current_user.village_id is not None and level in [GeoTypeEnum.DISTRICT, GeoTypeEnum.BLOCK]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access district or block-level analytics",
+            )
+
+        # Validate query parameters
+        if (district_id and block_id) or (district_id and gp_id) or (block_id and gp_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Provide only one of district_id, block_id, or gp_id",
+            )
+        if level == GeoTypeEnum.DISTRICT and (district_id or block_id or gp_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Do not provide specific IDs when level is DISTRICT",
+            )
+        if level == GeoTypeEnum.BLOCK and (block_id or gp_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Do not provide block_id or gp_id when level is BLOCK",
+            )
+
+        attendance_service = AttendanceService(db)
+        return await attendance_service.attendance_analytics(
+            district_id=district_id,
+            block_id=block_id,
+            gp_id=gp_id,
+            level=level,
+            start_date=start_date,
+            end_date=end_date,
+            skip=skip,
+            limit=limit,
+        )
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching attendance analytics",
+        ) from e
+
+
+@router.get("/day-summary")
+async def get_attendance_for_day(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    attendance_date: date = date.today(),
+    district_id: Optional[int] = None,
+    block_id: Optional[int] = None,
+    gp_id: Optional[int] = None,
+    level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
+    skip: Optional[int] = None,
+    limit: Optional[int] = 500,
+) -> DayAttendanceSummaryResponse:
+    """
+    Get detailed attendance summary for a specific day.
+    Returns all attendance records for the specified date and geographic level.
+    """
+    # Permission checks based on user's jurisdiction
+    if current_user.block_id is not None and level == GeoTypeEnum.DISTRICT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access district-level data",
+        )
+    if current_user.village_id is not None and level in [GeoTypeEnum.DISTRICT, GeoTypeEnum.BLOCK]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access district or block-level data",
+        )
+
+    # Validate query parameters
+    if (district_id and block_id) or (district_id and gp_id) or (block_id and gp_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide only one of district_id, block_id, or gp_id",
+        )
+
+    attendance_service = AttendanceService(db)
+    return await attendance_service.get_day_attendance(
+        attendance_date=attendance_date,
+        district_id=district_id,
+        block_id=block_id,
+        gp_id=gp_id,
+        level=level,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.get("/{attendance_id}", response_model=AttendanceResponse)

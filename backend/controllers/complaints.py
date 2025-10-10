@@ -25,7 +25,9 @@ from auth_utils import (
 )
 from services.s3_service import s3_service
 
-from models.response.complaint import ComplaintTypeCountResponse, DetailedComplaintResponse, GeoTypeEnum, MediaResponse
+from models.response.complaint import DetailedComplaintResponse, MediaResponse
+from models.response.analytics import ComplaintAnalyticsResponse
+from models.internal import GeoTypeEnum
 from models.requests.complaint import (
     UpdateComplaintStatusRequest,
     ResolveComplaintRequest,
@@ -443,7 +445,7 @@ async def get_complaint_counts_by_status(
     level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-) -> ComplaintTypeCountResponse:
+) -> ComplaintAnalyticsResponse:
     if current_user.block_id is not None and level == GeoTypeEnum.DISTRICT:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -1,9 +1,6 @@
-from enum import Enum
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
-
-from models.internal import GeoTypeEnum
 
 
 class MediaResponse(BaseModel):
@@ -83,23 +80,3 @@ class CitizenStatusUpdateResponse(BaseModel):
     complaint_id: int
     new_status: str
     updated_at: datetime
-
-
-class ComplaintStatusEnum(str, Enum):  # noqa: F821
-    OPEN = "OPEN"
-    VERIFIED = "VERIFIED"
-    RESOLVED = "RESOLVED"
-    CLOSED = "CLOSED"
-
-
-class GeoGraphyComplaintCountByStatusResponse(BaseModel):
-    geography_id: int
-    geography_name: str
-    status_id: int
-    status: ComplaintStatusEnum
-    count: int
-
-
-class ComplaintTypeCountResponse(BaseModel):
-    geo_type: GeoTypeEnum
-    response: List[GeoGraphyComplaintCountByStatusResponse]

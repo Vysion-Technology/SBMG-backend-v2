@@ -14,11 +14,13 @@ from models.database.geography import Block, District, GramPanchayat as Village
 from models.response.complaint import (
     ComplaintCommentResponse,
     DetailedComplaintResponse,
-    GeoGraphyComplaintCountByStatusResponse,
-    GeoTypeEnum,
-    ComplaintTypeCountResponse,
     MediaResponse,
 )
+from models.response.analytics import (
+    GeographyComplaintCountByStatusResponse,
+    ComplaintAnalyticsResponse,
+)
+from models.internal import GeoTypeEnum
 
 
 class ComplaintOrderByEnum(str, Enum):
@@ -198,7 +200,7 @@ class ComplaintService:
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
         level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
-    ) -> ComplaintTypeCountResponse:
+    ) -> ComplaintAnalyticsResponse:
         """Count complaints grouped by their status."""
         if level == GeoTypeEnum.DISTRICT:
             query = (
@@ -256,10 +258,10 @@ class ComplaintService:
             query = query.where(Complaint.created_at <= end_date)
         result = await self.db.execute(query)
         counts = result.fetchall()
-        return ComplaintTypeCountResponse(
+        return ComplaintAnalyticsResponse(
             geo_type=level,
             response=[
-                GeoGraphyComplaintCountByStatusResponse(
+                GeographyComplaintCountByStatusResponse(
                     geography_id=row[0],
                     geography_name=row[1],
                     status_id=row[2],

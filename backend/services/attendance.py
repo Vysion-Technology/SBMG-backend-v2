@@ -2,13 +2,14 @@ from typing import List, Optional, Dict, Any
 
 from datetime import date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, text
+from sqlalchemy import insert, select, func, and_, text
 from sqlalchemy.orm import joinedload
 
 from models.database.attendance import DailyAttendance
 from models.database.contractor import Contractor
-from models.database.geography import GramPanchayat, Block
+from models.database.geography import GramPanchayat, Block, District
 from models.database.auth import User
+from models.internal import GeoTypeEnum
 from models.requests.attendance import (
     AttendanceLogRequest,
     AttendanceEndRequest,
@@ -19,6 +20,10 @@ from models.response.attendance import (
     AttendanceListResponse,
     AttendanceSummaryResponse,
     AttendanceStatsResponse,
+    AttendanceAnalyticsResponse,
+    GeographyAttendanceCountResponse,
+    DayAttendanceSummaryResponse,
+    DaySummaryAttendanceResponse,
 )
 from services.geography import GeographyService
 
@@ -45,21 +50,34 @@ class AttendanceService:
             raise ValueError("Attendance already logged for this date")
 
         # Create new attendance record
-        attendance = DailyAttendance(
-            contractor_id=contractor_id,
-            village_id=request.village_id,
-            date=date_field,
-            start_time=datetime.now(),
-            start_lat=request.start_lat,
-            start_long=request.start_long,
-            remarks=request.remarks,
-        )
+        attendance = (
+            await self.db.execute(
+                insert(DailyAttendance)
+                .values(
+                    contractor_id=contractor_id,
+                    date=date_field,
+                    start_time=datetime.now(),
+                    start_lat=request.start_lat,
+                    start_long=request.start_long,
+                    remarks=request.remarks,
+                )
+                .returning(DailyAttendance)
+            )
+        ).scalar_one()
 
-        self.db.add(attendance)
         await self.db.commit()
         await self.db.refresh(attendance)
 
-        return attendance
+        return (
+            await self.db.execute(
+                select(DailyAttendance)
+                .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
+                .join(GramPanchayat, Contractor.village_id == GramPanchayat.id)
+                .join(Block, GramPanchayat.block_id == Block.id)
+                .options(joinedload(DailyAttendance.contractor))
+                .where(DailyAttendance.id == attendance.id)
+            )
+        ).scalar_one()
 
     async def end_attendance(self, contractor_id: int, request: AttendanceEndRequest) -> DailyAttendance:
         """End worker attendance (end of work day)"""
@@ -365,3 +383,279 @@ class AttendanceService:
                     jurisdiction["village_ids"].append(position.village_id)  # type: ignore
 
         return jurisdiction
+
+    async def attendance_analytics(
+        self,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
+        level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
+        skip: Optional[int] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        limit: Optional[int] = 500,
+    ) -> AttendanceAnalyticsResponse:
+        """
+        Get attendance analytics aggregated by geographic level.
+        Returns attendance statistics for each geographic unit at the specified level.
+        """
+        from sqlalchemy import case
+        from models.database.geography import District
+
+        # Default to current month if no dates provided
+        if not start_date:
+            start_date = date.today().replace(day=1)
+        if not end_date:
+            end_date = date.today()
+
+        # Build query based on geographic level
+        if level == GeoTypeEnum.DISTRICT:
+            # Get all contractors grouped by district
+            query = (
+                select(
+                    District.id,
+                    District.name,
+                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                    func.count(
+                        func.distinct(
+                            case((
+                                and_(
+                                    DailyAttendance.date >= start_date,
+                                    DailyAttendance.date <= end_date,
+                                ),
+                                DailyAttendance.contractor_id,
+                            ))
+                        )
+                    ).label("present_count"),
+                    DailyAttendance.date,
+                )
+                .select_from(District)
+                .join(Block, Block.district_id == District.id)
+                .join(GramPanchayat, GramPanchayat.block_id == Block.id)
+                .join(Contractor, Contractor.village_id == GramPanchayat.id)
+                .outerjoin(
+                    DailyAttendance,
+                    and_(
+                        DailyAttendance.contractor_id == Contractor.id,
+                        DailyAttendance.date >= start_date,
+                        DailyAttendance.date <= end_date,
+                    ),
+                )
+                .group_by(District.id, District.name, DailyAttendance.date)
+            )
+
+            if district_id:
+                query = query.where(District.id == district_id)
+
+        elif level == GeoTypeEnum.BLOCK:
+            # Get all contractors grouped by block
+            query = (
+                select(
+                    Block.id,
+                    Block.name,
+                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                    func.count(
+                        func.distinct(
+                            case((
+                                and_(
+                                    DailyAttendance.date >= start_date,
+                                    DailyAttendance.date <= end_date,
+                                ),
+                                DailyAttendance.contractor_id,
+                            ))
+                        )
+                    ).label("present_count"),
+                    DailyAttendance.date,
+                )
+                .select_from(Block)
+                .join(GramPanchayat, GramPanchayat.block_id == Block.id)
+                .join(Contractor, Contractor.village_id == GramPanchayat.id)
+                .outerjoin(
+                    DailyAttendance,
+                    and_(
+                        DailyAttendance.contractor_id == Contractor.id,
+                        DailyAttendance.date >= start_date,
+                        DailyAttendance.date <= end_date,
+                    ),
+                )
+                .group_by(Block.id, Block.name, DailyAttendance.date)
+            )
+
+            if district_id:
+                query = query.where(Block.district_id == district_id)
+            if block_id:
+                query = query.where(Block.id == block_id)
+
+        else:  # GP level
+            # Get all contractors grouped by village/GP
+            query = (
+                select(
+                    GramPanchayat.id,
+                    GramPanchayat.name,
+                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                    func.count(
+                        func.distinct(
+                            case((
+                                and_(
+                                    DailyAttendance.date >= start_date,
+                                    DailyAttendance.date <= end_date,
+                                ),
+                                DailyAttendance.contractor_id,
+                            ))
+                        )
+                    ).label("present_count"),
+                    DailyAttendance.date,
+                )
+                .select_from(GramPanchayat)
+                .join(Contractor, Contractor.village_id == GramPanchayat.id)
+                .outerjoin(
+                    DailyAttendance,
+                    and_(
+                        DailyAttendance.contractor_id == Contractor.id,
+                        DailyAttendance.date >= start_date,
+                        DailyAttendance.date <= end_date,
+                    ),
+                )
+                .group_by(GramPanchayat.id, GramPanchayat.name, DailyAttendance.date)
+            )
+
+            if block_id:
+                query = query.where(GramPanchayat.block_id == block_id)
+            if gp_id:
+                query = query.where(GramPanchayat.id == gp_id)
+
+        result = await self.db.execute(query)
+        rows = result.fetchall()
+
+        response_items: list[GeographyAttendanceCountResponse] = []
+        for row in rows:
+            geography_id = row[0]
+            geography_name = row[1]
+            total_contractors = row[2]
+            present_count = row[3]
+            __date = row[4]
+            absent_count = total_contractors - present_count
+            attendance_rate = (present_count / total_contractors * 100) if total_contractors > 0 else 0.0
+
+            response_items.append(
+                GeographyAttendanceCountResponse(
+                    date=__date,
+                    geography_id=geography_id,
+                    geography_name=geography_name,
+                    total_contractors=total_contractors,
+                    present_count=present_count,
+                    absent_count=absent_count,
+                    attendance_rate=attendance_rate,
+                )
+            )
+
+        return AttendanceAnalyticsResponse(
+            geo_type=level,
+            response=response_items,
+        )
+
+    async def get_day_attendance(
+        self,
+        attendance_date: date,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
+        level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
+        skip: Optional[int] = None,
+        limit: Optional[int] = 500,
+    ) -> DayAttendanceSummaryResponse:
+        """
+        Get attendance records for a specific day and geographical level.
+        Returns detailed attendance information for all contractors in the specified geography.
+        """
+        # Build base query
+        query = (
+            select(DailyAttendance, Contractor, GramPanchayat, Block, District)
+            .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
+            .join(GramPanchayat, Contractor.village_id == GramPanchayat.id)
+            .join(Block, GramPanchayat.block_id == Block.id)
+            .join(District, Block.district_id == District.id)
+            .where(DailyAttendance.date == attendance_date)
+        )
+
+        # Apply geographic filters
+        if district_id:
+            query = query.where(District.id == district_id)
+        if block_id:
+            query = query.where(Block.id == block_id)
+        if gp_id:
+            query = query.where(GramPanchayat.id == gp_id)
+
+        # Get total count for attendance rate calculation
+        count_query = (
+            select(func.count(func.distinct(Contractor.id)))
+            .select_from(Contractor)
+            .join(GramPanchayat, Contractor.village_id == GramPanchayat.id)
+            .join(Block, GramPanchayat.block_id == Block.id)
+            .join(District, Block.district_id == District.id)
+        )
+
+        if district_id:
+            count_query = count_query.where(District.id == district_id)
+        if block_id:
+            count_query = count_query.where(Block.id == block_id)
+        if gp_id:
+            count_query = count_query.where(GramPanchayat.id == gp_id)
+
+        total_result = await self.db.execute(count_query)
+        total_contractors = total_result.scalar() or 0
+
+        # Apply pagination
+        if skip:
+            query = query.offset(skip)
+        if limit:
+            query = query.limit(limit)
+
+        result = await self.db.execute(query)
+        rows = result.fetchall()
+
+        attendances: list[DaySummaryAttendanceResponse] = []
+        for row in rows:
+            attendance = row[0]
+            contractor = row[1]
+            village = row[2]
+            block = row[3]
+            district = row[4]
+
+            # Calculate duration if end_time exists
+            duration_hours = None
+            if attendance.start_time and attendance.end_time:
+                duration = attendance.end_time - attendance.start_time
+                duration_hours = duration.total_seconds() / 3600
+
+            attendances.append(
+                DaySummaryAttendanceResponse(
+                    contractor_id=contractor.id,
+                    contractor_name=contractor.person_name,
+                    village_id=village.id,
+                    village_name=village.name,
+                    block_id=block.id,
+                    block_name=block.name,
+                    district_id=district.id,
+                    district_name=district.name,
+                    date=attendance.date,
+                    start_time=attendance.start_time,
+                    end_time=attendance.end_time,
+                    duration_hours=duration_hours,
+                    remarks=attendance.remarks,
+                )
+            )
+
+        present_count = len(attendances)
+        absent_count = total_contractors - present_count
+        attendance_rate = (present_count / total_contractors * 100) if total_contractors > 0 else 0.0
+
+        return DayAttendanceSummaryResponse(
+            date=attendance_date,
+            geo_type=level,
+            total_contractors=total_contractors,
+            present_count=present_count,
+            absent_count=absent_count,
+            attendance_rate=attendance_rate,
+            attendances=attendances,
+        )
