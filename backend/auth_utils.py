@@ -12,6 +12,7 @@ class UserRole(str, Enum):
 
     SUPERADMIN = "SUPERADMIN"
     ADMIN = "ADMIN"
+    SMD = "SMD"  # State Mission Director
     CEO = "CEO"  # District Collector
     BDO = "BDO"  # Block Development Officer
     VDO = "VDO"  # Village Development Officer
