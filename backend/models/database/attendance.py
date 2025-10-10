@@ -1,6 +1,6 @@
 from typing import Optional
 from database import Base  # type: ignore
-from datetime import datetime
+from datetime import datetime, date as dt_date
 
 from models.database.contractor import Contractor
 
@@ -19,10 +19,8 @@ class DailyAttendance(Base):  # type: ignore
     contractor_id: Mapped[int] = mapped_column(  # type: ignore
         Integer, ForeignKey("contractors.id"), nullable=False
     )
-    date: Mapped[Date] = mapped_column(Date, nullable=False)  # type: ignore
-    start_time: Mapped[Optional[datetime]] = mapped_column(
-        DateTime, nullable=False, default=datetime.now
-    )  # type: ignore
+    date: Mapped[dt_date] = mapped_column(Date, nullable=False, default=dt_date.today)  # type: ignore
+    start_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=False, default=datetime.now)  # type: ignore
     start_lat: Mapped[Optional[str]] = mapped_column(String, nullable=False)  # type: ignore
     start_long: Mapped[Optional[str]] = mapped_column(String, nullable=False)  # type: ignore
     end_lat: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore

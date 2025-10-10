@@ -4,6 +4,8 @@ from typing import Optional, List, TYPE_CHECKING
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy import String, Integer, ForeignKey, DateTime
 
+from models.database.geography import GramPanchayat
+
 if TYPE_CHECKING:
     from models.database.attendance import DailyAttendance
 
@@ -40,14 +42,10 @@ class Contractor(Base):  # type: ignore
     village_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
         Integer, ForeignKey("villages.id"), nullable=True
     )
-    contract_start_date: Mapped[Optional[DateTime]] = mapped_column(
-        DateTime, nullable=True
-    )  # type: ignore
-    contract_end_date: Mapped[Optional[DateTime]] = mapped_column(
-        DateTime, nullable=True
-    )  # type: ignore
+    contract_start_date: Mapped[Optional[DateTime]] = mapped_column(DateTime, nullable=True)  # type: ignore
+    contract_end_date: Mapped[Optional[DateTime]] = mapped_column(DateTime, nullable=True)  # type: ignore
 
     # Relationships
     agency: Mapped[Agency] = relationship("Agency", back_populates="contractors")
-    village = relationship("GramPanchayat")
+    village: Mapped[GramPanchayat] = relationship("GramPanchayat")
     attendances: Mapped[List["DailyAttendance"]] = relationship("DailyAttendance")

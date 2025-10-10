@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 from sqlalchemy.orm import mapped_column, relationship, Mapped
 from sqlalchemy import (
@@ -8,7 +8,8 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-from database import Base  # type: ignore
+from database import Base
+from models.database.complaint import Complaint  # type: ignore
 
 
 class District(Base):  # type: ignore
@@ -43,14 +44,12 @@ class Block(Base):  # type: ignore
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
 
     # Unique constraint on name within district
-    __table_args__ = (
-        UniqueConstraint("name", "district_id", name="uq_block_name_district"),
-    )
+    __table_args__ = (UniqueConstraint("name", "district_id", name="uq_block_name_district"),)
 
     # Relationships
-    district = relationship("District", back_populates="blocks")
-    villages = relationship("GramPanchayat", back_populates="block")
-    complaints = relationship("Complaint", back_populates="block")
+    district: Mapped[District] = relationship("District", back_populates="blocks")
+    villages: Mapped[List["GramPanchayat"]] = relationship("GramPanchayat", back_populates="block")
+    complaints: Mapped[List[Complaint]] = relationship("Complaint", back_populates="block")
 
 
 class GramPanchayat(Base):  # type: ignore
@@ -62,20 +61,14 @@ class GramPanchayat(Base):  # type: ignore
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
     name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
-    block_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("blocks.id"), nullable=False
-    )  # type: ignore
-    district_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("districts.id"), nullable=False
-    )  # type: ignore
+    block_id: Mapped[int] = mapped_column(Integer, ForeignKey("blocks.id"), nullable=False)  # type: ignore
+    district_id: Mapped[int] = mapped_column(Integer, ForeignKey("districts.id"), nullable=False)  # type: ignore
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
 
     # Unique constraint on name within block
-    __table_args__ = (
-        UniqueConstraint("name", "block_id", name="uq_village_name_block"),
-    )
+    __table_args__ = (UniqueConstraint("name", "block_id", name="uq_village_name_block"),)
 
     # Relationships
-    block = relationship("Block", back_populates="villages")
-    district = relationship("District", back_populates="villages")
-    complaints = relationship("Complaint", back_populates="village")
+    block: Mapped[Block] = relationship("Block", back_populates="villages")
+    district: Mapped[District] = relationship("District", back_populates="villages")
+    complaints: Mapped[List[Complaint]] = relationship("Complaint", back_populates="village")
