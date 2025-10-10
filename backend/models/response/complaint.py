@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
 
+from models.internal import GeoTypeEnum
+
 
 class MediaResponse(BaseModel):
     id: int
@@ -88,12 +90,6 @@ class ComplaintStatusEnum(str, Enum):  # noqa: F821
     VERIFIED = "VERIFIED"
     RESOLVED = "RESOLVED"
     CLOSED = "CLOSED"
-
-
-class GeoTypeEnum(str, Enum):
-    DISTRICT = "DISTRICT"
-    BLOCK = "BLOCK"
-    GP = "VILLAGE"
 
 
 class GeoGraphyComplaintCountByStatusResponse(BaseModel):

@@ -10,6 +10,7 @@ from models.database.auth import User
 from models.database.contractor import Contractor
 from models.requests.attendance import AttendanceLogRequest, AttendanceEndRequest, AttendanceFilterRequest
 from models.response.attendance import AttendanceResponse, AttendanceListResponse, AttendanceStatsResponse
+from models.internal import GeoTypeEnum
 from services.auth import AuthService
 from services.attendance import AttendanceService
 from exceptions.attendance import NoContractorForVillageError, AttemptingToLogAttendanceForAnotherUserError
