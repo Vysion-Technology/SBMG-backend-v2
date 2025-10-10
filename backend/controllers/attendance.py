@@ -12,6 +12,7 @@ from models.requests.attendance import AttendanceLogRequest, AttendanceEndReques
 from models.response.attendance import AttendanceResponse, AttendanceListResponse, AttendanceStatsResponse
 from services.auth import AuthService
 from services.attendance import AttendanceService
+from exceptions.attendance import NoContractorForVillageError, AttemptingToLogAttendanceForAnotherUserError
 
 # Security
 security = HTTPBearer()
@@ -30,24 +31,6 @@ async def get_current_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication token")
     return user
-
-
-class AttendanceServiceError(Exception):
-    """Custom exception for attendance service errors."""
-
-    pass
-
-
-class AttemptingToLogAttendanceForAnotherUserError(AttendanceServiceError):
-    """Custom exception for attempting to log attendance for another user."""
-
-    pass
-
-
-class NoContractorForVillageError(AttendanceServiceError):
-    """Custom exception for no contractor found for the village."""
-
-    pass
 
 
 async def get_contractor_from_user(user: User, db: AsyncSession) -> Contractor:
