@@ -3,7 +3,7 @@ Inspection Controller
 Handles API endpoints for inspection management
 """
 
-from typing import Optional
+from typing import List, Optional
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +20,6 @@ from models.response.inspection import (
     RoadAndDrainCleaningResponse,
     CommunitySanitationResponse,
     OtherInspectionItemsResponse,
-    InspectionImageResponse,
 )
 from services.inspection import InspectionService
 from auth_utils import require_staff_role, UserRole
@@ -38,9 +37,7 @@ from models.database.geography import GramPanchayat
 router = APIRouter()
 
 
-@router.post(
-    "/", response_model=InspectionResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/", response_model=InspectionResponse, status_code=status.HTTP_201_CREATED)
 async def create_inspection(
     request: CreateInspectionRequest,
     db: AsyncSession = Depends(get_db),
@@ -88,9 +85,7 @@ async def get_inspection(
     inspection_detail = await get_inspection_detail(inspection_id, db)
 
     if not inspection_detail:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found")
 
     # Check if user has access to this inspection
     service = InspectionService(db)
@@ -99,20 +94,14 @@ async def get_inspection(
     user_roles = [pos.role.name for pos in current_user.positions if pos.role]
     if UserRole.ADMIN not in user_roles and UserRole.SUPERADMIN not in user_roles:
         # Verify the inspection is within jurisdiction
-        result = await db.execute(
-            select(Inspection).where(Inspection.id == inspection_id)
-        )
+        result = await db.execute(select(Inspection).where(Inspection.id == inspection_id))
         inspection = result.scalar_one_or_none()
 
         if not inspection:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found")
 
         # Check jurisdiction
-        can_access = await service.can_inspect_village(
-            current_user, inspection.village_id
-        )
+        can_access = await service.can_inspect_village(current_user, inspection.village_id)
         if not can_access:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -170,7 +159,7 @@ async def get_inspections(
     )
 
     # Load position holder details for each inspection
-    inspection_items = []
+    inspection_items: List[InspectionListItemResponse] = []
     for inspection in inspections:
         # Get position holder
         pos_result = await db.execute(
@@ -183,22 +172,16 @@ async def get_inspections(
         )
         position = pos_result.scalar_one_or_none()
 
-        officer_name = (
-            f"{position.first_name} {position.last_name}" if position else "Unknown"
-        )
+        officer_name = f"{position.first_name} {position.last_name}" if position else "Unknown"
         officer_role = position.role.name if position and position.role else "Unknown"
 
         inspection_items.append(
             InspectionListItemResponse(
                 id=inspection.id,
                 village_id=inspection.village_id,
-                village_name=inspection.village.name
-                if inspection.village
-                else "Unknown",
+                village_name=inspection.village.name if inspection.village else "Unknown",
                 block_name=inspection.block.name if inspection.block else "Unknown",
-                district_name=inspection.district.name
-                if inspection.district
-                else "Unknown",
+                district_name=inspection.district.name if inspection.district else "Unknown",
                 date=inspection.date,
                 officer_name=officer_name,
                 officer_role=officer_role,
@@ -232,9 +215,7 @@ async def get_inspection_stats(
 
 
 # Helper function to get inspection details
-async def get_inspection_detail(
-    inspection_id: int, db: AsyncSession
-) -> Optional[InspectionResponse]:
+async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optional[InspectionResponse]:
     """Get full inspection details with all related data."""
     # Get inspection with relationships
     result = await db.execute(
@@ -262,9 +243,7 @@ async def get_inspection_detail(
     )
     position = pos_result.scalar_one_or_none()
 
-    officer_name = (
-        f"{position.first_name} {position.last_name}" if position else "Unknown"
-    )
+    officer_name = f"{position.first_name} {position.last_name}" if position else "Unknown"
     officer_role = position.role.name if position and position.role else "Unknown"
 
     # Get household waste items
@@ -277,24 +256,18 @@ async def get_inspection_detail(
 
     # Get road and drain items
     road_result = await db.execute(
-        select(RoadAndDrainCleaningInspectionItem).where(
-            RoadAndDrainCleaningInspectionItem.id == inspection.id
-        )
+        select(RoadAndDrainCleaningInspectionItem).where(RoadAndDrainCleaningInspectionItem.id == inspection.id)
     )
     road = road_result.scalar_one_or_none()
 
     # Get community sanitation items
     community_result = await db.execute(
-        select(CommunitySanitationInspectionItem).where(
-            CommunitySanitationInspectionItem.id == inspection.id
-        )
+        select(CommunitySanitationInspectionItem).where(CommunitySanitationInspectionItem.id == inspection.id)
     )
     community = community_result.scalar_one_or_none()
 
     # Get other items
-    other_result = await db.execute(
-        select(OtherInspectionItem).where(OtherInspectionItem.id == inspection.id)
-    )
+    other_result = await db.execute(select(OtherInspectionItem).where(OtherInspectionItem.id == inspection.id))
     other = other_result.scalar_one_or_none()
 
     # Build response
@@ -313,16 +286,8 @@ async def get_inspection_detail(
         village_name=inspection.village.name if inspection.village else "Unknown",
         block_name=inspection.block.name if inspection.block else "Unknown",
         district_name=inspection.district.name if inspection.district else "Unknown",
-        household_waste=HouseHoldWasteCollectionResponse.model_validate(household)
-        if household
-        else None,
-        road_and_drain=RoadAndDrainCleaningResponse.model_validate(road)
-        if road
-        else None,
-        community_sanitation=CommunitySanitationResponse.model_validate(community)
-        if community
-        else None,
-        other_items=OtherInspectionItemsResponse.model_validate(other)
-        if other
-        else None,
+        household_waste=HouseHoldWasteCollectionResponse.model_validate(household) if household else None,
+        road_and_drain=RoadAndDrainCleaningResponse.model_validate(road) if road else None,
+        community_sanitation=CommunitySanitationResponse.model_validate(community) if community else None,
+        other_items=OtherInspectionItemsResponse.model_validate(other) if other else None,
     )
