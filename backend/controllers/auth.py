@@ -57,9 +57,7 @@ class AuthController:
     async def get_user_by_username(self, username: str) -> Optional[User]:
         return await self.auth_service.get_user_by_username(username)
 
-    async def get_all_users(
-        self, username_like: str = "", skip: int = 0, limit: int = 100
-    ) -> list[User]:
+    async def get_all_users(self, username_like: str = "", skip: int = 0, limit: int = 100) -> list[User]:
         return await self.auth_service.get_all_users(username_like, skip, limit)
 
     async def get_users_by_geography(
@@ -70,9 +68,7 @@ class AuthController:
         skip: int = 0,
         limit: int = 100,
     ) -> List[PositionHolder]:
-        return await self.auth_service.get_users_by_geography(
-            district_id, block_id, village_id, skip, limit
-        )
+        return await self.auth_service.get_users_by_geography(district_id, block_id, village_id, skip, limit)
 
 
 # Dependency to get current user from token
@@ -114,9 +110,7 @@ async def login(login_request: LoginRequest, db: AsyncSession = Depends(get_db))
     """Authenticate user and return JWT token."""
     auth_service = AuthService(db)
 
-    user = await auth_service.authenticate_user(
-        login_request.username, login_request.password
-    )
+    user = await auth_service.authenticate_user(login_request.username, login_request.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -125,9 +119,7 @@ async def login(login_request: LoginRequest, db: AsyncSession = Depends(get_db))
         )
 
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
-    access_token = auth_service.create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
+    access_token = auth_service.create_access_token(data={"sub": user.username}, expires_delta=access_token_expires)
 
     return TokenResponse(access_token=access_token, token_type="bearer")
 
@@ -136,30 +128,30 @@ async def login(login_request: LoginRequest, db: AsyncSession = Depends(get_db))
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
     """Get current user information."""
     # Extract roles from positions
-    roles = [pos.role.name for pos in current_user.positions if pos.role]
+    # roles = [pos.role.name for pos in current_user.positions if pos.role]
 
     # Create position info
-    positions: List[PositionInfo] = []
-    for pos in current_user.positions:
-        position_info = PositionInfo(
-            role=pos.role.name if pos.role else "",
-            role_id=pos.role.id if pos.role else 0,
-            first_name=pos.first_name,
-            middle_name=pos.middle_name,
-            last_name=pos.last_name,
-            district_name=pos.district.name if pos.district else None,
-            block_name=pos.block.name if pos.block else None,
-            village_name=pos.village.name if pos.village else None,
-        )
-        positions.append(position_info)
+    # positions: List[PositionInfo] = []
+    # for pos in current_user.positions:
+    #     position_info = PositionInfo(
+    #         role=pos.role.name if pos.role else "",
+    #         role_id=pos.role.id if pos.role else 0,
+    #         first_name=pos.first_name,
+    #         middle_name=pos.middle_name,
+    #         last_name=pos.last_name,
+    #         district_name=pos.district.name if pos.district else None,
+    #         block_name=pos.block.name if pos.block else None,
+    #         village_name=pos.village.name if pos.village else None,
+    #     )
+    #     positions.append(position_info)
 
     return UserResponse(
         id=current_user.id,
         username=current_user.username,
         email=current_user.email,
         is_active=current_user.is_active,
-        roles=roles,
-        positions=positions,
+        roles=[],
+        positions=[],
     )
 
 
