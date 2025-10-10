@@ -114,7 +114,7 @@ async def login(login_request: LoginRequest, db: AsyncSession = Depends(get_db))
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="User does not exist",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
