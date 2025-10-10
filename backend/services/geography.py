@@ -1,6 +1,7 @@
 from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, insert
+from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 
 from models.database.geography import District, Block, GramPanchayat
@@ -20,17 +21,13 @@ class GeographyService:
 
     async def validate_district_exists(self, district_id: int) -> District:
         """Validate that a district exists."""
-        result = await self.db.execute(
-            select(District).where(District.id == district_id)
-        )
+        result = await self.db.execute(select(District).where(District.id == district_id))
         district = result.scalar_one_or_none()
         if not district:
             raise HTTPException(status_code=400, detail="District not found")
         return district
 
-    async def validate_block_exists(
-        self, block_id: int, district_id: Optional[int] = None
-    ) -> Block:
+    async def validate_block_exists(self, block_id: int, district_id: Optional[int] = None) -> Block:
         """Validate that a block exists and optionally belongs to a district."""
         query = select(Block).where(Block.id == block_id)
         if district_id:
@@ -54,16 +51,21 @@ class GeographyService:
     async def validate_village_exists(self, village_id: int) -> GramPanchayat:
         """Validate that a village exists."""
         result = await self.db.execute(
-            select(GramPanchayat).where(GramPanchayat.id == village_id)
+            select(GramPanchayat)
+            .join(Block, GramPanchayat.block_id == Block.id)
+            .join(District, Block.district_id == District.id)
+            .options(
+                selectinload(GramPanchayat.block),
+                selectinload(GramPanchayat.district),
+            )
+            .where(GramPanchayat.id == village_id)
         )
         village = result.scalar_one_or_none()
         if not village:
             raise HTTPException(status_code=400, detail="Village not found")
         return village
 
-    async def check_district_name_unique(
-        self, name: str, exclude_id: Optional[int] = None
-    ) -> bool:
+    async def check_district_name_unique(self, name: str, exclude_id: Optional[int] = None) -> bool:
         """Check if district name is unique."""
         query = select(District).where(District.name == name)
         if exclude_id:
@@ -73,13 +75,9 @@ class GeographyService:
         existing = result.scalar_one_or_none()
         return existing is None
 
-    async def check_block_name_unique(
-        self, name: str, district_id: int, exclude_id: Optional[int] = None
-    ) -> bool:
+    async def check_block_name_unique(self, name: str, district_id: int, exclude_id: Optional[int] = None) -> bool:
         """Check if block name is unique within a district."""
-        query = select(Block).where(
-            Block.name == name, Block.district_id == district_id
-        )
+        query = select(Block).where(Block.name == name, Block.district_id == district_id)
         if exclude_id:
             query = query.where(Block.id != exclude_id)
 
@@ -87,13 +85,9 @@ class GeographyService:
         existing = result.scalar_one_or_none()
         return existing is None
 
-    async def check_village_name_unique(
-        self, name: str, block_id: int, exclude_id: Optional[int] = None
-    ) -> bool:
+    async def check_village_name_unique(self, name: str, block_id: int, exclude_id: Optional[int] = None) -> bool:
         """Check if village name is unique within a block."""
-        query = select(GramPanchayat).where(
-            GramPanchayat.name == name, GramPanchayat.block_id == block_id
-        )
+        query = select(GramPanchayat).where(GramPanchayat.name == name, GramPanchayat.block_id == block_id)
         if exclude_id:
             query = query.where(GramPanchayat.id != exclude_id)
 
@@ -104,9 +98,7 @@ class GeographyService:
     async def can_delete_district(self, district_id: int) -> bool:
         """Check if a district can be safely deleted."""
         # Check for blocks
-        blocks_result = await self.db.execute(
-            select(func.count(Block.id)).where(Block.district_id == district_id)
-        )
+        blocks_result = await self.db.execute(select(func.count(Block.id)).where(Block.district_id == district_id))
         blocks_count = blocks_result.scalar() or 0
 
         # Check for complaints
@@ -121,9 +113,7 @@ class GeographyService:
         """Check if a block can be safely deleted."""
         # Check for villages
         villages_result = await self.db.execute(
-            select(func.count(GramPanchayat.id)).where(
-                GramPanchayat.block_id == block_id
-            )
+            select(func.count(GramPanchayat.id)).where(GramPanchayat.block_id == block_id)
         )
         villages_count = villages_result.scalar() or 0
 
@@ -150,16 +140,12 @@ class GeographyService:
         district = await self.validate_district_exists(district_id)
 
         # Count blocks
-        blocks_result = await self.db.execute(
-            select(func.count(Block.id)).where(Block.district_id == district_id)
-        )
+        blocks_result = await self.db.execute(select(func.count(Block.id)).where(Block.district_id == district_id))
         blocks_count = blocks_result.scalar() or 0
 
         # Count villages
         villages_result = await self.db.execute(
-            select(func.count(GramPanchayat.id)).where(
-                GramPanchayat.district_id == district_id
-            )
+            select(func.count(GramPanchayat.id)).where(GramPanchayat.district_id == district_id)
         )
         villages_count = villages_result.scalar() or 0
 
@@ -182,9 +168,7 @@ class GeographyService:
 
         # Count villages
         villages_result = await self.db.execute(
-            select(func.count(GramPanchayat.id)).where(
-                GramPanchayat.block_id == block_id
-            )
+            select(func.count(GramPanchayat.id)).where(GramPanchayat.block_id == block_id)
         )
         villages_count = villages_result.scalar() or 0
 
@@ -265,9 +249,7 @@ class GeographyService:
             raise HTTPException(status_code=400, detail="District name must be unique")
 
         new_district = await self.db.execute(
-            insert(District)
-            .values(name=district_req.name, description=district_req.description)
-            .returning(District)
+            insert(District).values(name=district_req.name, description=district_req.description).returning(District)
         )
         await self.db.commit()
         return new_district.scalar_one()
@@ -277,9 +259,7 @@ class GeographyService:
         # Validate district exists
         await self.validate_district_exists(block_req.district_id)
 
-        is_unique = await self.check_block_name_unique(
-            block_req.name, block_req.district_id
-        )
+        is_unique = await self.check_block_name_unique(block_req.name, block_req.district_id)
         if not is_unique:
             raise HTTPException(
                 status_code=400,
@@ -303,9 +283,7 @@ class GeographyService:
         # Validate block and district exist
         await self.validate_block_exists(village_req.block_id, village_req.district_id)
 
-        is_unique = await self.check_village_name_unique(
-            village_req.name, village_req.block_id
-        )
+        is_unique = await self.check_village_name_unique(village_req.name, village_req.block_id)
         if not is_unique:
             raise HTTPException(
                 status_code=400,
