@@ -1,4 +1,3 @@
-import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta, date, timezone
 import uuid
@@ -43,9 +42,6 @@ class AuthService:
     async def authenticate_user(self, username: str, password: str) -> Optional[User]:
         """Authenticate a user with username and password."""
         user = await self.get_user_by_username(username)
-        logging.info(
-            f"Attempting to authenticate user: {username} and user: {user.id} with password {password}"
-        )
         if not user:
             return None
         if not self.verify_password(password, user.hashed_password):
@@ -54,29 +50,21 @@ class AuthService:
             return None
         return user
 
-    def create_access_token(
-        self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None
-    ) -> str:
+    def create_access_token(self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
         """Create JWT access token."""
         to_encode: Dict[str, Any] = data.copy()  # type: ignore
         if expires_delta:
             expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.now(timezone.utc) + timedelta(
-                minutes=settings.access_token_expire_minutes
-            )
+            expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
         to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(
-            to_encode, settings.secret_key, algorithm=settings.algorithm
-        )
+        encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
         return encoded_jwt
 
     async def get_current_user_from_token(self, token: str) -> Optional[User]:
         """Get current user from JWT token."""
         try:
-            payload = jwt.decode(
-                token, settings.secret_key, algorithms=[settings.algorithm]
-            )
+            payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
             username: str = payload.get("sub")  # type: ignore
             if username is None:  # type: ignore
                 return None
@@ -133,13 +121,9 @@ class AuthService:
         await self.db.refresh(user)
         return user
 
-    async def get_all_users(
-        self, username_like: str = "", skip: int = 0, limit: int = 100
-    ) -> List[User]:
+    async def get_all_users(self, username_like: str = "", skip: int = 0, limit: int = 100) -> List[User]:
         """Get all users with optional username filtering."""
-        query = select(User).options(
-            selectinload(User.positions).selectinload(PositionHolder.role)
-        )
+        query = select(User).options(selectinload(User.positions).selectinload(PositionHolder.role))
 
         if username_like:
             query = query.where(User.username.ilike(f"%{username_like}%"))
@@ -231,27 +215,17 @@ class AuthService:
         otp = random.randint(100000, 999999)
         print(f"Sending OTP {otp} to phone number {mobile_number}")
         # Check if phone number exists in PublicUser table
-        public_user = await self.db.execute(
-            select(PublicUser).where(PublicUser.mobile_number == mobile_number)
-        )
+        public_user = await self.db.execute(select(PublicUser).where(PublicUser.mobile_number == mobile_number))
         public_user = public_user.scalar_one_or_none()
         if not public_user:
-            await self.db.execute(
-                insert(PublicUser).values(mobile_number=mobile_number)
-            )
+            await self.db.execute(insert(PublicUser).values(mobile_number=mobile_number))
             await self.db.commit()
-            public_user = await self.db.execute(
-                select(PublicUser).where(PublicUser.mobile_number == mobile_number)
-            )
+            public_user = await self.db.execute(select(PublicUser).where(PublicUser.mobile_number == mobile_number))
             public_user = public_user.scalar_one_or_none()
         # Insert OTP into PublicUserOTP table
         # Delete all the existing OTPs for this user
-        assert public_user is not None, (
-            "The user could not be created due to internal errors"
-        )
-        await self.db.execute(
-            delete(PublicUserOTP).where(PublicUserOTP.public_user_id == public_user.id)
-        )
+        assert public_user is not None, "The user could not be created due to internal errors"
+        await self.db.execute(delete(PublicUserOTP).where(PublicUserOTP.public_user_id == public_user.id))
         await self.db.execute(
             insert(PublicUserOTP).values(
                 id=public_user.id,
@@ -271,23 +245,17 @@ class AuthService:
         # Placeholder implementation - in real scenario, verify against stored OTP
         print(f"Verifying OTP {otp} for phone number {mobile_number}")
         # Get the OTP from the database and compare
-        public_user = await self.db.execute(
-            select(PublicUser).where(PublicUser.mobile_number == mobile_number)
-        )
+        public_user = await self.db.execute(select(PublicUser).where(PublicUser.mobile_number == mobile_number))
         public_user = public_user.scalar_one_or_none()
         if not public_user:
             raise ValueError("Phone number not registered")
-        stored_otp = await self.db.execute(
-            select(PublicUserOTP).where(PublicUserOTP.public_user_id == public_user.id)
-        )
+        stored_otp = await self.db.execute(select(PublicUserOTP).where(PublicUserOTP.public_user_id == public_user.id))
         stored_otp = stored_otp.scalar_one_or_none()
         if not stored_otp or stored_otp.otp != otp:
             raise ValueError("You had not requested an OTP earlier or OTP is incorrect")
         # Check if a token already exists for this public user
         existing_token = await self.db.execute(
-            select(PublicUserToken).where(
-                PublicUserToken.public_user_id == public_user.id
-            )
+            select(PublicUserToken).where(PublicUserToken.public_user_id == public_user.id)
         )
         existing_token = existing_token.scalar_one_or_none()
         if existing_token:
@@ -305,11 +273,7 @@ class AuthService:
             .returning(PublicUserToken.token)
         )
         # Change the OTP to verified
-        await self.db.execute(
-            update(PublicUserOTP)
-            .where(PublicUserOTP.id == stored_otp.id)
-            .values(is_verified=True)
-        )
+        await self.db.execute(update(PublicUserOTP).where(PublicUserOTP.id == stored_otp.id).values(is_verified=True))
         token = token.scalar_one()
         await self.db.commit()
         return token
