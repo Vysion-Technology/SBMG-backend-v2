@@ -442,20 +442,20 @@ async def get_complaint_counts_by_status(
     gp_id: Optional[int] = None,
     level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
 ) -> ComplaintTypeCountResponse:
-    if level == GeoTypeEnum.DISTRICT and district_id:
+    if (district_id and block_id) or (district_id and gp_id) or (block_id and gp_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide only one of district_id, block_id, or gp_id",
+        )
+    if level == GeoTypeEnum.DISTRICT and (district_id or block_id or gp_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="district_id should not be provided when level is DISTRICT",
         )
-    if level == GeoTypeEnum.BLOCK and block_id:
+    if level == GeoTypeEnum.BLOCK and (block_id or gp_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="district_id is required when level is BLOCK",
-        )
-    if level == GeoTypeEnum.GP and gp_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="gp_id is required when level is GP",
+            detail="block_id and gp_id should not be provided when level is BLOCK",
         )
     return await ComplaintService(db).count_complaints_by_status(
         district_id=district_id,
