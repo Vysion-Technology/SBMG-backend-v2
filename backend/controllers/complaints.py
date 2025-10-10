@@ -436,12 +436,22 @@ async def verify_complaint(
 @router.get("/analytics")
 async def get_complaint_counts_by_status(
     db: AsyncSession = Depends(get_db),
-    # current_user: User = Depends(require_staff_role),
+    current_user: User = Depends(require_staff_role),
     district_id: Optional[int] = None,
     block_id: Optional[int] = None,
     gp_id: Optional[int] = None,
     level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
 ) -> ComplaintTypeCountResponse:
+    if current_user.block_id is not None and level == GeoTypeEnum.DISTRICT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access district-level analytics",
+        )
+    if current_user.village_id is not None and level in [GeoTypeEnum.DISTRICT, GeoTypeEnum.BLOCK]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access district or block-level analytics",
+        )
     if (district_id and block_id) or (district_id and gp_id) or (block_id and gp_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
