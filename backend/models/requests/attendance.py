@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 class AttendanceLogRequest(BaseModel):
     """Request model for logging attendance (start of work)"""
-    date: date
+
     start_lat: str
     start_long: str
     village_id: Optional[int] = None
@@ -14,6 +14,7 @@ class AttendanceLogRequest(BaseModel):
 
 class AttendanceEndRequest(BaseModel):
     """Request model for ending attendance (end of work)"""
+
     attendance_id: int
     end_lat: str
     end_long: str
@@ -22,6 +23,7 @@ class AttendanceEndRequest(BaseModel):
 
 class AttendanceFilterRequest(BaseModel):
     """Request model for filtering attendance records"""
+
     contractor_id: Optional[int] = None
     village_id: Optional[int] = None
     block_id: Optional[int] = None
