@@ -441,6 +441,8 @@ async def get_complaint_counts_by_status(
     block_id: Optional[int] = None,
     gp_id: Optional[int] = None,
     level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
 ) -> ComplaintTypeCountResponse:
     if current_user.block_id is not None and level == GeoTypeEnum.DISTRICT:
         raise HTTPException(
@@ -471,6 +473,12 @@ async def get_complaint_counts_by_status(
         district_id=district_id,
         block_id=block_id,
         gp_id=gp_id,
+        start_date=datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0, tzinfo=timezone.utc)
+        if start_date
+        else None,
+        end_date=datetime(end_date.year, end_date.month, end_date.day, 23, 59, 59, tzinfo=timezone.utc)
+        if end_date
+        else None,
         level=level,
     )
 

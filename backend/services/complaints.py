@@ -195,6 +195,8 @@ class ComplaintService:
         district_id: Optional[int] = None,
         block_id: Optional[int] = None,
         gp_id: Optional[int] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
         level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
     ) -> ComplaintTypeCountResponse:
         """Count complaints grouped by their status."""
@@ -248,6 +250,10 @@ class ComplaintService:
             query = query.where(Complaint.block_id == block_id)  # type: ignore
         if gp_id is not None:
             query = query.where(Complaint.village_id == gp_id)  # type: ignore
+        if start_date is not None:
+            query = query.where(Complaint.created_at >= start_date)
+        if end_date is not None:
+            query = query.where(Complaint.created_at <= end_date)
         result = await self.db.execute(query)
         counts = result.fetchall()
         return ComplaintTypeCountResponse(
