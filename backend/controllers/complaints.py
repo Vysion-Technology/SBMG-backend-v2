@@ -4,15 +4,15 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import and_, select
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from services.complaints import ComplaintService
 from utils import get_user_jurisdiction_filter
 from database import get_db
 from models.database.auth import User
 from models.database.complaint import (
     Complaint,
-    ComplaintAssignment,
     ComplaintStatus,
     ComplaintMedia,
     ComplaintComment,
@@ -25,7 +25,7 @@ from auth_utils import (
 )
 from services.s3_service import s3_service
 
-from models.response.complaint import MediaResponse
+from models.response.complaint import ComplaintTypeCountResponse, GeoTypeEnum, MediaResponse
 from models.requests.complaint import (
     UpdateComplaintStatusRequest,
     ResolveComplaintRequest,
@@ -42,9 +42,6 @@ router = APIRouter()
 # Pydantic models
 
 
-# Public endpoints (no authentication required)
-
-
 @router.patch("/{complaint_id}/status")
 async def update_complaint_status(
     complaint_id: int,
@@ -58,22 +55,14 @@ async def update_complaint_status(
     complaint = result.scalar_one_or_none()
 
     if not complaint:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
 
     # Get status
-    status_result = await db.execute(
-        select(ComplaintStatus).where(
-            ComplaintStatus.name == status_request.status_name
-        )
-    )
+    status_result = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == status_request.status_name))
     new_status = status_result.scalar_one_or_none()
 
     if not new_status:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Status not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Status not found")
 
     # Update complaint
     complaint.status_id = new_status.id
@@ -83,6 +72,7 @@ async def update_complaint_status(
 
     # Send notification to the user who created the complaint
     from services.fcm_notification_service import notify_user_on_complaint_status_update
+
     try:
         await notify_user_on_complaint_status_update(db, complaint, new_status.name)
     except Exception as e:
@@ -104,9 +94,7 @@ async def get_complaint_status(complaint_id: int, db: AsyncSession = Depends(get
     complaint_data = result.first()
 
     if not complaint_data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
 
     complaint, complaint_status = complaint_data
 
@@ -138,9 +126,7 @@ async def add_complaint_comment(
 ):
     """Add a comment to a complaint (Workers and VDOs only, within their village)."""
     # Check if user is a Worker or VDO
-    if not PermissionChecker.user_has_role(
-        current_user, [UserRole.WORKER.value, UserRole.VDO.value]
-    ):
+    if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER.value, UserRole.VDO.value]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only Workers and VDOs can comment on complaints",
@@ -148,16 +134,12 @@ async def add_complaint_comment(
 
     # Get complaint with village information
     result = await db.execute(
-        select(Complaint)
-        .options(selectinload(Complaint.village))
-        .where(Complaint.id == complaint_id)
+        select(Complaint).options(selectinload(Complaint.village)).where(Complaint.id == complaint_id)
     )
     complaint = result.scalar_one_or_none()
 
     if not complaint:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
 
     # Check village access
     if not await check_complaint_village_access(current_user, complaint):
@@ -167,9 +149,7 @@ async def add_complaint_comment(
         )
 
     # Create comment
-    comment = ComplaintComment(
-        complaint_id=complaint_id, user_id=current_user.id, comment=comment_text
-    )
+    comment = ComplaintComment(complaint_id=complaint_id, user_id=current_user.id, comment=comment_text)
 
     db.add(comment)
     await db.commit()
@@ -226,9 +206,7 @@ async def upload_complaint_media(
 ):
     """Upload media to a complaint (Workers and VDOs only, within their village)."""
     # Check if user is a Worker or VDO
-    if not PermissionChecker.user_has_role(
-        current_user, [UserRole.WORKER.value, UserRole.VDO.value]
-    ):
+    if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER.value, UserRole.VDO.value]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only Workers and VDOs can upload media to complaints",
@@ -236,16 +214,12 @@ async def upload_complaint_media(
 
     # Get complaint with village information
     result = await db.execute(
-        select(Complaint)
-        .options(selectinload(Complaint.village))
-        .where(Complaint.id == complaint_id)
+        select(Complaint).options(selectinload(Complaint.village)).where(Complaint.id == complaint_id)
     )
     complaint = result.scalar_one_or_none()
 
     if not complaint:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
 
     # Check village access
     if not await check_complaint_village_access(current_user, complaint):
@@ -276,9 +250,7 @@ async def upload_complaint_media(
         await db.commit()
         await db.refresh(media)
 
-        return MediaResponse(
-            id=media.id, media_url=media.media_url, uploaded_at=media.uploaded_at
-        )
+        return MediaResponse(id=media.id, media_url=media.media_url, uploaded_at=media.uploaded_at)
     except HTTPException as e:
         raise e
     except Exception as e:
@@ -305,16 +277,12 @@ async def resolve_complaint(
 
     # Get complaint with village information
     result = await db.execute(
-        select(Complaint)
-        .options(selectinload(Complaint.village))
-        .where(Complaint.id == complaint_id)
+        select(Complaint).options(selectinload(Complaint.village)).where(Complaint.id == complaint_id)
     )
     complaint = result.scalar_one_or_none()
 
     if not complaint:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
 
     # Check village access
     if not await check_complaint_village_access(current_user, complaint):
@@ -324,14 +292,10 @@ async def resolve_complaint(
         )
 
     # Get or create "RESOLVED" status
-    status_result = await db.execute(
-        select(ComplaintStatus).where(ComplaintStatus.name == "RESOLVED")
-    )
+    status_result = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "RESOLVED"))
     resolved_status = status_result.scalar_one_or_none()
     if not resolved_status:
-        resolved_status = ComplaintStatus(
-            name="RESOLVED", description="Complaint has been resolved"
-        )
+        resolved_status = ComplaintStatus(name="RESOLVED", description="Complaint has been resolved")
         db.add(resolved_status)
         await db.commit()
         await db.refresh(resolved_status)
@@ -351,9 +315,7 @@ async def resolve_complaint(
 
     await db.commit()
 
-    return ResolveComplaintResponse(
-        message="Complaint resolved successfully", complaint_id=complaint_id
-    )
+    return ResolveComplaintResponse(message="Complaint resolved successfully", complaint_id=complaint_id)
 
 
 # VDO-specific endpoints
@@ -374,13 +336,9 @@ async def verify_complaint(
         )
 
     # Get complaint with jurisdiction check
-    jurisdiction_filter: Any = get_user_jurisdiction_filter(current_user) # type: ignore
+    jurisdiction_filter: Any = get_user_jurisdiction_filter(current_user)  # type: ignore
 
-    query = (
-        select(Complaint)
-        .options(selectinload(Complaint.status))
-        .where(Complaint.id == complaint_id)
-    )
+    query = select(Complaint).options(selectinload(Complaint.status)).where(Complaint.id == complaint_id)
 
     if jurisdiction_filter is not None:
         query = query.where(jurisdiction_filter)  # type: ignore
@@ -411,7 +369,7 @@ async def verify_complaint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="VERIFIED status not found in system",
         )
-    
+
     if comment:
         # Add verification comment
         verification_comment = ComplaintComment(
@@ -422,11 +380,11 @@ async def verify_complaint(
                 datetime.now(timezone.utc).year,
                 datetime.now(timezone.utc).month,
                 datetime.now(timezone.utc).day,
-            )
+            ),
         )
         db.add(verification_comment)
         await db.commit()
-    
+
     error_msg = ""
     if media and media.filename:
         try:
@@ -447,11 +405,14 @@ async def verify_complaint(
 
             # Create media record
             verification_media = ComplaintMedia(
-                complaint_id=complaint_id, media_url=media_url, uploaded_by_user_id=current_user.id, uploaded_at=datetime(
+                complaint_id=complaint_id,
+                media_url=media_url,
+                uploaded_by_user_id=current_user.id,
+                uploaded_at=datetime(
                     datetime.now(timezone.utc).year,
                     datetime.now(timezone.utc).month,
                     datetime.now(timezone.utc).day,
-                )
+                ),
             )
             db.add(verification_media)
             await db.commit()
@@ -470,3 +431,35 @@ async def verify_complaint(
     await db.commit()
 
     return {"message": "Complaint verified successfully", "complaint_id": complaint_id, "error": error_msg.strip()}
+
+
+@router.get("/analytics")
+async def get_complaint_counts_by_status(
+    db: AsyncSession = Depends(get_db),
+    # current_user: User = Depends(require_staff_role),
+    district_id: Optional[int] = None,
+    block_id: Optional[int] = None,
+    gp_id: Optional[int] = None,
+    level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
+) -> ComplaintTypeCountResponse:
+    if level == GeoTypeEnum.DISTRICT and district_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="district_id should not be provided when level is DISTRICT",
+        )
+    if level == GeoTypeEnum.BLOCK and block_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="district_id is required when level is BLOCK",
+        )
+    if level == GeoTypeEnum.GP and gp_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="gp_id is required when level is GP",
+        )
+    return await ComplaintService(db).count_complaints_by_status(
+        district_id=district_id,
+        block_id=block_id,
+        gp_id=gp_id,
+        level=level,
+    )
