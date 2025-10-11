@@ -39,16 +39,19 @@ class User(Base):  # type: ignore
         Integer,
         ForeignKey("villages.id"),
         nullable=True,
+        index=True,
     )
     block_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
         Integer,
         ForeignKey("blocks.id"),
         nullable=True,
+        index=True,
     )
     district_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
         Integer,
         ForeignKey("districts.id"),
         nullable=True,
+        index=True,
     )
 
     # Relationships

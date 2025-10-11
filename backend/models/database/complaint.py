@@ -51,7 +51,7 @@ class ComplaintTypeGeographicalIneligibility(Base):  # type: ignore
         Integer, ForeignKey("blocks.id"), nullable=True
     )  # type: ignore
     village_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("villages.id"), nullable=True
+        Integer, ForeignKey("villages.id"), nullable=True, index=True
     )  # type: ignore
     active: Mapped[Optional[bool]] = mapped_column(
         Boolean, default=True, server_default="true", nullable=False
@@ -93,7 +93,7 @@ class Complaint(Base):  # type: ignore
         Integer, ForeignKey("complaint_types.id"), nullable=False
     )
     village_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("villages.id"), nullable=False
+        Integer, ForeignKey("villages.id"), nullable=False, index=True
     )  # type: ignore
     block_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("blocks.id"), nullable=False

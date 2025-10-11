@@ -40,7 +40,7 @@ class Contractor(Base):  # type: ignore
     person_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     person_phone: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     village_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("villages.id")
+        Integer, ForeignKey("villages.id"), index=True, nullable=True
     )
     contract_start_date: Mapped[Optional[DateTime]] = mapped_column(
         DateTime(timezone=True), nullable=True

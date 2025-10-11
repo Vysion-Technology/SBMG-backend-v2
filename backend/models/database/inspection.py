@@ -24,7 +24,7 @@ class Inspection(Base):  # type: ignore
     )
 
     village_id: Mapped[int] = mapped_column(  # type: ignore
-        Integer, ForeignKey("villages.id"), nullable=False
+        Integer, ForeignKey("villages.id"), nullable=False, index=True
     )
     date: Mapped[dt_date] = mapped_column(Date, nullable=False, default=dt_date.today)  # type: ignore
     start_time: Mapped[Optional[datetime]] = mapped_column(
