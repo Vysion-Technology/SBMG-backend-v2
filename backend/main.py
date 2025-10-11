@@ -53,21 +53,21 @@ async def health_check():
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(citizen.router, prefix="/api/v1/citizen", tags=["Citizen"])
 app.include_router(geography.router, prefix="/api/v1/geography", tags=["Geography"])
-app.include_router(
-    login_management.router,
-    prefix="/api/v1/login-management",
-    tags=["Login User Management"],
-)
-app.include_router(
-    person_management.router,
-    prefix="/api/v1/person-management",
-    tags=["Person Management"],
-)
-app.include_router(
-    user_management.router,
-    prefix="/api/v1/user-management",
-    tags=["User Management (Legacy)"],
-)
+# app.include_router(
+#     login_management.router,
+#     prefix="/api/v1/login-management",
+#     tags=["Login User Management"],
+# )
+# app.include_router(
+#     person_management.router,
+#     prefix="/api/v1/person-management",
+#     tags=["Person Management"],
+# )
+# app.include_router(
+#     user_management.router,
+#     prefix="/api/v1/user-management",
+#     tags=["User Management (Legacy)"],
+# )
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(complaints.router, prefix="/api/v1/complaints", tags=["Complaints"])
 app.include_router(event.router, prefix="/api/v1/events", tags=["Events"])
@@ -86,9 +86,9 @@ app.include_router(notice.router, prefix="/api/v1/notices", tags=["Notices"])
 # app.include_router(reporting.router, prefix="/api/v1/reports", tags=["Reporting (Legacy)"])
 
 # New consolidated reporting router with perfect RBAC and optimized queries
-app.include_router(
-    consolidated_reporting.router, prefix="/api/v1/reports", tags=["Advanced Reporting"]
-)
+# app.include_router(
+#     consolidated_reporting.router, prefix="/api/v1/reports", tags=["Advanced Reporting"]
+# )
 app.include_router(survey.router, prefix="/api/v1/surveys", tags=["Surveys"])
 
 
