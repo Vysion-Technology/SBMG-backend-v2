@@ -60,6 +60,9 @@ class UserResponse(BaseModel):
     username: str
     email: Optional[str]
     is_active: bool
+    village_id: Optional[int]
+    block_id: Optional[int]
+    district_id: Optional[int]
     roles: list[UserRole] = []
     positions: list[PositionInfo] = []
 
@@ -185,6 +188,9 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
         username=current_user.username,
         email=current_user.email,
         is_active=current_user.is_active,
+        village_id=current_user.village_id,
+        block_id=current_user.block_id,
+        district_id=current_user.district_id,
         roles=get_role_by_user(current_user),
         positions=[],
     )
