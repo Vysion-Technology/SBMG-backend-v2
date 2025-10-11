@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import List, Optional
 from datetime import timedelta
 
@@ -10,6 +11,19 @@ from database import get_db
 from models.database.auth import PositionHolder, User
 from services.auth import AuthService
 from config import settings
+
+
+class UserRole(str, Enum):
+    """User roles in the system."""
+
+    SUPERADMIN = "SUPERADMIN"
+    ADMIN = "ADMIN"
+    SMD = "SMD"  # State Mission Director
+    CEO = "CEO"  # District Collector
+    BDO = "BDO"  # Block Development Officer
+    VDO = "VDO"  # Village Development Officer
+    WORKER = "WORKER"
+    PUBLIC = "PUBLIC"
 
 
 # Security
@@ -46,8 +60,8 @@ class UserResponse(BaseModel):
     username: str
     email: Optional[str]
     is_active: bool
-    roles: list[str]
-    positions: list[PositionInfo]
+    roles: list[UserRole] = []
+    positions: list[PositionInfo] = []
 
 
 class AuthController:
@@ -57,7 +71,9 @@ class AuthController:
     async def get_user_by_username(self, username: str) -> Optional[User]:
         return await self.auth_service.get_user_by_username(username)
 
-    async def get_all_users(self, username_like: str = "", skip: int = 0, limit: int = 100) -> list[User]:
+    async def get_all_users(
+        self, username_like: str = "", skip: int = 0, limit: int = 100
+    ) -> list[User]:
         return await self.auth_service.get_all_users(username_like, skip, limit)
 
     async def get_users_by_geography(
@@ -68,7 +84,9 @@ class AuthController:
         skip: int = 0,
         limit: int = 100,
     ) -> List[PositionHolder]:
-        return await self.auth_service.get_users_by_geography(district_id, block_id, village_id, skip, limit)
+        return await self.auth_service.get_users_by_geography(
+            district_id, block_id, village_id, skip, limit
+        )
 
 
 # Dependency to get current user from token
@@ -110,7 +128,9 @@ async def login(login_request: LoginRequest, db: AsyncSession = Depends(get_db))
     """Authenticate user and return JWT token."""
     auth_service = AuthService(db)
 
-    user = await auth_service.authenticate_user(login_request.username, login_request.password)
+    user = await auth_service.authenticate_user(
+        login_request.username, login_request.password
+    )
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -119,9 +139,24 @@ async def login(login_request: LoginRequest, db: AsyncSession = Depends(get_db))
         )
 
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
-    access_token = auth_service.create_access_token(data={"sub": user.username}, expires_delta=access_token_expires)
+    access_token = auth_service.create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
 
     return TokenResponse(access_token=access_token, token_type="bearer")
+
+
+def get_role_by_user(user: User) -> List[UserRole]:
+    """Extract roles from user's positions."""
+    if not (user.village_id and user.block_id and user.district_id):
+        return [UserRole.ADMIN]
+    if not user.block_id and user.district_id:
+        return [UserRole.CEO]
+    if user.block_id and not user.village_id:
+        return [UserRole.BDO]
+    if user.village_id:
+        return [UserRole.VDO]
+    return []
 
 
 @router.get("/me", response_model=UserResponse)
@@ -150,7 +185,7 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
         username=current_user.username,
         email=current_user.email,
         is_active=current_user.is_active,
-        roles=[],
+        roles=get_role_by_user(current_user),
         positions=[],
     )
 
