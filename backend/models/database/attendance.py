@@ -20,12 +20,16 @@ class DailyAttendance(Base):  # type: ignore
         Integer, ForeignKey("contractors.id"), nullable=False
     )
     date: Mapped[dt_date] = mapped_column(Date, nullable=False, default=dt_date.today)  # type: ignore
-    start_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=False, default=datetime.now)  # type: ignore
+    start_time: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.now
+    )  # type: ignore
     start_lat: Mapped[Optional[str]] = mapped_column(String, nullable=False)  # type: ignore
     start_long: Mapped[Optional[str]] = mapped_column(String, nullable=False)  # type: ignore
     end_lat: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     end_long: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
-    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # type: ignore
+    end_time: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )  # type: ignore
     remarks: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
 
     contractor: Mapped[Contractor] = relationship("Contractor")
