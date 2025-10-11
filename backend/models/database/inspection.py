@@ -83,7 +83,9 @@ class HouseHoldWasteCollectionAndDisposalInspectionItem(Base):  # type: ignore
     Describes a household waste collection and disposal inspection item entity
     """
 
-    __tablename__ = "household_waste_collection_and_disposal_inspection_items"
+    __tablename__ = (
+        "inspection_household_waste_collection_and_disposal_inspection_items"
+    )
 
     id: Mapped[int] = mapped_column(
         Integer, ForeignKey("inspections.id"), primary_key=True
@@ -127,7 +129,7 @@ class RoadAndDrainCleaningInspectionItem(Base):  # type: ignore
     Describes a road cleaning inspection item entity
     """
 
-    __tablename__ = "road_cleaning_inspection_items"
+    __tablename__ = "inspection_road_cleaning_inspection_items"
 
     id: Mapped[int] = mapped_column(
         Integer, ForeignKey("inspections.id"), primary_key=True
@@ -158,7 +160,7 @@ class CommunitySanitationInspectionItem(Base):  # type: ignore
     Describes a community sanitation inspection item entity
     """
 
-    __tablename__ = "community_sanitation_inspection_items"
+    __tablename__ = "inspection_community_sanitation_inspection_items"
 
     id: Mapped[int] = mapped_column(
         Integer, ForeignKey("inspections.id"), primary_key=True
@@ -183,7 +185,7 @@ class OtherInspectionItem(Base):  # type: ignore
     Describes other inspection item entity
     """
 
-    __tablename__ = "other_inspection_items"
+    __tablename__ = "inspection_other_inspection_items"
 
     id: Mapped[int] = mapped_column(
         Integer, ForeignKey("inspections.id"), primary_key=True
