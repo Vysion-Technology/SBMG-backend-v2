@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from services.geography import GeographyService
 from database import get_db
 from models.database.auth import User
 from models.database.complaint import (
@@ -162,6 +163,8 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
     )
     complaint = result.scalar_one_or_none()
 
+    geo_service: GeographyService = GeographyService(db)
+
     if not complaint:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
@@ -207,15 +210,21 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
             assigned_worker = latest_assignment.user.username
         assignment_date = latest_assignment.assigned_at
 
+    village: GramPanchayat = await geo_service.get_village(complaint.village_id)
+
+    print("Complaint:  ", complaint)
+
     return DetailedComplaintResponse(
         id=complaint.id,
         description=complaint.description,
         mobile_number=complaint.mobile_number,
-        complaint_type_name=complaint.complaint_type.name,
-        status_name=complaint.status.name,
-        village_name=complaint.village.name,
-        block_name=complaint.village.block.name,
-        district_name=complaint.village.block.district.name,
+        complaint_type_id=complaint.complaint_type_id,
+        status_id=complaint.status_id,
+        # complaint_type_name=complaint.complaint_type.name,
+        # status_name=complaint.status.name,
+        village_name=village.name,
+        block_name=village.block.name,
+        district_name=village.block.district.name,
         created_at=complaint.created_at,
         updated_at=complaint.updated_at,
         media=media_details,

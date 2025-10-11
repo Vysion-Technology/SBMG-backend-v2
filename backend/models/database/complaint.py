@@ -117,9 +117,11 @@ class Complaint(Base):  # type: ignore
     )
 
     # Relationships
-    village = relationship("GramPanchayat", back_populates="complaints")
-    block = relationship("Block", back_populates="complaints")
-    district = relationship("District", back_populates="complaints")
+    village: Mapped["GramPanchayat"] = relationship(
+        "GramPanchayat", back_populates="complaints"
+    )
+    block: Mapped["Block"] = relationship("Block", back_populates="complaints")
+    district: Mapped["District"] = relationship("District", back_populates="complaints")
     complaint_type: Mapped["ComplaintType"] = relationship(
         "ComplaintType", back_populates="complaints"
     )
