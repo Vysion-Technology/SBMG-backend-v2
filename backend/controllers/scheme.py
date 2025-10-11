@@ -14,20 +14,40 @@ from services.scheme import SchemeService
 router = APIRouter()
 
 
+class CreateSchemeRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    eligibility: Optional[str] = None
+    benefits: Optional[str] = None
+    start_time: datetime
+    end_time: datetime
+
+
 @router.post("/", response_model=SchemeResponse)
 async def create_scheme(
-    name: str,
-    description: Optional[str],
-    eligibility: Optional[str],
-    benefits: Optional[str],
-    start_time: datetime,
-    end_time: datetime,
+    scheme: Optional[CreateSchemeRequest],
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    eligibility: Optional[str] = None,
+    benefits: Optional[str] = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> SchemeResponse:
     """Create a new scheme."""
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
+    name = scheme.name if scheme else name
+    description = scheme.description if scheme else description
+    eligibility = scheme.eligibility if scheme else eligibility
+    benefits = scheme.benefits if scheme else benefits
+    start_time = scheme.start_time if scheme else start_time
+    end_time = scheme.end_time if scheme else end_time
+
+    assert name is not None, "Name is required"
+    assert start_time is not None, "Start time is required"
+    assert end_time is not None, "End time is required"
 
     service = SchemeService(db)
     print("Start Time")
@@ -85,6 +105,7 @@ async def add_scheme_media(
 
     return scheme
 
+
 @router.delete("/{scheme_id}/media", response_model=Optional[SchemeResponse])
 async def remove_scheme_media(
     scheme_id: int,
@@ -117,7 +138,21 @@ async def list_schemes(
 ) -> List[SchemeResponse]:
     service = SchemeService(db)
     schemes = await service.get_all_schemes(skip=skip, limit=limit, active=active)
-    return schemes
+    return [
+        SchemeResponse(
+            id=scheme.id,
+            name=scheme.name,
+            description=scheme.description,
+            eligibility=scheme.eligibility,
+            benefits=scheme.benefits,
+            start_time=scheme.start_time,
+            end_time=scheme.end_time,
+            active=scheme.active,
+            media=[media for media in scheme.media],
+        )
+        for scheme in schemes
+    ]
+
 
 class SchemeUpdateRequest(BaseModel):
     name: Optional[str] = None
@@ -127,6 +162,7 @@ class SchemeUpdateRequest(BaseModel):
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     active: Optional[bool] = None
+
 
 @router.put("/{scheme_id}", response_model=Optional[SchemeResponse])
 async def update_scheme(
