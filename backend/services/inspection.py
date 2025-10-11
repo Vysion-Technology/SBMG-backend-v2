@@ -3,10 +3,14 @@ Inspection Service
 Handles business logic for inspection management
 """
 
-from typing import List, Optional, Tuple, Dict
+from typing import Any, List, Optional, Tuple, Dict, TYPE_CHECKING
 from datetime import date, datetime
+import sqlalchemy
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, extract
+
+if TYPE_CHECKING:
+    from models.internal import GeoTypeEnum
 from sqlalchemy.orm import selectinload
 
 from models.database.inspection import (
@@ -18,7 +22,7 @@ from models.database.inspection import (
     OtherInspectionItem,
 )
 from models.database.auth import User, PositionHolder
-from models.database.geography import GramPanchayat
+from models.database.geography import GramPanchayat, Block
 from models.requests.inspection import (
     CreateInspectionRequest,
 )
@@ -387,4 +391,540 @@ class InspectionService:
             "inspections_this_month": this_month,
             "inspections_today": today,
             "villages_inspected": villages,
+        }
+
+    async def get_inspections(
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        village_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        district_id: Optional[int] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> List[Inspection]:
+        """Get paginated list of all inspections (admin only)."""
+        # Base query
+        query = select(Inspection).options(
+            selectinload(Inspection.village).selectinload(GramPanchayat.block),
+            selectinload(Inspection.village).selectinload(GramPanchayat.district),
+            selectinload(Inspection.media),
+        )
+
+        # Apply additional filters
+        filters: List[Any] = []
+        if village_id:
+            filters.append(Inspection.village_id == village_id)
+        if block_id:
+            filters.append(
+                Inspection.village_id.in_(
+                    select(GramPanchayat.id).where(GramPanchayat.block_id == block_id)
+                )
+            )
+        if district_id:
+            filters.append(
+                Inspection.village_id.in_(
+                    select(GramPanchayat.id).where(
+                        GramPanchayat.district_id == district_id
+                    )
+                )
+            )
+        if start_date:
+            filters.append(Inspection.date >= start_date)
+        if end_date:
+            filters.append(Inspection.date <= end_date)
+
+        if filters:
+            query = query.where(and_(*filters))
+
+        # Apply pagination
+        query = query.order_by(Inspection.date.desc(), Inspection.start_time.desc())
+        query = query.offset((page - 1) * page_size).limit(page_size)
+
+        # Execute query
+        result = await self.db.execute(query)
+        inspections = list(result.scalars().all())
+
+        return inspections
+
+    async def get_total_count(
+        self,
+        village_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        district_id: Optional[int] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> int:
+        """Get total count of all inspections (admin only)."""
+        # Base count query
+        count_query = select(func.count()).select_from(Inspection)
+
+        # Apply additional filters
+        filters: List[Any] = []
+        if village_id:
+            filters.append(Inspection.village_id == village_id)
+        if block_id:
+            filters.append(
+                Inspection.village_id.in_(
+                    select(GramPanchayat.id).where(GramPanchayat.block_id == block_id)
+                )
+            )
+        if district_id:
+            filters.append(
+                Inspection.village_id.in_(
+                    select(GramPanchayat.id).where(
+                        GramPanchayat.district_id == district_id
+                    )
+                )
+            )
+        if start_date:
+            filters.append(Inspection.date >= start_date)
+        if end_date:
+            filters.append(Inspection.date <= end_date)
+
+        if filters:
+            count_query = count_query.where(and_(*filters))
+
+        total_result = await self.db.execute(count_query)
+        total = total_result.scalar() or 0
+
+        return total
+
+    async def get_inspection_score(
+        self, inspection_id: int
+    ) -> Optional[Dict[str, Any]]:
+        """Get inspection score for a specific inspection."""
+        from sqlalchemy import text
+
+        query = text("""
+            SELECT * FROM calculate_inspection_score(:inspection_id)
+        """)
+
+        result = await self.db.execute(query, {"inspection_id": inspection_id})
+        row = result.fetchone()
+
+        if row:
+            return {
+                "household_waste_score": row.household_waste_score,
+                "road_cleaning_score": row.road_cleaning_score,
+                "drain_cleaning_score": row.drain_cleaning_score,
+                "community_sanitation_score": row.community_sanitation_score,
+                "other_score": row.other_score,
+                "overall_score": row.overall_score,
+                "total_points": row.total_points,
+                "max_points": row.max_points,
+            }
+        return None
+
+    async def get_village_inspection_analytics(
+        self,
+        village_id: int,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> Dict[str, Any]:
+        """Get inspection analytics for a village."""
+        from sqlalchemy import text
+
+        query = text("""
+            SELECT * FROM get_village_inspection_analytics(:village_id, :start_date, :end_date)
+        """)
+
+        result = await self.db.execute(
+            query,
+            {
+                "village_id": village_id,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        )
+        row = result.fetchone()
+
+        if row:
+            return {
+                "village_id": row.village_id,
+                "total_inspections": row.total_inspections,
+                "average_score": row.average_score,
+                "latest_score": row.latest_score,
+                "coverage_percentage": row.coverage_percentage,
+            }
+        return {}
+
+    async def get_gp_inspection_analytics(
+        self,
+        gp_id: int,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> Dict[str, Any]:
+        """Get inspection analytics for a GP."""
+        from sqlalchemy import text
+
+        query = text("""
+            SELECT * FROM get_gp_inspection_analytics(:village_id, :start_date, :end_date)
+        """)
+
+        result = await self.db.execute(
+            query,
+            {
+                "village_id": gp_id,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        )
+        row = result.fetchone()
+
+        if row:
+            return {
+                "village_id": row.village_id,
+                "total_villages": row.total_villages,
+                "inspected_villages": row.inspected_villages,
+                "average_score": row.average_score,
+                "coverage_percentage": row.coverage_percentage,
+            }
+        return {}
+
+    async def get_block_inspection_analytics(
+        self,
+        block_id: int,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> Dict[str, Any]:
+        """Get inspection analytics for a block."""
+        from sqlalchemy import text
+
+        query = text("""
+            SELECT * FROM get_block_inspection_analytics(:block_id, :start_date, :end_date)
+        """)
+
+        result = await self.db.execute(
+            query,
+            {
+                "block_id": block_id,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        )
+        row = result.fetchone()
+
+        if row:
+            return {
+                "block_id": row.block_id,
+                "total_gps": row.total_gps,
+                "inspected_gps": row.inspected_gps,
+                "average_score": row.average_score,
+                "coverage_percentage": row.coverage_percentage,
+            }
+        return {}
+
+    async def get_district_inspection_analytics(
+        self,
+        district_id: int,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> Dict[str, Any]:
+        """Get inspection analytics for a district."""
+        from sqlalchemy import text
+
+        query = text("""
+            SELECT * FROM get_district_inspection_analytics(:district_id, :start_date, :end_date)
+        """)
+
+        result = await self.db.execute(
+            query,
+            {
+                "district_id": district_id,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        )
+        row = result.fetchone()
+
+        if row:
+            return {
+                "district_id": row.district_id,
+                "total_blocks": row.total_blocks,
+                "inspected_blocks": row.inspected_blocks,
+                "total_gps": row.total_gps,
+                "inspected_gps": row.inspected_gps,
+                "average_score": row.average_score,
+                "coverage_percentage": row.coverage_percentage,
+            }
+        return {}
+
+    async def get_state_inspection_analytics(
+        self, start_date: Optional[date] = None, end_date: Optional[date] = None
+    ) -> Dict[str, Any]:
+        """Get inspection analytics for the state."""
+        from sqlalchemy import text
+
+        query = text("""
+            SELECT * FROM get_state_inspection_analytics(:start_date, :end_date)
+        """)
+
+        result = await self.db.execute(
+            query,
+            {
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        )
+        row = result.fetchone()
+
+        if row:
+            return {
+                "total_districts": row.total_districts,
+                "inspected_districts": row.inspected_districts,
+                "total_blocks": row.total_blocks,
+                "inspected_blocks": row.inspected_blocks,
+                "total_gps": row.total_gps,
+                "inspected_gps": row.inspected_gps,
+                "average_score": row.average_score,
+                "coverage_percentage": row.coverage_percentage,
+            }
+        return {}
+
+    async def get_villages_inspection_analytics_batch(
+        self,
+        village_ids: list[int],
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> Dict[int, Dict[str, Any]]:
+        """Get inspection analytics for multiple villages in one query."""
+        from sqlalchemy import text
+
+        if not village_ids:
+            return {}
+
+        query = text("""
+            SELECT * FROM get_villages_inspection_analytics_batch(:village_ids, :start_date, :end_date)
+        """)
+
+        result = await self.db.execute(
+            query,
+            {
+                "village_ids": village_ids,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        )
+
+        # Return as dict keyed by village_id for easy lookup
+        analytics_dict = {}
+        for row in result:
+            analytics_dict[row.village_id] = {
+                "village_id": row.village_id,
+                "total_inspections": row.total_inspections,
+                "average_score": row.average_score,
+                "latest_score": row.latest_score,
+                "coverage_percentage": row.coverage_percentage,
+            }
+        return analytics_dict
+
+    async def get_blocks_inspection_analytics_batch(
+        self,
+        block_ids: list[int],
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> Dict[int, Dict[str, Any]]:
+        """Get inspection analytics for multiple blocks in one query."""
+        from sqlalchemy import text
+
+        if not block_ids:
+            return {}
+
+        query = text("""
+            SELECT * FROM get_blocks_inspection_analytics_batch(:block_ids, :start_date, :end_date)
+        """)
+
+        result = await self.db.execute(
+            query,
+            {
+                "block_ids": block_ids,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        )
+
+        # Return as dict keyed by block_id for easy lookup
+        analytics_dict = {}
+        for row in result:
+            analytics_dict[row.block_id] = {
+                "block_id": row.block_id,
+                "total_gps": row.total_gps,
+                "inspected_gps": row.inspected_gps,
+                "average_score": row.average_score,
+                "coverage_percentage": row.coverage_percentage,
+            }
+        return analytics_dict
+
+    async def get_districts_inspection_analytics_batch(
+        self,
+        district_ids: list[int],
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> Dict[int, Dict[str, Any]]:
+        """Get inspection analytics for multiple districts in one query."""
+        from sqlalchemy import text
+
+        if not district_ids:
+            return {}
+
+        query = text("""
+            SELECT * FROM get_districts_inspection_analytics_batch(:district_ids, :start_date, :end_date)
+        """)
+
+        result = await self.db.execute(
+            query,
+            {
+                "district_ids": district_ids,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        )
+
+        # Return as dict keyed by district_id for easy lookup
+        analytics_dict = {}
+        for row in result:
+            analytics_dict[row.district_id] = {
+                "district_id": row.district_id,
+                "total_blocks": row.total_blocks,
+                "inspected_blocks": row.inspected_blocks,
+                "total_gps": row.total_gps,
+                "inspected_gps": row.inspected_gps,
+                "average_score": row.average_score,
+                "coverage_percentage": row.coverage_percentage,
+            }
+        return analytics_dict
+
+    async def inspection_analytics(
+        self,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
+        level: Optional["GeoTypeEnum"] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> Dict[str, Any]:
+        """Get inspection analytics aggregated by geographic level."""
+        from models.internal import GeoTypeEnum
+
+        # Default to current month if no dates provided
+        if not start_date:
+            start_date = date.today().replace(day=1)
+        if not end_date:
+            end_date = date.today()
+
+        # Default to DISTRICT level if not provided
+        if level is None:
+            level = GeoTypeEnum.DISTRICT
+
+        response_items = []
+
+        if level == GeoTypeEnum.DISTRICT:
+            # Get analytics for all districts or specific district
+            from sqlalchemy import select
+            from models.database.geography import District
+
+            if district_id:
+                analytics = await self.get_district_inspection_analytics(
+                    district_id, start_date, end_date
+                )
+                if analytics:
+                    # Get district name
+                    result = await self.db.execute(
+                        select(District.name).where(District.id == district_id)
+                    )
+                    name = result.scalar()
+
+                    item = {
+                        "geography_id": district_id,
+                        "geography_name": name,
+                        **analytics,
+                    }
+
+                    response_items.append(item)
+            else:
+                # Get all districts - use batch query
+                districts_result = await self.db.execute(
+                    select(District.id, District.name)
+                )
+                districts = districts_result.fetchall()
+
+                # Get analytics for all districts in one batch query
+                district_ids = [d.id for d in districts]
+                analytics_batch = await self.get_districts_inspection_analytics_batch(
+                    district_ids, start_date, end_date
+                )
+
+                for district in districts:
+                    analytics = analytics_batch.get(district.id)
+                    if analytics:
+                        item = {
+                            "geography_id": district.id,
+                            "geography_name": district.name,
+                            **analytics,
+                        }
+                        response_items.append(item)
+
+        elif level == GeoTypeEnum.BLOCK:
+            # Get analytics for blocks
+            from sqlalchemy import select
+            from models.database.geography import Block
+
+            query = select(Block.id, Block.name)
+            if district_id:
+                query = query.where(Block.district_id == district_id)
+
+            blocks_result = await self.db.execute(query)
+            blocks = blocks_result.fetchall()
+
+            # Get analytics for all blocks in one batch query
+            block_ids = [b.id for b in blocks]
+            analytics_batch = await self.get_blocks_inspection_analytics_batch(
+                block_ids, start_date, end_date
+            )
+
+            for block_item in blocks:
+                analytics = analytics_batch.get(block_item.id)
+                if analytics:
+                    item = {
+                        "geography_id": block_item.id,
+                        "geography_name": block_item.name,
+                        **analytics,
+                    }
+                    response_items.append(item)
+
+        else:  # VILLAGE level
+            # Get analytics for villages (gram panchayats)
+            from sqlalchemy import select
+            from models.database.geography import GramPanchayat
+
+            query = select(GramPanchayat.id, GramPanchayat.name)
+            if block_id:
+                query = query.where(GramPanchayat.block_id == block_id)
+            elif district_id:
+                # If district_id is provided, filter by district
+                query = query.where(GramPanchayat.district_id == district_id)
+
+            gps_result = await self.db.execute(query)
+            gps = gps_result.fetchall()
+
+            # Get analytics for all villages in one batch query
+            village_ids = [gp.id for gp in gps]
+            analytics_batch = await self.get_villages_inspection_analytics_batch(
+                village_ids, start_date, end_date
+            )
+
+            for gp_item in gps:
+                analytics = analytics_batch.get(gp_item.id)
+                if analytics:
+                    item = {
+                        "geography_id": gp_item.id,
+                        "geography_name": gp_item.name,
+                        **analytics,
+                    }
+                    response_items.append(item)
+
+        return {
+            "geo_type": level.value,
+            "response": response_items,
         }

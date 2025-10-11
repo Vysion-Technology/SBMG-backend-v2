@@ -16,6 +16,7 @@ from models.response.inspection import (
     InspectionListItemResponse,
     PaginatedInspectionResponse,
     InspectionStatsResponse,
+    InspectionAnalyticsResponse,
     HouseHoldWasteCollectionResponse,
     RoadAndDrainCleaningResponse,
     CommunitySanitationResponse,
@@ -33,11 +34,14 @@ from models.database.inspection import (
     OtherInspectionItem,
 )
 from models.database.geography import GramPanchayat
+from models.internal import GeoTypeEnum
 
 router = APIRouter()
 
 
-@router.post("/", response_model=InspectionResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=InspectionResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_inspection(
     request: CreateInspectionRequest,
     db: AsyncSession = Depends(get_db),
@@ -71,6 +75,68 @@ async def create_inspection(
     return inspection_detail
 
 
+@router.get("/analytics", response_model=InspectionAnalyticsResponse)
+async def get_inspection_analytics(
+    district_id: Optional[int] = None,
+    block_id: Optional[int] = None,
+    gp_id: Optional[int] = None,
+    level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+):
+    """
+    Get inspection analytics aggregated by geographic level.
+    Returns inspection statistics for each geographic unit at the specified level.
+
+    level: The geographic level to aggregate data at (district, block, gp)
+    """
+    # Permission checks based on user's jurisdiction
+    if current_user.block_id is not None and level == GeoTypeEnum.DISTRICT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access district-level analytics",
+        )
+    if current_user.village_id is not None and level in [
+        GeoTypeEnum.DISTRICT,
+        GeoTypeEnum.BLOCK,
+    ]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access district or block-level analytics",
+        )
+
+    # Validate query parameters
+    if (district_id and block_id) or (district_id and gp_id) or (block_id and gp_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide only one of district_id, block_id, or gp_id",
+        )
+    if level == GeoTypeEnum.DISTRICT and (district_id or block_id or gp_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Do not provide specific IDs when level is DISTRICT",
+        )
+    if level == GeoTypeEnum.BLOCK and (block_id or gp_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Do not provide block_id or gp_id when level is BLOCK",
+        )
+
+    inspection_service = InspectionService(db)
+    result = await inspection_service.inspection_analytics(
+        district_id=district_id,
+        block_id=block_id,
+        gp_id=gp_id,
+        level=level,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    return InspectionAnalyticsResponse(**result)
+
+
 @router.get("/{inspection_id}", response_model=InspectionResponse)
 async def get_inspection(
     inspection_id: int,
@@ -85,7 +151,9 @@ async def get_inspection(
     inspection_detail = await get_inspection_detail(inspection_id, db)
 
     if not inspection_detail:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found"
+        )
 
     # Check if user has access to this inspection
     service = InspectionService(db)
@@ -94,14 +162,20 @@ async def get_inspection(
     user_roles = [pos.role.name for pos in current_user.positions if pos.role]
     if UserRole.ADMIN not in user_roles and UserRole.SUPERADMIN not in user_roles:
         # Verify the inspection is within jurisdiction
-        result = await db.execute(select(Inspection).where(Inspection.id == inspection_id))
+        result = await db.execute(
+            select(Inspection).where(Inspection.id == inspection_id)
+        )
         inspection = result.scalar_one_or_none()
 
         if not inspection:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found"
+            )
 
         # Check jurisdiction
-        can_access = await service.can_inspect_village(current_user, inspection.village_id)
+        can_access = await service.can_inspect_village(
+            current_user, inspection.village_id
+        )
         if not can_access:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -145,12 +219,30 @@ async def get_inspections(
             detail="Page size must be between 1 and 100",
         )
 
+    if current_user.village_id and (block_id or district_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Block or District filter not allowed for Village-level users",
+        )
+
+    if current_user.block_id and district_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="District filter not allowed for Block-level users",
+        )
+
     service = InspectionService(db)
 
-    inspections, total = await service.get_inspections_paginated(
-        user=current_user,
+    inspections = await service.get_inspections(
         page=page,
         page_size=page_size,
+        village_id=village_id,
+        block_id=block_id,
+        district_id=district_id,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    total = await service.get_total_count(
         village_id=village_id,
         block_id=block_id,
         district_id=district_id,
@@ -172,16 +264,24 @@ async def get_inspections(
         )
         position = pos_result.scalar_one_or_none()
 
-        officer_name = f"{position.first_name} {position.last_name}" if position else "Unknown"
+        officer_name = (
+            f"{position.first_name} {position.last_name}" if position else "Unknown"
+        )
         officer_role = position.role.name if position and position.role else "Unknown"
 
         inspection_items.append(
             InspectionListItemResponse(
                 id=inspection.id,
                 village_id=inspection.village_id,
-                village_name=inspection.village.name if inspection.village else "Unknown",
-                block_name=inspection.block.name if inspection.block else "Unknown",
-                district_name=inspection.district.name if inspection.district else "Unknown",
+                village_name=inspection.village.name
+                if inspection.village
+                else "Unknown",
+                block_name=inspection.village.block.name
+                if inspection.village and inspection.village.block
+                else "Unknown",
+                district_name=inspection.village.district.name
+                if inspection.village and inspection.village.district
+                else "Unknown",
                 date=inspection.date,
                 officer_name=officer_name,
                 officer_role=officer_role,
@@ -215,7 +315,9 @@ async def get_inspection_stats(
 
 
 # Helper function to get inspection details
-async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optional[InspectionResponse]:
+async def get_inspection_detail(
+    inspection_id: int, db: AsyncSession
+) -> Optional[InspectionResponse]:
     """Get full inspection details with all related data."""
     # Get inspection with relationships
     result = await db.execute(
@@ -243,7 +345,9 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
     )
     position = pos_result.scalar_one_or_none()
 
-    officer_name = f"{position.first_name} {position.last_name}" if position else "Unknown"
+    officer_name = (
+        f"{position.first_name} {position.last_name}" if position else "Unknown"
+    )
     officer_role = position.role.name if position and position.role else "Unknown"
 
     # Get household waste items
@@ -256,18 +360,24 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
 
     # Get road and drain items
     road_result = await db.execute(
-        select(RoadAndDrainCleaningInspectionItem).where(RoadAndDrainCleaningInspectionItem.id == inspection.id)
+        select(RoadAndDrainCleaningInspectionItem).where(
+            RoadAndDrainCleaningInspectionItem.id == inspection.id
+        )
     )
     road = road_result.scalar_one_or_none()
 
     # Get community sanitation items
     community_result = await db.execute(
-        select(CommunitySanitationInspectionItem).where(CommunitySanitationInspectionItem.id == inspection.id)
+        select(CommunitySanitationInspectionItem).where(
+            CommunitySanitationInspectionItem.id == inspection.id
+        )
     )
     community = community_result.scalar_one_or_none()
 
     # Get other items
-    other_result = await db.execute(select(OtherInspectionItem).where(OtherInspectionItem.id == inspection.id))
+    other_result = await db.execute(
+        select(OtherInspectionItem).where(OtherInspectionItem.id == inspection.id)
+    )
     other = other_result.scalar_one_or_none()
 
     # Build response
@@ -284,10 +394,22 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
         officer_name=officer_name,
         officer_role=officer_role,
         village_name=inspection.village.name if inspection.village else "Unknown",
-        block_name=inspection.block.name if inspection.block else "Unknown",
-        district_name=inspection.district.name if inspection.district else "Unknown",
-        household_waste=HouseHoldWasteCollectionResponse.model_validate(household) if household else None,
-        road_and_drain=RoadAndDrainCleaningResponse.model_validate(road) if road else None,
-        community_sanitation=CommunitySanitationResponse.model_validate(community) if community else None,
-        other_items=OtherInspectionItemsResponse.model_validate(other) if other else None,
+        block_name=inspection.village.block.name
+        if inspection.village and inspection.village.block
+        else "Unknown",
+        district_name=inspection.village.district.name
+        if inspection.village and inspection.village.district
+        else "Unknown",
+        household_waste=HouseHoldWasteCollectionResponse.model_validate(household)
+        if household
+        else None,
+        road_and_drain=RoadAndDrainCleaningResponse.model_validate(road)
+        if road
+        else None,
+        community_sanitation=CommunitySanitationResponse.model_validate(community)
+        if community
+        else None,
+        other_items=OtherInspectionItemsResponse.model_validate(other)
+        if other
+        else None,
     )

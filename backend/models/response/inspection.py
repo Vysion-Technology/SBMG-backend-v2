@@ -2,7 +2,7 @@
 Response Models for Inspection Management
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 from pydantic import BaseModel
 from models.database.inspection import (
@@ -152,3 +152,87 @@ class InspectionStatsResponse(BaseModel):
     inspections_this_week: int
     inspections_today: int
     villages_inspected: int
+
+
+class InspectionScoreResponse(BaseModel):
+    """Response model for inspection scores."""
+
+    household_waste_score: float
+    road_cleaning_score: float
+    drain_cleaning_score: float
+    community_sanitation_score: float
+    other_score: float
+    overall_score: float
+    total_points: int
+    max_points: int
+
+
+class VillageInspectionAnalyticsResponse(BaseModel):
+    """Response model for village inspection analytics."""
+
+    village_id: int
+    village_name: str
+    total_inspections: int
+    average_score: float
+    latest_score: float
+    coverage_percentage: float
+
+
+class GPInspectionAnalyticsResponse(BaseModel):
+    """Response model for GP inspection analytics."""
+
+    gp_id: int
+    gp_name: str
+    total_villages: int
+    inspected_villages: int
+    average_score: float
+    coverage_percentage: float
+    villages: Optional[List[Dict[str, Any]]] = (
+        None  # Breakdown by villages (if applicable)
+    )
+
+
+class BlockInspectionAnalyticsResponse(BaseModel):
+    """Response model for block inspection analytics."""
+
+    block_id: int
+    block_name: str
+    total_gps: int
+    inspected_gps: int
+    average_score: float
+    coverage_percentage: float
+    gps: Optional[List[Dict[str, Any]]] = None  # Breakdown by GPs
+
+
+class DistrictInspectionAnalyticsResponse(BaseModel):
+    """Response model for district inspection analytics."""
+
+    district_id: int
+    district_name: str
+    total_blocks: int
+    inspected_blocks: int
+    total_gps: int
+    inspected_gps: int
+    average_score: float
+    coverage_percentage: float
+    blocks: Optional[List[Dict[str, Any]]] = None  # Breakdown by blocks
+
+
+class StateInspectionAnalyticsResponse(BaseModel):
+    """Response model for state inspection analytics."""
+
+    total_districts: int
+    inspected_districts: int
+    total_blocks: int
+    inspected_blocks: int
+    total_gps: int
+    inspected_gps: int
+    average_score: float
+    coverage_percentage: float
+
+
+class InspectionAnalyticsResponse(BaseModel):
+    """Response model for inspection analytics aggregated by geography type."""
+
+    geo_type: str
+    response: List[Dict[str, Any]]
