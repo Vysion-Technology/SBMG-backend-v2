@@ -17,6 +17,8 @@ class ComplaintResponse(BaseModel):
     village_name: str
     block_name: str
     district_name: str
+    lat: float
+    long: float
     created_at: datetime
     updated_at: Optional[datetime]
     media_urls: List[str] = []

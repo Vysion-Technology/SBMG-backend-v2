@@ -5,6 +5,7 @@ from sqlalchemy.orm import mapped_column, relationship, Mapped
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Float,
     String,
     Integer,
     ForeignKey,
@@ -105,6 +106,12 @@ class Complaint(Base):  # type: ignore
     mobile_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     status_id: Mapped[int] = mapped_column(  # type: ignore
         Integer, ForeignKey("complaint_statuses.id"), nullable=False
+    )
+    lat: Mapped[float] = mapped_column(  # type: ignore
+        Float, nullable=False, default=0.0, server_default="0.0"
+    )
+    long: Mapped[float] = mapped_column(  # type: ignore
+        Float, nullable=False, default=0.0, server_default="0.0"
     )
     created_at: Mapped[datetime] = mapped_column(  # type: ignore
         DateTime(timezone=True),

@@ -60,12 +60,19 @@ async def create_complaint_with_media(
     district_id: int = Form(...),
     description: str = Form(...),
     files: List[UploadFile] = File(default=[]),
+    lat: float = Form(...),
+    long: float = Form(...),
     db: AsyncSession = Depends(get_db),
     token: str = Header(..., description="Public user token"),
 ) -> ComplaintResponse:
     """Create a new complaint with optional media files (Public access)."""
     # Create the complaint first using similar logic to create_complaint
     # Verify village exists
+    if not lat or not long:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Latitude and Longitude are required",
+        )
     village_result = await db.execute(
         select(GramPanchayat)
         .options(
@@ -107,6 +114,8 @@ async def create_complaint_with_media(
         description=description,
         status_id=complaint_status.id,
         mobile_number=user.mobile_number,
+        lat=lat,
+        long=long,
     )
 
     db.add(complaint)
@@ -189,6 +198,8 @@ async def create_complaint_with_media(
         district_name=village.district.name,
         created_at=complaint.created_at,
         updated_at=complaint.updated_at,
+        lat=complaint.lat,
+        long=complaint.long,
         media_urls=media_urls,
         media=media_details,
     )
