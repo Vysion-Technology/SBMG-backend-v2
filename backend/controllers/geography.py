@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from services.geography import GeographyService
 from database import get_db
 from models.database.geography import District, Block, GramPanchayat
 from models.response.geography import (
@@ -11,8 +12,9 @@ from models.response.geography import (
     BlockResponse,
     VillageResponse as GramPanchayatResponse,
 )
-from models.database.contractor import Contractor
+from models.database.contractor import Agency, Contractor
 from models.response.contractor import AgencyResponse, ContractorResponse
+from services.contractor import ContractorService
 
 
 router = APIRouter()
@@ -163,11 +165,9 @@ async def get_contractors_by_village(
     db: AsyncSession = Depends(get_db),
 ) -> ContractorResponse:
     """Get all contractors for a specific village."""
+    geo_service = GeographyService(db)
     # First check if village exists
-    village_result = await db.execute(
-        select(GramPanchayat).where(GramPanchayat.id == village_id)
-    )
-    village = village_result.scalar_one_or_none()
+    village = await geo_service.get_village(village_id)
 
     if not village:
         raise HTTPException(status_code=404, detail="GramPanchayat not found")
@@ -181,8 +181,16 @@ async def get_contractors_by_village(
         raise HTTPException(
             status_code=404, detail="No contractors found for this village"
         )
-    agency = contractor.agency if contractor else None
+    agency: Agency = (
+        await db.execute(select(Agency).where(Agency.id == contractor.agency_id))
+    ).scalar_one()
+    contractor_service: ContractorService = ContractorService(db)
 
+    # agency, village = await asyncio.gather(
+    #     contractor_service.get_agency_by_id(contractor.agency_id),
+    #     geo_service.get_village(village_id)
+    # )
+    agency = await contractor_service.get_agency_by_id(contractor.agency_id)
     return ContractorResponse(
         id=contractor.id,
         agency=AgencyResponse(
@@ -197,14 +205,10 @@ async def get_contractors_by_village(
         person_name=contractor.person_name,
         person_phone=contractor.person_phone,
         village_id=contractor.village_id,
-        village_name=contractor.village.name if contractor.village else None,
-        block_name=contractor.village.block.name
-        if contractor.village and contractor.village.block
-        else None,
-        district_name=contractor.village.block.district.name
-        if contractor.village
-        and contractor.village.block
-        and contractor.village.block.district
+        village_name=village.name if village else None,
+        block_name=village.block.name if village and village.block else None,
+        district_name=village.block.district.name
+        if village and village.block
         else None,
         contract_start_date=contractor.contract_start_date,
         contract_end_date=contractor.contract_end_date,
