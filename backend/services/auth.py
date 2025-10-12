@@ -213,6 +213,17 @@ class AuthService:
         import random
 
         otp = random.randint(100000, 999999)
+        # Check if the OTP exists for the phone number
+        existing_otp = (
+            await self.db.execute(
+                select(PublicUserOTP).where(
+                    PublicUserOTP.public_user.has(mobile_number=mobile_number)
+                )
+            )
+        ).scalar_one_or_none()
+        if existing_otp:
+            otp = existing_otp.otp  # Reuse existing OTP
+
         print(f"Sending OTP {otp} to phone number {mobile_number}")
         # Check if phone number exists in PublicUser table
         public_user = await self.db.execute(select(PublicUser).where(PublicUser.mobile_number == mobile_number))
