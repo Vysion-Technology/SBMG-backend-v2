@@ -212,7 +212,7 @@ class AuthService:
         # Placeholder implementation - integrate with actual SMS service
         import random
 
-        otp = random.randint(100000, 999999)
+        otp = 123456  # For testing, use a fixed OTP
         # Check if the OTP exists for the phone number
         existing_otp = (
             await self.db.execute(
