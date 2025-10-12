@@ -63,7 +63,7 @@ class UserResponse(BaseModel):
     village_id: Optional[int]
     block_id: Optional[int]
     district_id: Optional[int]
-    roles: list[UserRole] = []
+    role: UserRole = UserRole.WORKER
     positions: list[PositionInfo] = []
 
 
@@ -149,17 +149,19 @@ async def login(login_request: LoginRequest, db: AsyncSession = Depends(get_db))
     return TokenResponse(access_token=access_token, token_type="bearer")
 
 
-def get_role_by_user(user: User) -> List[UserRole]:
+def get_role_by_user(user: User) -> Optional[UserRole]:
     """Extract roles from user's positions."""
     if not (user.village_id and user.block_id and user.district_id):
-        return [UserRole.ADMIN]
+        return UserRole.ADMIN
     if not user.block_id and user.district_id:
-        return [UserRole.CEO]
+        return UserRole.CEO
     if user.block_id and not user.village_id:
-        return [UserRole.BDO]
+        return UserRole.BDO
+    if user.village_id and "contractor" in user.username.lower():
+        return UserRole.WORKER
     if user.village_id:
-        return [UserRole.VDO]
-    return []
+        return UserRole.VDO
+    return None
 
 
 @router.get("/me", response_model=UserResponse)
@@ -191,7 +193,7 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
         village_id=current_user.village_id,
         block_id=current_user.block_id,
         district_id=current_user.district_id,
-        roles=get_role_by_user(current_user),
+        role=get_role_by_user(current_user) or UserRole.WORKER,
         positions=[],
     )
 
