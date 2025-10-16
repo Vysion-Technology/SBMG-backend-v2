@@ -6,10 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from controllers import citizen, event, scheme
-from controllers import auth, complaints, admin, public, user_management
-from controllers import login_management, person_management
-from controllers import geography, consolidated_reporting, attendance, survey
-from controllers import fcm_device, inspection, notice
+from controllers import auth, complaints, admin, public
+from controllers import geography, attendance
+from controllers import fcm_device, inspection, notice, annual_survey, agency
 
 
 @asynccontextmanager
@@ -53,6 +52,25 @@ async def health_check():
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(citizen.router, prefix="/api/v1/citizen", tags=["Citizen"])
 app.include_router(geography.router, prefix="/api/v1/geography", tags=["Geography"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+app.include_router(complaints.router, prefix="/api/v1/complaints", tags=["Complaints"])
+app.include_router(event.router, prefix="/api/v1/events", tags=["Events"])
+app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
+app.include_router(
+    attendance.router, prefix="/api/v1/attendance", tags=["DailyAttendance"]
+)
+app.include_router(scheme.router, prefix="/api/v1/schemes", tags=["Schemes"])
+app.include_router(
+    fcm_device.router, prefix="/api/v1/notifications", tags=["FCM Notifications"]
+)
+app.include_router(
+    inspection.router, prefix="/api/v1/inspections", tags=["Inspections"]
+)
+app.include_router(
+    annual_survey.router, prefix="/api/v1/annual-surveys", tags=["Annual Surveys"]
+)
+app.include_router(notice.router, prefix="/api/v1/notices", tags=["Notices"])
+app.include_router(agency.router, prefix="/api/v1/agencies", tags=["Agency Management"])
 # app.include_router(
 #     login_management.router,
 #     prefix="/api/v1/login-management",
@@ -68,21 +86,6 @@ app.include_router(geography.router, prefix="/api/v1/geography", tags=["Geograph
 #     prefix="/api/v1/user-management",
 #     tags=["User Management (Legacy)"],
 # )
-app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
-app.include_router(complaints.router, prefix="/api/v1/complaints", tags=["Complaints"])
-app.include_router(event.router, prefix="/api/v1/events", tags=["Events"])
-app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
-app.include_router(
-    attendance.router, prefix="/api/v1/attendance", tags=["DailyAttendance"]
-)
-app.include_router(scheme.router, prefix="/api/v1/schemes", tags=["Schemes"])
-app.include_router(
-    fcm_device.router, prefix="/api/v1/notifications", tags=["FCM Notifications"]
-)
-app.include_router(
-    inspection.router, prefix="/api/v1/inspections", tags=["Inspections"]
-)
-app.include_router(notice.router, prefix="/api/v1/notices", tags=["Notices"])
 # app.include_router(reporting.router, prefix="/api/v1/reports", tags=["Reporting (Legacy)"])
 
 # New consolidated reporting router with perfect RBAC and optimized queries
