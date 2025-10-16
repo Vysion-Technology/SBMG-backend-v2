@@ -50,7 +50,7 @@ from auth_utils import require_staff_role, UserRole
 router = APIRouter()
 
 
-@router.get("/", response_model=PaginatedAnnualSurveyResponse)
+# @router.get("/", response_model=PaginatedAnnualSurveyResponse)
 async def get_annual_surveys(
     limit: int = 20,
     skip: int = 0,
@@ -174,7 +174,7 @@ async def create_annual_survey(
     return survey_detail
 
 
-@router.get("/{survey_id}", response_model=AnnualSurveyResponse)
+# @router.get("/{survey_id}", response_model=AnnualSurveyResponse)
 async def get_annual_survey(
     survey_id: int,
     db: AsyncSession = Depends(get_db),
@@ -220,7 +220,7 @@ async def get_annual_survey(
     return survey_detail
 
 
-@router.put("/{survey_id}", response_model=AnnualSurveyResponse)
+# @router.put("/{survey_id}", response_model=AnnualSurveyResponse)
 async def update_annual_survey(
     survey_id: int,
     request: UpdateAnnualSurveyRequest,
@@ -266,7 +266,7 @@ async def delete_annual_survey(
     return None
 
 
-@router.get("/stats/summary", response_model=AnnualSurveyStatsResponse)
+# @router.get("/stats/summary", response_model=AnnualSurveyStatsResponse)
 async def get_annual_survey_stats(
     district_id: Optional[int] = None,
     block_id: Optional[int] = None,
