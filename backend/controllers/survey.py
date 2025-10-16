@@ -1,3 +1,4 @@
+# Comment out all the controllers from docs
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
@@ -180,8 +181,6 @@ async def assign_form(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-
-
 @router.get("/forms/available")
 async def available_forms(
     db: AsyncSession = Depends(get_db),
@@ -193,7 +192,6 @@ async def available_forms(
     return [FormResponse(id=f.id, title=f.title, role=f.role.name) for f in forms]
 
 
-
 @router.get("/forms/filled")
 async def filled_forms(
     db: AsyncSession = Depends(get_db),
@@ -202,9 +200,6 @@ async def filled_forms(
     svc = SurveyService(db)
     forms = await svc.get_filled_forms_for_user(current_user.id)
     return [FilledFormResponse(id=f.id, title=f.title) for f in forms]
-
-
-
 
 
 @router.get("/forms/assignments")
