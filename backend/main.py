@@ -5,10 +5,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from controllers import contractor
 from controllers import citizen, event, scheme
 from controllers import auth, complaints, admin, public
 from controllers import geography, attendance
-from controllers import fcm_device, inspection, notice, annual_survey, agency
+from controllers import fcm_device, inspection, notice, annual_survey
 
 
 @asynccontextmanager
@@ -71,7 +72,7 @@ app.include_router(
 )
 app.include_router(notice.router, prefix="/api/v1/notices", tags=["Notices"])
 app.include_router(
-    agency.router,
+    contractor.router,
     prefix="/api/v1/contractors",
     tags=["Agency and Contractor Management"],
 )

@@ -2,6 +2,7 @@ from typing import Optional, List
 from datetime import date, datetime
 from pydantic import BaseModel
 
+from models.response.contractor import AgencyResponse
 from models.internal import GeoTypeEnum
 
 
@@ -23,6 +24,7 @@ class AttendanceResponse(BaseModel):
     end_lat: Optional[str]
     end_long: Optional[str]
     remarks: Optional[str]
+    agency: Optional[AgencyResponse] = None
 
     class Config:
         from_attributes = True

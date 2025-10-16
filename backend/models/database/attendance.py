@@ -1,11 +1,13 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+from models.database.contractor import Agency
 from database import Base  # type: ignore
 from datetime import datetime, date as dt_date
 
-from models.database.contractor import Contractor
-
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy import String, Integer, ForeignKey, Date, DateTime
+
+if TYPE_CHECKING:
+    from models.database.contractor import Contractor
 
 
 class DailyAttendance(Base):  # type: ignore
@@ -32,4 +34,6 @@ class DailyAttendance(Base):  # type: ignore
     )  # type: ignore
     remarks: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
 
-    contractor: Mapped[Contractor] = relationship("Contractor")
+    contractor: Mapped["Contractor"] = relationship(
+        "Contractor", back_populates="attendances", uselist=False
+    )

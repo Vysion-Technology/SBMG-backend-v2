@@ -1,14 +1,15 @@
-from typing import List, Optional, Dict, Any
+"""Attendance service for managing worker attendance records."""
+
+from typing import Optional
 
 from datetime import date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import insert, select, func, and_, text
+from sqlalchemy import insert, select, func, and_, case
 from sqlalchemy.orm import joinedload
 
 from models.database.attendance import DailyAttendance
 from models.database.contractor import Contractor
 from models.database.geography import GramPanchayat, Block, District
-from models.database.auth import User
 from models.internal import GeoTypeEnum
 from models.requests.attendance import (
     AttendanceLogRequest,
@@ -17,8 +18,6 @@ from models.requests.attendance import (
 from models.response.attendance import (
     AttendanceResponse,
     AttendanceListResponse,
-    AttendanceSummaryResponse,
-    AttendanceStatsResponse,
     AttendanceAnalyticsResponse,
     GeographyAttendanceCountResponse,
     DayAttendanceSummaryResponse,
@@ -46,10 +45,13 @@ def get_attendance_response_from_db(attendance: DailyAttendance) -> AttendanceRe
         end_lat=attendance.end_lat,
         end_long=attendance.end_long,
         remarks=attendance.remarks,
+        agency=attendance.contractor.agency if attendance.contractor else None,
     )
 
 
 class AttendanceService:
+    """Service for managing worker attendance"""
+
     def __init__(self, db: AsyncSession):
         self.db = db
 
@@ -141,177 +143,18 @@ class AttendanceService:
         self, attendance_id: int
     ) -> Optional[DailyAttendance]:
         """Get attendance record by ID with all relations loaded"""
-        result = await self.db.execute(
+        stmt = (
             select(DailyAttendance)
+            .options(
+                joinedload(DailyAttendance.contractor).joinedload(Contractor.agency)
+            )
             .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
             .join(GramPanchayat, Contractor.village_id == GramPanchayat.id)
             .join(Block, GramPanchayat.block_id == Block.id)
-            .where(DailyAttendance.id == attendance_id)
+            .join(District, Block.district_id == District.id)
         )
+        result = await self.db.execute(stmt.where(DailyAttendance.id == attendance_id))
         return result.scalar_one_or_none()
-
-    async def get_attendance_stats(
-        self,
-        user_jurisdiction: Dict[str, Any],
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-    ) -> AttendanceStatsResponse:
-        """Get attendance statistics for user's jurisdiction"""
-        # Get contractors in user's jurisdiction
-        contractors_query = select(Contractor).options(
-            joinedload(Contractor.village)
-            .joinedload(GramPanchayat.block)
-            .joinedload(Block.district)
-        )
-
-        # Apply jurisdiction filters
-        if user_jurisdiction.get("village_ids"):
-            contractors_query = contractors_query.where(
-                Contractor.village_id.in_(user_jurisdiction["village_ids"])
-            )
-        elif user_jurisdiction.get("block_ids"):
-            contractors_query = contractors_query.join(GramPanchayat).where(
-                GramPanchayat.block_id.in_(user_jurisdiction["block_ids"])
-            )
-        elif user_jurisdiction.get("district_ids"):
-            contractors_query = contractors_query.join(GramPanchayat).where(
-                GramPanchayat.district_id.in_(user_jurisdiction["district_ids"])
-            )
-
-        contractors_result = await self.db.execute(contractors_query)
-        contractors = list(contractors_result.scalars().all())
-
-        contractor_ids = [c.id for c in contractors]
-
-        if not contractor_ids:
-            return AttendanceStatsResponse(
-                total_workers=0,
-                present_today=0,
-                absent_today=0,
-                attendance_rate=0.0,
-                summaries=[],
-            )
-
-        # Get attendance counts for today
-        today = date.today()
-        present_today_query = select(
-            func.count(func.distinct(DailyAttendance.contractor_id))
-        ).where(
-            and_(
-                DailyAttendance.contractor_id.in_(contractor_ids),
-                DailyAttendance.date == today,
-            )
-        )
-        present_today_result = await self.db.execute(present_today_query)
-        present_today = present_today_result.scalar() or 0
-
-        # Calculate attendance summaries for each contractor
-        summaries: list[AttendanceSummaryResponse] = []
-        for contractor in contractors:
-            summary = await self._get_contractor_summary(
-                contractor, start_date, end_date
-            )
-            summaries.append(summary)
-
-        total_workers = len(contractors)
-        absent_today = total_workers - present_today
-        attendance_rate = (
-            (present_today / total_workers * 100) if total_workers > 0 else 0.0
-        )
-
-        return AttendanceStatsResponse(
-            total_workers=total_workers,
-            present_today=present_today,
-            absent_today=absent_today,
-            attendance_rate=attendance_rate,
-            summaries=summaries,
-        )
-
-    async def _get_contractor_summary(
-        self,
-        contractor: Contractor,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-    ) -> AttendanceSummaryResponse:
-        """Get attendance summary for a specific contractor"""
-        # Default to last 30 days if no date range provided
-        if not start_date:
-            start_date = date.today().replace(day=1)  # Start of current month
-        if not end_date:
-            end_date = date.today()
-
-        # Count total working days in period (excluding weekends)
-        total_days_query = text("""
-            SELECT COUNT(*)
-            FROM generate_series(:start_date::date, :end_date::date, '1 day'::interval) AS day
-            WHERE EXTRACT(ISODOW FROM day) < 6
-        """)
-        total_days_result = await self.db.execute(
-            total_days_query, {"start_date": start_date, "end_date": end_date}
-        )
-        total_days = total_days_result.scalar() or 0
-
-        # Count present days
-        present_days_query = select(func.count(DailyAttendance.id)).where(
-            and_(
-                DailyAttendance.contractor_id == contractor.id,
-                DailyAttendance.date >= start_date,
-                DailyAttendance.date <= end_date,
-            )
-        )
-        present_days_result = await self.db.execute(present_days_query)
-        present_days = present_days_result.scalar() or 0
-
-        # Get last attendance date
-        last_attendance_query = select(func.max(DailyAttendance.date)).where(
-            DailyAttendance.contractor_id == contractor.id
-        )
-        last_attendance_result = await self.db.execute(last_attendance_query)
-        last_attendance = last_attendance_result.scalar()
-
-        attendance_percentage = (
-            (present_days / total_days * 100) if total_days > 0 else 0.0
-        )
-
-        return AttendanceSummaryResponse(
-            contractor_id=contractor.id,
-            contractor_name=contractor.person_name,
-            total_days=total_days,
-            present_days=present_days,
-            attendance_percentage=attendance_percentage,
-            last_attendance=last_attendance,
-        )
-
-    async def get_user_jurisdiction(self, user: User) -> Dict[str, Any]:
-        """Get user's jurisdiction based on their roles and positions"""
-        jurisdiction: Dict[str, List[int] | bool] = {
-            "village_ids": [],
-            "block_ids": [],
-            "district_ids": [],
-            "is_admin": False,
-        }
-
-        for position in user.positions:
-            role_name = position.role.name.upper()
-
-            if role_name == "ADMIN":
-                jurisdiction["is_admin"] = True
-                # Admin can see all
-                return jurisdiction
-            elif role_name == "CEO":
-                # CEO can see entire district
-                if position.district_id:
-                    jurisdiction["district_ids"].append(position.district_id)  # type: ignore
-            elif role_name == "BDO":
-                # BDO can see entire block
-                if position.block_id:
-                    jurisdiction["block_ids"].append(position.block_id)  # type: ignore
-            elif role_name == "VDO":
-                # VDO can see specific village
-                if position.village_id:
-                    jurisdiction["village_ids"].append(position.village_id)  # type: ignore
-
-        return jurisdiction
 
     async def attendance_analytics(
         self,
@@ -328,8 +171,6 @@ class AttendanceService:
         Get attendance analytics aggregated by geographic level.
         Returns attendance statistics for each geographic unit at the specified level.
         """
-        from sqlalchemy import case
-        from models.database.geography import District
 
         # Default to current month if no dates provided
         if not start_date:
@@ -344,9 +185,9 @@ class AttendanceService:
                 select(
                     District.id,
                     District.name,
-                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                    func.count(func.distinct(Contractor.id)).label("total_contractors"),  # type: ignore
                     func.count(
-                        func.distinct(
+                        func.distinct(  # type: ignore
                             case(
                                 (
                                     and_(
@@ -459,6 +300,8 @@ class AttendanceService:
             if gp_id:
                 query = query.where(GramPanchayat.id == gp_id)
 
+        query = query.offset(skip or 0).limit(limit or 500)
+
         result = await self.db.execute(query)
         rows = result.fetchall()
 
@@ -527,7 +370,7 @@ class AttendanceService:
 
         # Get total count for attendance rate calculation
         count_query = (
-            select(func.count(func.distinct(Contractor.id)))
+            select(func.count(func.distinct(Contractor.id)))  # type: ignore
             .select_from(Contractor)
             .join(GramPanchayat, Contractor.village_id == GramPanchayat.id)
             .join(Block, GramPanchayat.block_id == Block.id)
@@ -615,6 +458,9 @@ class AttendanceService:
         """Get all attendance records with optional filters"""
         stmt = (
             select(DailyAttendance)
+            .options(
+                joinedload(DailyAttendance.contractor).joinedload(Contractor.agency)
+            )
             .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
             .join(GramPanchayat, Contractor.village_id == GramPanchayat.id)
             .join(Block, GramPanchayat.block_id == Block.id)
