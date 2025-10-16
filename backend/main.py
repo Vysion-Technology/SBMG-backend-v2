@@ -89,7 +89,7 @@ app.include_router(notice.router, prefix="/api/v1/notices", tags=["Notices"])
 # app.include_router(
 #     consolidated_reporting.router, prefix="/api/v1/reports", tags=["Advanced Reporting"]
 # )
-app.include_router(survey.router, prefix="/api/v1/surveys", tags=["Surveys"])
+# app.include_router(survey.router, prefix="/api/v1/surveys", tags=["Surveys"])
 
 
 @app.exception_handler(HTTPException)
