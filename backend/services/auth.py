@@ -100,7 +100,16 @@ class AuthService:
 
     async def get_user_by_username(self, username: str) -> Optional[User]:
         """Get user by username with positions loaded."""
-        result = await self.db.execute(select(User).where(User.username == username))
+        result = await self.db.execute(
+            select(User)
+            .options(
+                selectinload(User.positions).selectinload(PositionHolder.role),
+                selectinload(User.positions).selectinload(PositionHolder.village),
+                selectinload(User.positions).selectinload(PositionHolder.block),
+                selectinload(User.positions).selectinload(PositionHolder.district),
+            )
+            .where(User.username == username)
+        )
         user = result.scalar_one_or_none()
         return user
 

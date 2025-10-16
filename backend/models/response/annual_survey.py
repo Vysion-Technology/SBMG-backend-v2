@@ -164,11 +164,6 @@ class AnnualSurveyResponse(BaseModel):
     id: int
     gp_id: int
     survey_date: date
-    surveyed_by_id: int
-
-    # Surveyor details
-    surveyor_name: str
-    surveyor_role: str
 
     # Geography details
     gp_name: str
@@ -189,7 +184,7 @@ class AnnualSurveyResponse(BaseModel):
     agency_id: int
 
     # Sub-sections (optional - only included if they exist)
-    vdo: PositionHolderResponse
+    vdo: Optional[PositionHolderResponse] = None
     work_order: Optional[WorkOrderDetailsResponse] = None
     fund_sanctioned: Optional[FundSanctionedResponse] = None
     door_to_door_collection: Optional[DoorToDoorCollectionResponse] = None

@@ -6,9 +6,10 @@ Handles business logic for annual survey management
 from typing import Any, List, Optional, Tuple, Dict
 from datetime import date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_, delete
+from sqlalchemy import insert, select, func, and_, delete
 from sqlalchemy.orm import selectinload
 
+from models.response.annual_survey import AnnualSurveyResponse
 from models.database.survey_master import (
     AnnualSurvey,
     WorkOrderDetails,
@@ -93,7 +94,7 @@ class AnnualSurveyService:
 
     async def create_survey(
         self, user: User, request: CreateAnnualSurveyRequest
-    ) -> AnnualSurvey:
+    ) -> AnnualSurveyResponse:
         """Create a new annual survey."""
         # Get active position
         position = await self.get_user_active_position(user)
@@ -106,27 +107,34 @@ class AnnualSurveyService:
 
         # Get GP details to validate
         result = await self.db.execute(
-            select(GramPanchayat).where(GramPanchayat.id == request.gp_id)
+            select(GramPanchayat)
+            .options(
+                selectinload(GramPanchayat.block),
+                selectinload(GramPanchayat.district),
+            )
+            .where(GramPanchayat.id == request.gp_id)
         )
         gp = result.scalar_one_or_none()
         if not gp:
             raise ValueError("Gram Panchayat not found")
 
         # Create annual survey
-        survey = AnnualSurvey(
-            gp_id=request.gp_id,
-            survey_date=request.survey_date or date.today(),
-            surveyed_by_id=position.id,
-            vdo_name=request.vdo_name,
-            vdo_contact=request.vdo_contact,
-            sarpanch_name=request.sarpanch_name,
-            sarpanch_contact=request.sarpanch_contact,
-            num_ward_panchs=request.num_ward_panchs,
-            bidder_name=request.bidder_name,
-        )
 
-        self.db.add(survey)
-        await self.db.flush()  # Get the survey ID
+        survey = (
+            await self.db.execute(
+                insert(AnnualSurvey)
+                .values(
+                    gp_id=request.gp_id,
+                    survey_date=date.today(),
+                    vdo_id=position.id,
+                    sarpanch_name=request.sarpanch_name,
+                    sarpanch_contact=request.sarpanch_contact,
+                    num_ward_panchs=request.num_ward_panchs,
+                    agency_id=1,
+                )
+                .returning(AnnualSurvey)
+            )
+        ).scalar_one()
 
         # Create work order details if provided
         if request.work_order:
@@ -248,7 +256,22 @@ class AnnualSurveyService:
         await self.db.commit()
         await self.db.refresh(survey)
 
-        return survey
+        return AnnualSurveyResponse(
+            id=survey.id,
+            gp_id=survey.gp_id,
+            survey_date=survey.survey_date,
+            vdo_id=survey.vdo_id,
+            gp_name=gp.name,
+            block_name=gp.block.name,
+            district_name=gp.district.name,
+            sarpanch_name=survey.sarpanch_name or "",
+            sarpanch_contact=survey.sarpanch_contact or "",
+            num_ward_panchs=survey.num_ward_panchs or 0,
+            agency_id=survey.agency_id,
+            vdo=None,
+            created_at=survey.created_at,
+            updated_at=survey.updated_at,
+        )
 
     async def get_survey_by_id(self, survey_id: int) -> Optional[AnnualSurvey]:
         """Get annual survey by ID with all related data."""

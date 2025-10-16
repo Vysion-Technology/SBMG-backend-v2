@@ -154,7 +154,7 @@ async def create_annual_survey(
     request: CreateAnnualSurveyRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
-):
+) -> AnnualSurveyResponse:
     """
     Create a new annual survey.
 
@@ -168,10 +168,7 @@ async def create_annual_survey(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    # Load the survey with all details to return
-    survey_detail = await get_survey_detail(survey.id, db)
-
-    return survey_detail
+    return survey
 
 
 # @router.get("/{survey_id}", response_model=AnnualSurveyResponse)
