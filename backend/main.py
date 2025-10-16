@@ -70,7 +70,11 @@ app.include_router(
     annual_survey.router, prefix="/api/v1/annual-surveys", tags=["Annual Surveys"]
 )
 app.include_router(notice.router, prefix="/api/v1/notices", tags=["Notices"])
-app.include_router(agency.router, prefix="/api/v1/agencies", tags=["Agency Management"])
+app.include_router(
+    agency.router,
+    prefix="/api/v1/contractors",
+    tags=["Agency and Contractor Management"],
+)
 # app.include_router(
 #     login_management.router,
 #     prefix="/api/v1/login-management",
