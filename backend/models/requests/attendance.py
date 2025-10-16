@@ -1,5 +1,4 @@
 from typing import Optional
-from datetime import date
 from pydantic import BaseModel
 
 
@@ -19,16 +18,3 @@ class AttendanceEndRequest(BaseModel):
     end_lat: str
     end_long: str
     remarks: Optional[str] = None
-
-
-class AttendanceFilterRequest(BaseModel):
-    """Request model for filtering attendance records"""
-
-    contractor_id: Optional[int] = None
-    village_id: Optional[int] = None
-    block_id: Optional[int] = None
-    district_id: Optional[int] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
-    page: int = 1
-    limit: int = 10

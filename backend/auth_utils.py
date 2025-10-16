@@ -1,22 +1,9 @@
-from enum import Enum
 from typing import List
 from functools import wraps
 
 from fastapi import HTTPException, status, Depends
 from controllers.auth import get_current_active_user, UserRole
 from models.database.auth import User
-
-# class UserRole(str, Enum):
-#     """User roles in the system."""
-
-#     SUPERADMIN = "SUPERADMIN"
-#     ADMIN = "ADMIN"
-#     SMD = "SMD"  # State Mission Director
-#     CEO = "CEO"  # District Collector
-#     BDO = "BDO"  # Block Development Officer
-#     VDO = "VDO"  # Village Development Officer
-#     WORKER = "WORKER"
-#     PUBLIC = "PUBLIC"
 
 
 class PermissionChecker:

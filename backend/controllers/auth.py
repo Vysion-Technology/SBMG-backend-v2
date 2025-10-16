@@ -1,4 +1,4 @@
-from enum import Enum
+from services.auth import UserRole
 from typing import List, Optional
 from datetime import timedelta
 
@@ -11,19 +11,6 @@ from database import get_db
 from models.database.auth import PositionHolder, User
 from services.auth import AuthService
 from config import settings
-
-
-class UserRole(str, Enum):
-    """User roles in the system."""
-
-    SUPERADMIN = "SUPERADMIN"
-    ADMIN = "ADMIN"
-    SMD = "SMD"  # State Mission Director
-    CEO = "CEO"  # District Collector
-    BDO = "BDO"  # Block Development Officer
-    VDO = "VDO"  # Village Development Officer
-    WORKER = "WORKER"
-    PUBLIC = "PUBLIC"
 
 
 # Security
@@ -149,21 +136,6 @@ async def login(login_request: LoginRequest, db: AsyncSession = Depends(get_db))
     return TokenResponse(access_token=access_token, token_type="bearer")
 
 
-def get_role_by_user(user: User) -> Optional[UserRole]:
-    """Extract roles from user's positions."""
-    if not (user.village_id and user.block_id and user.district_id):
-        return UserRole.ADMIN
-    if not user.block_id and user.district_id:
-        return UserRole.CEO
-    if user.block_id and not user.village_id:
-        return UserRole.BDO
-    if user.village_id and "contractor" in user.username.lower():
-        return UserRole.WORKER
-    if user.village_id:
-        return UserRole.VDO
-    return None
-
-
 @router.get("/me", response_model=UserResponse)
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
     """Get current user information."""
@@ -193,7 +165,7 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
         village_id=current_user.village_id,
         block_id=current_user.block_id,
         district_id=current_user.district_id,
-        role=get_role_by_user(current_user) or UserRole.WORKER,
+        role=AuthService.get_role_by_user(current_user) or UserRole.WORKER,
         positions=[],
     )
 

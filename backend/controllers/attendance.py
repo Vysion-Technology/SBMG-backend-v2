@@ -9,7 +9,10 @@ from database import get_db
 from models.database.auth import User
 from models.database.contractor import Contractor
 from models.database.geography import GramPanchayat
-from models.requests.attendance import AttendanceLogRequest, AttendanceEndRequest, AttendanceFilterRequest
+from models.requests.attendance import (
+    AttendanceLogRequest,
+    AttendanceEndRequest,
+)
 from models.response.attendance import (
     AttendanceResponse,
     AttendanceListResponse,
@@ -18,9 +21,12 @@ from models.response.attendance import (
     AttendanceAnalyticsResponse,
 )
 from models.internal import GeoTypeEnum
-from services.auth import AuthService
+from services.auth import AuthService, UserRole
 from services.attendance import AttendanceService
-from exceptions.attendance import NoContractorForVillageError, AttemptingToLogAttendanceForAnotherUserError
+from exceptions.attendance import (
+    NoContractorForVillageError,
+    AttemptingToLogAttendanceForAnotherUserError,
+)
 from services.geography import GeographyService
 
 # Security
@@ -31,14 +37,18 @@ router = APIRouter()
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security), db: AsyncSession = Depends(get_db)
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """Get current authenticated user."""
     auth_service = AuthService(db)
     token = credentials.credentials
     user = await auth_service.get_current_user_from_token(token)
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+        )
     return user
 
 
@@ -50,18 +60,24 @@ async def get_contractor_from_user(user: User, db: AsyncSession) -> Contractor:
 
     from sqlalchemy import select
 
-    result = await db.execute(select(Contractor).where(Contractor.village_id == user.village_id))
+    result = await db.execute(
+        select(Contractor).where(Contractor.village_id == user.village_id)
+    )
     contractor = result.scalar_one_or_none()
 
     if not contractor:
-        raise NoContractorForVillageError("There is no contractor associated with the village.")
+        raise NoContractorForVillageError(
+            "There is no contractor associated with the village."
+        )
 
     return contractor
 
 
 @router.post("/log", response_model=AttendanceResponse)
 async def log_attendance(
-    request: AttendanceLogRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+    request: AttendanceLogRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Log worker attendance (start of work day).
@@ -70,7 +86,9 @@ async def log_attendance(
     try:
         # Get contractor record for this user
         if not request.village_id == current_user.village_id:
-            raise AttemptingToLogAttendanceForAnotherUserError("You can only log attendance for your own village.")
+            raise AttemptingToLogAttendanceForAnotherUserError(
+                "You can only log attendance for your own village."
+            )
         contractor = await get_contractor_from_user(current_user, db)
 
         # Log attendance
@@ -81,7 +99,10 @@ async def log_attendance(
         full_attendance = await attendance_service.get_attendance_by_id(attendance.id)
 
         if not full_attendance:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attendance record not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Attendance record not found",
+            )
 
         geo_service = GeographyService(db)
 
@@ -92,12 +113,19 @@ async def log_attendance(
         return AttendanceResponse(
             id=full_attendance.id,
             contractor_id=full_attendance.contractor_id,
-            contractor_name=contractor.person_name if full_attendance.contractor else None,
+            contractor_name=contractor.person_name
+            if full_attendance.contractor
+            else None,
             village_id=village.id,
             village_name=village.name,
-            block_name=village.block.name if full_attendance.contractor and village and village.block else None,
+            block_name=village.block.name
+            if full_attendance.contractor and village and village.block
+            else None,
             district_name=village.block.district.name
-            if full_attendance.contractor and village and village.block and village.block.district
+            if full_attendance.contractor
+            and village
+            and village.block
+            and village.block.district
             else None,
             date=full_attendance.date,
             start_time=full_attendance.start_time,
@@ -118,13 +146,16 @@ async def log_attendance(
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An error occurred while logging attendance"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while logging attendance",
         ) from e
 
 
 @router.put("/end", response_model=AttendanceResponse)
 async def end_attendance(
-    request: AttendanceEndRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+    request: AttendanceEndRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     End worker attendance (end of work day).
@@ -142,7 +173,10 @@ async def end_attendance(
         full_attendance = await attendance_service.get_attendance_by_id(attendance.id)
 
         if not full_attendance:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attendance record not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Attendance record not found",
+            )
 
         geo_service: GeographyService = GeographyService(db)
 
@@ -153,11 +187,15 @@ async def end_attendance(
         return AttendanceResponse(
             id=full_attendance.id,
             contractor_id=full_attendance.contractor_id,
-            contractor_name=contractor.person_name if full_attendance.contractor else None,
+            contractor_name=contractor.person_name
+            if full_attendance.contractor
+            else None,
             village_id=village.id,
             village_name=village.name,
             block_name=village.block.name if village.block else None,
-            district_name=village.block.district.name if village.block and village.block.district else None,
+            district_name=village.block.district.name
+            if village.block and village.block.district
+            else None,
             date=full_attendance.date,
             start_time=full_attendance.start_time,
             start_lat=full_attendance.start_lat or "",
@@ -172,7 +210,8 @@ async def end_attendance(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An error occurred while ending attendance"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while ending attendance",
         ) from e
 
 
@@ -189,27 +228,33 @@ async def get_my_attendance(
     Get attendance records for the authenticated worker.
     """
     try:
-        # Get contractor record for this user
-        contractor = await get_contractor_from_user(current_user, db)
-
-        # Create filter request
-        filters = AttendanceFilterRequest(
-            contractor_id=contractor.id, start_date=start_date, end_date=end_date, page=page, limit=limit
+        # Check if the user is a contractor/worker
+        user_role = AuthService.get_role_by_user(current_user)
+        if user_role != UserRole.WORKER:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only workers can view their own attendance records",
+            )
+        attendance_svc = AttendanceService(db)
+        attendances = await attendance_svc.get_attendances(
+            contractor_id=(await get_contractor_from_user(current_user, db)).id,
+            start_date=start_date,
+            end_date=end_date,
+            skip=(page - 1) * limit,
+            limit=limit,
         )
-
-        # Get attendance records
-        attendance_service = AttendanceService(db)
-        user_jurisdiction = await attendance_service.get_user_jurisdiction(current_user)
-
-        return await attendance_service.get_filtered_attendances(filters, user_jurisdiction)
-
+        return attendances
+    except HTTPException as e:
+        raise e
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while fetching attendance records",
         ) from e
 
 
+# TODO: Production is throwing error
 @router.get("/view", response_model=AttendanceListResponse)
 async def view_attendance(
     contractor_id: Optional[int] = None,
@@ -218,44 +263,47 @@ async def view_attendance(
     district_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-    page: int = 1,
-    limit: int = 10,
+    skip: int = 0,
+    limit: int = 500,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-):
+) -> AttendanceListResponse:
     """
     View attendance records for officers (VDO/BDO/CEO/ADMIN).
     Officers can only see attendance within their jurisdiction.
     """
     try:
         # Check if user has officer role
-        user_roles = [position.role.name.upper() for position in current_user.positions]
-        if not any(role in ["VDO", "BDO", "CEO", "ADMIN"] for role in user_roles):
+        user_role = AuthService.get_role_by_user(current_user)
+        if user_role == UserRole.WORKER:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions to view attendance records"
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Workers cannot view attendance records of others. Use the other API to get your attendance records.",
             )
 
-        # Create filter request
-        filters = AttendanceFilterRequest(
+        if not any(role in ["VDO", "BDO", "CEO", "ADMIN"] for role in [user_role]):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions to view attendance records",
+            )
+
+        svc = AttendanceService(db)
+
+        return await svc.get_attendances(
             contractor_id=contractor_id,
             village_id=village_id,
             block_id=block_id,
             district_id=district_id,
             start_date=start_date,
             end_date=end_date,
-            page=page,
+            skip=skip,
             limit=limit,
         )
-
-        # Get user jurisdiction and filtered attendance records
-        attendance_service = AttendanceService(db)
-        user_jurisdiction = await attendance_service.get_user_jurisdiction(current_user)
-
-        return await attendance_service.get_filtered_attendances(filters, user_jurisdiction)
 
     except HTTPException:
         raise
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while fetching attendance records",
@@ -278,14 +326,17 @@ async def get_attendance_stats(
         user_roles = [position.role.name.upper() for position in current_user.positions]
         if not any(role in ["VDO", "BDO", "CEO", "ADMIN"] for role in user_roles):
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions to view attendance statistics"
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions to view attendance statistics",
             )
 
         # Get attendance statistics
         attendance_service = AttendanceService(db)
         user_jurisdiction = await attendance_service.get_user_jurisdiction(current_user)
 
-        return await attendance_service.get_attendance_stats(user_jurisdiction, start_date, end_date)
+        return await attendance_service.get_attendance_stats(
+            user_jurisdiction, start_date, end_date
+        )
 
     except HTTPException:
         raise
@@ -321,14 +372,21 @@ async def get_attendance_analytics(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to access district-level analytics",
             )
-        if current_user.village_id is not None and level in [GeoTypeEnum.DISTRICT, GeoTypeEnum.BLOCK]:
+        if current_user.village_id is not None and level in [
+            GeoTypeEnum.DISTRICT,
+            GeoTypeEnum.BLOCK,
+        ]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to access district or block-level analytics",
             )
 
         # Validate query parameters
-        if (district_id and block_id) or (district_id and gp_id) or (block_id and gp_id):
+        if (
+            (district_id and block_id)
+            or (district_id and gp_id)
+            or (block_id and gp_id)
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Provide only one of district_id, block_id, or gp_id",
@@ -386,7 +444,10 @@ async def get_attendance_for_day(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access district-level data",
         )
-    if current_user.village_id is not None and level in [GeoTypeEnum.DISTRICT, GeoTypeEnum.BLOCK]:
+    if current_user.village_id is not None and level in [
+        GeoTypeEnum.DISTRICT,
+        GeoTypeEnum.BLOCK,
+    ]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access district or block-level data",
@@ -411,9 +472,12 @@ async def get_attendance_for_day(
     )
 
 
+# TODO: This API is failing on production
 @router.get("/{attendance_id}", response_model=AttendanceResponse)
 async def get_attendance_by_id(
-    attendance_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+    attendance_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get specific attendance record by ID.
@@ -425,7 +489,10 @@ async def get_attendance_by_id(
         attendance = await attendance_service.get_attendance_by_id(attendance_id)
 
         if not attendance:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attendance record not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Attendance record not found",
+            )
 
         # Check permissions
         user_roles = [position.role.name.upper() for position in current_user.positions]
@@ -436,18 +503,22 @@ async def get_attendance_by_id(
                 contractor = await get_contractor_from_user(current_user, db)
                 if attendance.contractor_id != contractor.id:
                     raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN, detail="You can only view your own attendance records"
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="You can only view your own attendance records",
                     )
             except HTTPException as e:
                 if e.status_code == status.HTTP_404_NOT_FOUND:
                     raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN, detail="You can only view your own attendance records"
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="You can only view your own attendance records",
                     )
                 raise
 
         # If user is an officer, check jurisdiction
         elif any(role in ["VDO", "BDO", "CEO", "ADMIN"] for role in user_roles):
-            user_jurisdiction = await attendance_service.get_user_jurisdiction(current_user)
+            user_jurisdiction = await attendance_service.get_user_jurisdiction(
+                current_user
+            )
 
             # Check if attendance is within user's jurisdiction
             if not user_jurisdiction.get("is_admin"):
@@ -456,36 +527,46 @@ async def get_attendance_by_id(
                     and attendance.village_id not in user_jurisdiction["village_ids"]
                 ):
                     raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN, detail="Attendance record is outside your jurisdiction"
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Attendance record is outside your jurisdiction",
                     )
                 elif (
                     user_jurisdiction.get("block_ids")
                     and attendance.village
-                    and attendance.village.block_id not in user_jurisdiction["block_ids"]
+                    and attendance.village.block_id
+                    not in user_jurisdiction["block_ids"]
                 ):
                     raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN, detail="Attendance record is outside your jurisdiction"
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Attendance record is outside your jurisdiction",
                     )
                 elif (
                     user_jurisdiction.get("district_ids")
                     and attendance.village
-                    and attendance.village.district_id not in user_jurisdiction["district_ids"]
+                    and attendance.village.district_id
+                    not in user_jurisdiction["district_ids"]
                 ):
                     raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN, detail="Attendance record is outside your jurisdiction"
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Attendance record is outside your jurisdiction",
                     )
         else:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions to view attendance records"
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions to view attendance records",
             )
 
         return AttendanceResponse(
             id=attendance.id,
             contractor_id=attendance.contractor_id,
-            contractor_name=attendance.contractor.person_name if attendance.contractor else None,
+            contractor_name=attendance.contractor.person_name
+            if attendance.contractor
+            else None,
             village_id=attendance.village_id,
             village_name=attendance.village.name if attendance.village else None,
-            block_name=attendance.village.block.name if attendance.village and attendance.village.block else None,
+            block_name=attendance.village.block.name
+            if attendance.village and attendance.village.block
+            else None,
             district_name=attendance.village.district.name
             if attendance.village and attendance.village.district
             else None,
