@@ -45,6 +45,19 @@ from models.database.inspection import (
     OtherInspectionItem,
 )
 from models.database.notice import Notice, NoticeMedia
+from models.database.survey_master import (
+    FundHead,
+    CollectionFrequency,
+    CleaningFrequency,
+    AnnualSurvey,
+    DoorToDoorCollectionDetails,
+    RoadSweepingDetails,
+    DrainCleaningDetails,
+    CSCDetails,
+    SWMAssets,
+    FundSanctioned,
+    WorkOrderDetails,
+)
 
 __all__ = [
     # Auth models
@@ -97,4 +110,16 @@ __all__ = [
     # Notice models
     "Notice",
     "NoticeMedia",
+    # Survey Master models
+    "FundHead",
+    "CollectionFrequency",
+    "CleaningFrequency",
+    "AnnualSurvey",
+    "DoorToDoorCollectionDetails",
+    "RoadSweepingDetails",
+    "DrainCleaningDetails",
+    "CSCDetails",
+    "SWMAssets",
+    "FundSanctioned",
+    "WorkOrderDetails",
 ]
