@@ -563,17 +563,9 @@ class AnnualSurveyService:
 
         return survey
 
-    async def delete_survey(self, survey_id: int, user: User) -> bool:
+    async def delete_survey(self, survey_id: int) -> bool:
         """Delete an annual survey."""
-        survey = await self.get_survey_by_id(survey_id)
-        if not survey:
-            raise ValueError("Survey not found")
-
-        # Check if user can survey this GP
-        if not await self.can_survey_gp(user, survey.gp_id):
-            raise ValueError("User does not have jurisdiction to delete this survey")
-
-        await self.db.delete(survey)
+        await self.db.execute(delete(AnnualSurvey).where(AnnualSurvey.id == survey_id))
         await self.db.commit()
         return True
 
