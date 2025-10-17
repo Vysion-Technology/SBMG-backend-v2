@@ -4,15 +4,17 @@ Describes the annual survey entity and related models
 """
 
 from enum import Enum as PyEnum
-from models.response.admin import PositionHolder
 from models.database.contractor import Agency
-from database import Base  # type: ignore
 from typing import Optional, List
 from datetime import date as dt_date, datetime
 
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy import Index, String, Integer, ForeignKey, Date, DateTime, Enum, Numeric
+
 from models.database.geography import District, Block, GramPanchayat
+from models.database.auth import PositionHolder as UserPositionHolder
+
+from database import Base  # type: ignore
 
 
 class FundHead(str, PyEnum):
@@ -100,7 +102,9 @@ class AnnualSurvey(Base):  # type: ignore
 
     # Relationships
     gp: Mapped[GramPanchayat] = relationship("GramPanchayat", foreign_keys=[gp_id])
-    vdo: Mapped[PositionHolder] = relationship("PositionHolder", foreign_keys=[vdo_id])
+    vdo: Mapped[UserPositionHolder] = relationship(
+        "PositionHolder", foreign_keys=[vdo_id]
+    )
     agency: Mapped[Agency] = relationship("Agency", foreign_keys=[agency_id])
 
     # 1:1 relationships with sub-sections
