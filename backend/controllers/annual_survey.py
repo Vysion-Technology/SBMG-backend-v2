@@ -3,6 +3,8 @@ Annual Survey Controller
 Handles API endpoints for annual survey management
 """
 
+from datetime import date
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -94,6 +96,49 @@ async def delete_annual_survey(
         ) from e
 
     return None
+
+
+@router.get("/", response_model=list[AnnualSurveyResponse])
+async def list_annual_surveys(
+    db: AsyncSession = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+    district_id: int | None = None,
+    block_id: int | None = None,
+    gp_id: int | None = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    current_user: User = Depends(require_staff_role),
+) -> list[AnnualSurveyResponse]:
+    """
+    List annual surveys.
+
+    - Staff can view surveys within their jurisdiction
+    - Admin can view all surveys
+    """
+    service = AnnualSurveyService(db)
+
+    try:
+        if current_user.village_id and gp_id != current_user.village_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to view surveys for this GP",
+            )
+        surveys = await service.get_surveys_list(
+            block_id=block_id,
+            gp_id=gp_id,
+            start_date=start_date,
+            end_date=end_date,
+            district_id=district_id,
+            limit=limit,
+            skip=skip,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
+
+    return surveys
 
 
 @router.get("/{survey_id}", response_model=AnnualSurveyResponse)

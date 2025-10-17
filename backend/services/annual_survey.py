@@ -27,7 +27,7 @@ from models.database.survey_master import (
     VillageSBMGAssets,
     VillageGWMAssets,
 )
-from models.database.auth import User
+from models.database.auth import PositionHolder, User
 from models.database.geography import Block, District, GramPanchayat
 from models.requests.survey import (
     CreateAnnualSurveyRequest,
@@ -53,7 +53,6 @@ def get_response_model_from_survey(
         vdo=PositionHolderResponse(
             id=survey.vdo.id,
             user_id=survey.vdo.user_id,
-            role_id=None,
             first_name=survey.vdo.first_name,
             middle_name=survey.vdo.middle_name,
             last_name=survey.vdo.last_name,
@@ -263,6 +262,7 @@ class AnnualSurveyService:
             .options(
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
+                selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
                 selectinload(AnnualSurvey.work_order),
                 selectinload(AnnualSurvey.fund_sanctioned),
                 selectinload(AnnualSurvey.door_to_door_collection),
@@ -295,16 +295,24 @@ class AnnualSurveyService:
     ) -> List[AnnualSurveyResponse]:
         """Get paginated list of surveys with filters."""
         # Build base query
-        query = (
-            select(AnnualSurvey)
-            .join(GramPanchayat, AnnualSurvey.gp_id == GramPanchayat.id)
-            .join(Block, GramPanchayat.block_id == Block.id)
-            .join(District, Block.district_id == District.id)
-            .options(
-                selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
-                selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
-                selectinload(AnnualSurvey.village_data),
-            )
+        query = select(AnnualSurvey).options(
+            selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
+            selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
+            selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
+            selectinload(AnnualSurvey.work_order),
+            selectinload(AnnualSurvey.fund_sanctioned),
+            selectinload(AnnualSurvey.door_to_door_collection),
+            selectinload(AnnualSurvey.road_sweeping),
+            selectinload(AnnualSurvey.drain_cleaning),
+            selectinload(AnnualSurvey.csc_details),
+            selectinload(AnnualSurvey.swm_assets),
+            selectinload(AnnualSurvey.sbmg_targets),
+            selectinload(AnnualSurvey.village_data).selectinload(
+                VillageData.sbmg_assets
+            ),
+            selectinload(AnnualSurvey.village_data).selectinload(
+                VillageData.gwm_assets
+            ),
         )
 
         if gp_id:
