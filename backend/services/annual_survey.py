@@ -10,6 +10,8 @@ from sqlalchemy import insert, select, delete
 from sqlalchemy.orm import selectinload
 
 from services.auth import AuthService
+
+from models.response.auth import PositionHolderResponse
 from models.response.annual_survey import AnnualSurveyResponse
 from models.database.survey_master import (
     AnnualSurvey,
@@ -30,6 +32,45 @@ from models.database.geography import Block, District, GramPanchayat
 from models.requests.survey import (
     CreateAnnualSurveyRequest,
 )
+
+
+def get_response_model_from_survey(
+    survey: AnnualSurvey,
+) -> AnnualSurveyResponse:
+    """Convert AnnualSurvey model to AnnualSurveyResponse."""
+    return AnnualSurveyResponse(
+        id=survey.id,
+        gp_id=survey.gp_id,
+        survey_date=survey.survey_date,
+        vdo_id=survey.vdo_id,
+        gp_name=survey.gp.name,
+        block_name=survey.gp.block.name,
+        district_name=survey.gp.district.name,
+        sarpanch_name=survey.sarpanch_name or "",
+        sarpanch_contact=survey.sarpanch_contact or "",
+        num_ward_panchs=survey.num_ward_panchs or 0,
+        agency_id=survey.agency_id,
+        vdo=PositionHolderResponse(
+            id=survey.vdo.id,
+            user_id=survey.vdo.user_id,
+            role_id=None,
+            first_name=survey.vdo.first_name,
+            middle_name=survey.vdo.middle_name,
+            last_name=survey.vdo.last_name,
+            username=survey.vdo.user.username,
+        ),
+        created_at=survey.created_at,
+        updated_at=survey.updated_at,
+        work_order=survey.work_order,
+        fund_sanctioned=survey.fund_sanctioned,
+        door_to_door_collection=survey.door_to_door_collection,
+        road_sweeping=survey.road_sweeping,
+        drain_cleaning=survey.drain_cleaning,
+        csc_details=survey.csc_details,
+        swm_assets=survey.swm_assets,
+        sbmg_targets=survey.sbmg_targets,
+        village_data=survey.village_data,  # type: ignore
+    )
 
 
 class AnnualSurveyService:
@@ -239,7 +280,8 @@ class AnnualSurveyService:
             )
             .where(AnnualSurvey.id == survey_id)
         )
-        return result.scalar_one_or_none()
+        resp = get_response_model_from_survey(result.scalar_one_or_none())
+        return resp
 
     async def get_surveys_list(
         self,
@@ -285,7 +327,7 @@ class AnnualSurveyService:
         result = await self.db.execute(query)
         surveys = result.scalars().all()
 
-        return list(surveys)
+        return [get_response_model_from_survey(survey) for survey in surveys]
 
     async def delete_survey(self, survey_id: int) -> bool:
         """Delete an annual survey."""
