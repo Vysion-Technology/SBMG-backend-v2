@@ -113,7 +113,7 @@ class PositionHolder(Base):  # type: ignore
     end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)  # type: ignore - Format: YYYY-MM-DD
 
     # Relationships
-    user = relationship("User", back_populates="positions")
+    user: Mapped[User] = relationship("User", back_populates="positions")
     role: Mapped[Role] = relationship("Role")
     village: Mapped[GramPanchayat] = relationship("GramPanchayat")
     block: Mapped[Block] = relationship("Block")
