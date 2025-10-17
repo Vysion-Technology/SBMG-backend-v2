@@ -1,10 +1,10 @@
-import requests
 from enum import Enum
 
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta, date, timezone
 import uuid
 
+import requests
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert, delete, update
 from sqlalchemy.orm import selectinload
@@ -247,7 +247,7 @@ class AuthService:
     async def send_otp(self, mobile_number: str) -> bool:
         """Send OTP to the given phone number."""
         # Placeholder implementation - integrate with actual SMS service
-        import random  # type: ignore
+        import random  # pylint: disable=C0415,W0611
 
         otp = 123456  # For testing, use a fixed OTP
         # Check if the OTP exists for the phone number
@@ -362,6 +362,14 @@ class AuthService:
             return UserRole.VDO
         return None
 
+    @staticmethod
+    async def get_user_active_position(user: User) -> Optional[PositionHolder]:
+        """Get the active position of the user."""
+        # Get the first active position
+        for position in user.positions:
+            return position
+        return None
+
 
 def send_otp(mobile_number: str, otp: int | str) -> bool:
     """Send OTP to the given phone number."""
@@ -385,6 +393,7 @@ def send_otp(mobile_number: str, otp: int | str) -> bool:
             "variables_values": otp,
             "numbers": mobile_number,
         },
+        timeout=30,
     )
 
     print(response.text)
