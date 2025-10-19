@@ -1,10 +1,11 @@
+"""Geography Controller."""
+
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from services.geography import GeographyService
 from database import get_db
 from models.database.geography import District, Block, GramPanchayat
 from models.response.geography import (
@@ -14,6 +15,8 @@ from models.response.geography import (
 )
 from models.database.contractor import Agency, Contractor
 from models.response.contractor import AgencyResponse, ContractorResponse
+
+from services.geography import GeographyService
 from services.contractor import ContractorService
 
 
@@ -27,13 +30,15 @@ async def list_districts(
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
 ):
-    """List all districts with pagination (Admin only)."""
+    """List all districts with pagination."""
     result = await db.execute(select(District).offset(skip).limit(limit))
     districts = result.scalars().all()
 
     return [
         DistrictResponse(
-            id=district.id, name=district.name, description=district.description
+            id=district.id,
+            name=district.name,
+            description=district.description,
         )
         for district in districts
     ]
@@ -46,7 +51,7 @@ async def list_blocks(
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
 ):
-    """List all blocks with pagination (Admin only)."""
+    """List all blocks with pagination."""
     query = select(Block)
 
     if district_id:
@@ -67,15 +72,15 @@ async def list_blocks(
     ]
 
 
-@router.get("/villages", response_model=List[GramPanchayatResponse])
-async def list_villages(
+@router.get("/grampanchayats", response_model=List[GramPanchayatResponse])
+async def list_grampanchayats(
     block_id: Optional[int] = None,
     district_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
 ):
-    """List all villages with pagination (Admin only)."""
+    """List all Gram Panchayats with pagination."""
     query = select(GramPanchayat)
 
     if block_id:
@@ -99,15 +104,13 @@ async def list_villages(
     ]
 
 
-@router.get("/villages/{village_id}", response_model=GramPanchayatResponse)
-async def get_village(
+@router.get("/grampanchayats/{village_id}", response_model=GramPanchayatResponse)
+async def get_grampanchayat(
     village_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a specific village by ID (Admin only)."""
-    result = await db.execute(
-        select(GramPanchayat).where(GramPanchayat.id == village_id)
-    )
+    """Get a specific grampanchayat by ID."""
+    result = await db.execute(select(GramPanchayat).where(GramPanchayat.id == village_id))
     village = result.scalar_one_or_none()
 
     if not village:
@@ -127,7 +130,7 @@ async def get_block(
     block_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a specific block by ID (Admin only)."""
+    """Get a specific block by ID."""
     result = await db.execute(select(Block).where(Block.id == block_id))
     block = result.scalar_one_or_none()
 
@@ -154,17 +157,15 @@ async def get_district(
     if not district:
         raise HTTPException(status_code=404, detail="District not found")
 
-    return DistrictResponse(
-        id=district.id, name=district.name, description=district.description
-    )
+    return DistrictResponse(id=district.id, name=district.name, description=district.description)
 
 
-@router.get("/villages/{village_id}/contractor", response_model=ContractorResponse)
+@router.get("/grampanchayats/{village_id}/contractor", response_model=ContractorResponse)
 async def get_contractors_by_village(
     village_id: int,
     db: AsyncSession = Depends(get_db),
 ) -> ContractorResponse:
-    """Get all contractors for a specific village."""
+    """Get all contractors for a specific Gram Panchayat."""
     geo_service = GeographyService(db)
     # First check if village exists
     village = await geo_service.get_village(village_id)
@@ -178,18 +179,16 @@ async def get_contractors_by_village(
     result = await db.execute(query)
     contractor = result.unique().scalar_one_or_none()
     if not contractor:
-        raise HTTPException(
-            status_code=404, detail="No contractors found for this village"
-        )
+        raise HTTPException(status_code=404, detail="No contractors found for this village")
     agency: Agency = (
-        await db.execute(select(Agency).where(Agency.id == contractor.agency_id))
+        await db.execute(
+            select(Agency).where(
+                Agency.id == contractor.agency_i,
+            )
+        )
     ).scalar_one()
     contractor_service: ContractorService = ContractorService(db)
 
-    # agency, village = await asyncio.gather(
-    #     contractor_service.get_agency_by_id(contractor.agency_id),
-    #     geo_service.get_village(village_id)
-    # )
     agency = await contractor_service.get_agency_by_id(contractor.agency_id)
     return ContractorResponse(
         id=contractor.id,
@@ -207,9 +206,7 @@ async def get_contractors_by_village(
         village_id=contractor.village_id,
         village_name=village.name if village else None,
         block_name=village.block.name if village and village.block else None,
-        district_name=village.block.district.name
-        if village and village.block
-        else None,
+        district_name=village.block.district.name if village and village.block else None,
         contract_start_date=contractor.contract_start_date,
         contract_end_date=contractor.contract_end_date,
     )

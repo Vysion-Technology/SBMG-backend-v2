@@ -1,3 +1,5 @@
+"""Contractor related API endpoints."""
+
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +20,9 @@ async def list_agencies(
 ) -> List[AgencyResponse]:
     """List all agencies with pagination."""
     agencies = await ContractorService(db).list_agencies(
-        skip=skip, limit=limit, name_like=name_like
+        skip=skip,
+        limit=limit,
+        name_like=name_like,
     )
     return [agency for agency in agencies]
 
@@ -34,6 +38,6 @@ async def create_agency(
         print(agency_res)
         return agency_res
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception:
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error") from e
