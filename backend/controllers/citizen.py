@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import (
@@ -17,6 +18,8 @@ from sqlalchemy.orm import selectinload
 from database import get_db
 from models.database.complaint import Complaint, ComplaintStatus, ComplaintMedia
 from models.database.geography import GramPanchayat
+from services.auth import AuthService
+from services.fcm_notification_service import notify_workers_on_new_complaint
 from services.s3_service import s3_service
 
 from models.response.complaint import ComplaintResponse, MediaResponse
@@ -32,24 +35,6 @@ from models.database.complaint import (
 )
 
 router = APIRouter()
-
-
-async def get_public_user_by_token(
-    db: AsyncSession, token: str
-) -> Optional[PublicUser]:
-    """Retrieve a public user based on the provided token."""
-    result = await db.execute(
-        select(PublicUserToken).where(PublicUserToken.token == token)
-    )
-    public_user_token = result.scalar_one_or_none()
-    if not public_user_token:
-        return None
-
-    result = await db.execute(
-        select(PublicUser).where(PublicUser.id == public_user_token.public_user_id)
-    )
-    public_user = result.scalar_one_or_none()
-    return public_user
 
 
 @router.post("/with-media", response_model=ComplaintResponse)
@@ -75,32 +60,25 @@ async def create_complaint_with_media(
         )
     village_result = await db.execute(
         select(GramPanchayat)
-        .options(
-            selectinload(GramPanchayat.block), selectinload(GramPanchayat.district)
-        )
+        .options(selectinload(GramPanchayat.block), selectinload(GramPanchayat.district))
         .where(GramPanchayat.id == village_id)
     )
     village = village_result.scalar_one_or_none()
     if not village:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Village not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Village not found")
 
-    user = await get_public_user_by_token(db, token)
+    auth_service = AuthService(db)
+    user = await auth_service.get_public_user_by_token(token)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing user token",
         )
     # Get or create "OPEN" status
-    status_result = await db.execute(
-        select(ComplaintStatus).where(ComplaintStatus.name == "OPEN")
-    )
+    status_result = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "OPEN"))
     complaint_status = status_result.scalar_one_or_none()
     if not complaint_status:
-        complaint_status = ComplaintStatus(
-            name="OPEN", description="Newly created complaint"
-        )
+        complaint_status = ComplaintStatus(name="OPEN", description="Newly created complaint")
         db.add(complaint_status)
         await db.commit()
         await db.refresh(complaint_status)
@@ -163,30 +141,24 @@ async def create_complaint_with_media(
         await db.refresh(complaint)
 
         # Fetch media details after commit
-        media_result = await db.execute(
-            select(ComplaintMedia).where(ComplaintMedia.complaint_id == complaint.id)
-        )
+        media_result = await db.execute(select(ComplaintMedia).where(ComplaintMedia.complaint_id == complaint.id))
         media_records = media_result.scalars().all()
 
         media_details = [
-            MediaResponse(
-                id=media.id, media_url=media.media_url, uploaded_at=media.uploaded_at
-            )
+            MediaResponse(id=media.id, media_url=media.media_url, uploaded_at=media.uploaded_at)
             for media in media_records
         ]
     else:
         media_details = []
 
     # Send notification to workers in the village (async, non-blocking)
-    from services.fcm_notification_service import notify_workers_on_new_complaint
 
     try:
         await notify_workers_on_new_complaint(db, complaint)
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         # Log error but don't fail the request
-        import logging
 
-        logging.error(f"Failed to send FCM notification: {e}")
+        logging.error("Failed to send FCM notification: %s", e)
 
     return ComplaintResponse(
         id=complaint.id,
@@ -215,7 +187,8 @@ async def comment_on_complaint(
     """Add a comment to a complaint (Public access)."""
     # Check if complaint exists
     # Get the user id using the token
-    public_user = await get_public_user_by_token(db, user_token)
+    auth_service = AuthService(db)
+    public_user = await auth_service.get_public_user_by_token(user_token)
     if not public_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -225,9 +198,7 @@ async def comment_on_complaint(
     complaint = result.scalar_one_or_none()
 
     if not complaint:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
 
     # Create new comment
     new_comment = ComplaintComment(
@@ -265,9 +236,7 @@ async def upload_complaint_media(
     complaint = result.scalar_one_or_none()
 
     if not complaint:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
 
     # Get the user id using the token
     public_user_token = (
@@ -279,18 +248,14 @@ async def upload_complaint_media(
             detail="Invalid or missing user token",
         )
     public_user_id = public_user_token.public_user_id
-    public_user = (
-        await db.execute(select(PublicUser).where(PublicUser.id == public_user_id))
-    ).scalar_one_or_none()
+    public_user = (await db.execute(select(PublicUser).where(PublicUser.id == public_user_id))).scalar_one_or_none()
 
     # Validate file type
     allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-    filename, file_extension = os.path.splitext(file.filename.lower())  # type: ignore
+    _, file_extension = os.path.splitext(file.filename.lower())  # type: ignore
 
     if file_extension not in allowed_extensions:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported file type"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported file type")
 
     # Upload file to S3/MinIO
     s3_key = f"complaints/{complaint_id}/{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{file.filename}"
@@ -305,7 +270,7 @@ async def upload_complaint_media(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to upload file: {str(e)}",
-        )
+        ) from e
 
     # Optionally, you can save the S3 key or URL in the database associated with the complaint
     # For simplicity, we just return the S3 key here
@@ -343,20 +308,17 @@ async def resolve_complaint(
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
 
-    verified_status = await db.execute(
-        select(ComplaintStatus).where(ComplaintStatus.name == "VERIFIED")
-    )
+    verified_status = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "VERIFIED"))
     verified_status = verified_status.scalar_one_or_none()
     if not verified_status:
-        verified_status = ComplaintStatus(
-            name="VERIFIED", description="Complaint has been verified and resolved"
-        )
+        verified_status = ComplaintStatus(name="VERIFIED", description="Complaint has been verified and resolved")
         db.add(verified_status)
         await db.commit()
         await db.refresh(verified_status)
     complaint.status = verified_status.id  # type: ignore
     # Add a new comment indicating resolution
-    public_user = await get_public_user_by_token(db, user_token)
+    auth_service = AuthService(db)
+    public_user = await auth_service.get_public_user_by_token(user_token)
     if not public_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
