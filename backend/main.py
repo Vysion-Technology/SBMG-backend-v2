@@ -11,6 +11,7 @@ from controllers import citizen, event, scheme
 from controllers import auth, complaints, admin, public
 from controllers import geography, attendance
 from controllers import fcm_device, inspection, notice, annual_survey
+from controllers import position_holder
 
 
 app = FastAPI(
@@ -46,6 +47,7 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(citizen.router, prefix="/api/v1/citizen", tags=["Citizen"])
 app.include_router(geography.router, prefix="/api/v1/geography", tags=["Geography"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+app.include_router(position_holder.router, prefix="/api/v1/position-holders", tags=["Position Holders"])
 app.include_router(complaints.router, prefix="/api/v1/complaints", tags=["Complaints"])
 app.include_router(event.router, prefix="/api/v1/events", tags=["Events"])
 app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])

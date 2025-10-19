@@ -1,3 +1,4 @@
+"""Utility functions for role-based access control (RBAC) in FastAPI."""
 from typing import List
 from functools import wraps
 

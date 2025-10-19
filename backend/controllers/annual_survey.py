@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from auth_utils import require_staff_role
 from database import get_db
 
 
@@ -19,8 +20,9 @@ from models.response.annual_survey import (
     AnnualSurveyResponse,
 )
 
+from services.geography import GeographyService
 from services.annual_survey import AnnualSurveyService
-from auth_utils import require_staff_role
+
 
 
 router = APIRouter()
@@ -174,3 +176,62 @@ async def get_annual_survey(
         ) from e
 
     return survey
+
+
+@router.get("analytics")
+async def get_annual_survey_analytics(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+    district_id: int | None = None,
+    block_id: int | None = None,
+    gp_id: int | None = None,
+):
+    """
+    Get annual survey analytics.
+
+    Users can only view analytics within their jurisdiction.
+    """
+    geo_svc = GeographyService(db)
+    if district_id:
+        if not any(
+            [
+                not current_user.district_id,
+                current_user.district_id != district_id,
+            ]
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to view analytics for this district",
+            )
+    if block_id:
+        block = await geo_svc.get_block(block_id)
+        if not any(
+            [
+                not current_user.block_id
+                and not current_user.district_id
+                and not current_user.village_id,
+                not current_user.block_id
+                and current_user.district_id == block.district_id,
+                current_user.block_id != block_id,
+            ]
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to view analytics for this block",
+            )
+    if gp_id:
+        gp = await geo_svc.get_village(gp_id)
+        if not any(
+            [
+                not current_user.village_id
+                and not current_user.block_id
+                and not current_user.district_id,
+                not current_user.village_id and current_user.block_id == gp.block_id,
+                current_user.village_id != gp_id,
+            ]
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to view analytics for this GP",
+            )
+    raise NotImplementedError("Analytics endpoint is not yet implemented.")
