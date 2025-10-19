@@ -7,7 +7,7 @@ import secrets
 from models.requests.geography import (
     CreateDistrictRequest,
     CreateBlockRequest,
-    CreateVillageRequest,
+    CreateGPRequest,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.database.geography import District, Block, GramPanchayat
@@ -56,8 +56,8 @@ async def create_block(
 async def create_village(
     geo_service: GeographyService, district_id: int, block_id: int, name: str
 ) -> GramPanchayat:
-    return await geo_service.create_village(
-        CreateVillageRequest(district_id=district_id, block_id=block_id, name=name)
+    return await geo_service.create_gp(
+        CreateGPRequest(district_id=district_id, block_id=block_id, name=name)
     )
 
 

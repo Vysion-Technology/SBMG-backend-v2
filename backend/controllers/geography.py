@@ -11,7 +11,7 @@ from models.database.geography import District, Block, GramPanchayat
 from models.response.geography import (
     DistrictResponse,
     BlockResponse,
-    VillageResponse as GramPanchayatResponse,
+    GPResponse,
 )
 from models.database.contractor import Agency, Contractor
 from models.response.contractor import AgencyResponse, ContractorResponse
@@ -72,7 +72,7 @@ async def list_blocks(
     ]
 
 
-@router.get("/grampanchayats", response_model=List[GramPanchayatResponse])
+@router.get("/grampanchayats", response_model=List[GPResponse])
 async def list_grampanchayats(
     block_id: Optional[int] = None,
     district_id: Optional[int] = None,
@@ -93,7 +93,7 @@ async def list_grampanchayats(
     villages = result.scalars().all()
 
     return [
-        GramPanchayatResponse(
+        GPResponse(
             id=village.id,
             name=village.name,
             description=village.description,
@@ -104,7 +104,7 @@ async def list_grampanchayats(
     ]
 
 
-@router.get("/grampanchayats/{village_id}", response_model=GramPanchayatResponse)
+@router.get("/grampanchayats/{village_id}", response_model=GPResponse)
 async def get_grampanchayat(
     village_id: int,
     db: AsyncSession = Depends(get_db),
@@ -116,7 +116,7 @@ async def get_grampanchayat(
     if not village:
         raise HTTPException(status_code=404, detail="GramPanchayat not found")
 
-    return GramPanchayatResponse(
+    return GPResponse(
         id=village.id,
         name=village.name,
         description=village.description,

@@ -1,3 +1,4 @@
+"""Base models for geography entities."""
 from typing import Optional
 from pydantic import BaseModel
 
@@ -15,7 +16,7 @@ class BlockBase(BaseModel):
     description: Optional[str] = None
     district_id: int
 
-class VillageBase(BaseModel):
+class GPBase(BaseModel):
     """Base village model."""
 
     name: str

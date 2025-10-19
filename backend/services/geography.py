@@ -9,7 +9,7 @@ from models.database.complaint import Complaint
 from models.requests.geography import (
     CreateDistrictRequest,
     CreateBlockRequest,
-    CreateVillageRequest,
+    CreateGPRequest,
 )
 
 
@@ -318,8 +318,8 @@ class GeographyService:
         await self.db.commit()
         return new_block.scalar_one()
 
-    async def create_village(self, village_req: CreateVillageRequest) -> GramPanchayat:
-        """Create a new village."""
+    async def create_gp(self, village_req: CreateGPRequest) -> GramPanchayat:
+        """Create a new gram panchayat."""
         # Validate block and district exist
         await self.validate_block_exists(village_req.block_id, village_req.district_id)
 

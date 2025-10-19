@@ -1,6 +1,7 @@
 """Authentication and user management service."""
 
 from enum import Enum
+import random  # pylint: disable=C0415,W0611
 
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta, date, timezone
@@ -239,7 +240,6 @@ class AuthService:
     async def send_otp(self, mobile_number: str) -> bool:
         """Send OTP to the given phone number."""
         # Placeholder implementation - integrate with actual SMS service
-        import random  # pylint: disable=C0415,W0611
 
         otp = 123456  # For testing, use a fixed OTP
         # Check if the OTP exists for the phone number

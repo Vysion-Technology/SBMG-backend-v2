@@ -1,7 +1,7 @@
 from typing import Optional, List
 from pydantic import BaseModel
 
-from models.base import BlockBase, VillageBase
+from models.base import BlockBase, GPBase
 
 
 class DistrictResponse(BaseModel):
@@ -44,8 +44,8 @@ class BlockDetailResponse(BaseModel):
     complaints_count: int
 
 
-class VillageResponse(BaseModel):
-    """Village response model."""
+class GPResponse(BaseModel):
+    """Gram Panchayat response model."""
 
     id: int
     name: str
@@ -54,8 +54,8 @@ class VillageResponse(BaseModel):
     district_id: int
 
 
-class VillageDetailResponse(BaseModel):
-    """Detailed village response with counts."""
+class GPDetailResponse(BaseModel):
+    """Detailed gram panchayat response with counts."""
 
     id: int
     name: str
@@ -70,25 +70,21 @@ class VillageDetailResponse(BaseModel):
 class CreateBlockRequest(BlockBase):
     """Request model for creating a block."""
 
-    pass
 
 
 class UpdateBlockRequest(BlockBase):
     """Request model for updating a block."""
 
-    pass
 
 
-class CreateVillageRequest(VillageBase):
-    """Request model for creating a village."""
-
-    pass
+class CreateGPRequest(GPBase):
+    """Request model for creating a gram panchayat."""
 
 
-class UpdateVillageRequest(VillageBase):
-    """Request model for updating a village."""
 
-    pass
+class UpdateGPRequest(GPBase):
+    """Request model for updating a Gram Panchayat."""
+
 
 
 # Pagination and listing models
@@ -122,10 +118,10 @@ class BlockListResponse(BaseModel):
     pages: int
 
 
-class VillageListResponse(BaseModel):
-    """Village list response."""
+class GPListResponse(BaseModel):
+    """Gram Panchayat list response."""
 
-    items: List[VillageResponse]
+    items: List[GPResponse]
     total: int
     page: int
     size: int
@@ -159,7 +155,7 @@ class DistrictWithBlocksResponse(BaseModel):
     blocks: List[BlockResponse]
 
 
-class BlockWithVillagesResponse(BaseModel):
+class BlockWithGPResponse(BaseModel):
     """Block with its villages."""
 
     id: int
@@ -167,7 +163,7 @@ class BlockWithVillagesResponse(BaseModel):
     description: Optional[str] = None
     district_id: int
     district_name: Optional[str] = None
-    villages: List[VillageResponse]
+    gps: List[GPResponse]
 
 
 class GeographyHierarchyResponse(BaseModel):

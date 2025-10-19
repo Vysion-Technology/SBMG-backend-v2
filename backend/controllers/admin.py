@@ -12,10 +12,10 @@ from models.database.geography import District, Block, GramPanchayat
 from models.requests.geography import CreateDistrictRequest
 from models.response.geography import (
     CreateBlockRequest,
-    CreateVillageRequest,
+    CreateGPRequest,
     DistrictResponse,
     BlockResponse,
-    VillageResponse,
+    GPResponse,
 )
 from services.auth import AuthService
 from auth_utils import require_admin, UserRole
@@ -231,9 +231,9 @@ async def create_block(
     )
 
 
-@router.post("/villages", response_model=VillageResponse)
+@router.post("/villages", response_model=GPResponse)
 async def create_village(
-    village_request: CreateVillageRequest,
+    village_request: CreateGPRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -280,7 +280,7 @@ async def create_village(
     await db.commit()
     await db.refresh(village)
 
-    return VillageResponse(
+    return GPResponse(
         id=village.id,
         name=village.name,
         description=village.description,
@@ -415,10 +415,10 @@ async def delete_block(
     return {"message": "Block deleted successfully"}
 
 
-@router.put("/villages/{village_id}", response_model=VillageResponse)
+@router.put("/villages/{village_id}", response_model=GPResponse)
 async def update_village(
     village_id: int,
-    village_request: CreateVillageRequest,
+    village_request: CreateGPRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -459,7 +459,7 @@ async def update_village(
     await db.commit()
     await db.refresh(village)
 
-    return VillageResponse(
+    return GPResponse(
         id=village.id,
         name=village.name,
         description=village.description,

@@ -1,5 +1,6 @@
+"""SBMG Rajasthan Backend Main Application."""
+
 import os
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,19 +13,10 @@ from controllers import geography, attendance
 from controllers import fcm_device, inspection, notice, annual_survey
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Manage application lifecycle events."""
-    # Startup
-    yield
-    # Shutdown (if needed)
-
-
 app = FastAPI(
     title="SBM Gramin Rajasthan API",
     description="Swachh Bharat Mission (Gramin) - Rajasthan Complaint Management System",
     version="1.0.0",
-    lifespan=lifespan,
 )
 
 # Add CORS middleware
@@ -57,51 +49,22 @@ app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(complaints.router, prefix="/api/v1/complaints", tags=["Complaints"])
 app.include_router(event.router, prefix="/api/v1/events", tags=["Events"])
 app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
-app.include_router(
-    attendance.router, prefix="/api/v1/attendance", tags=["DailyAttendance"]
-)
+app.include_router(attendance.router, prefix="/api/v1/attendance", tags=["DailyAttendance"])
 app.include_router(scheme.router, prefix="/api/v1/schemes", tags=["Schemes"])
-app.include_router(
-    fcm_device.router, prefix="/api/v1/notifications", tags=["FCM Notifications"]
-)
-app.include_router(
-    inspection.router, prefix="/api/v1/inspections", tags=["Inspections"]
-)
-app.include_router(
-    annual_survey.router, prefix="/api/v1/annual-surveys", tags=["Annual Surveys"]
-)
+app.include_router(fcm_device.router, prefix="/api/v1/notifications", tags=["FCM Notifications"])
+app.include_router(inspection.router, prefix="/api/v1/inspections", tags=["Inspections"])
+app.include_router(annual_survey.router, prefix="/api/v1/annual-surveys", tags=["Annual Surveys"])
 app.include_router(notice.router, prefix="/api/v1/notices", tags=["Notices"])
 app.include_router(
     contractor.router,
     prefix="/api/v1/contractors",
     tags=["Agency and Contractor Management"],
 )
-# app.include_router(
-#     login_management.router,
-#     prefix="/api/v1/login-management",
-#     tags=["Login User Management"],
-# )
-# app.include_router(
-#     person_management.router,
-#     prefix="/api/v1/person-management",
-#     tags=["Person Management"],
-# )
-# app.include_router(
-#     user_management.router,
-#     prefix="/api/v1/user-management",
-#     tags=["User Management (Legacy)"],
-# )
-# app.include_router(reporting.router, prefix="/api/v1/reports", tags=["Reporting (Legacy)"])
-
-# New consolidated reporting router with perfect RBAC and optimized queries
-# app.include_router(
-#     consolidated_reporting.router, prefix="/api/v1/reports", tags=["Advanced Reporting"]
-# )
 # app.include_router(survey.router, prefix="/api/v1/surveys", tags=["Surveys"])
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
+async def http_exception_handler(request: Request, exc: HTTPException):  # pylint: disable=unused-argument
     """Handle HTTP exceptions."""
     return JSONResponse(
         status_code=exc.status_code,
@@ -110,7 +73,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 
 @app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
+async def general_exception_handler(request: Request, exc: Exception):  # pylint: disable=unused-argument
     """Handle general exceptions."""
     return JSONResponse(
         status_code=500,
