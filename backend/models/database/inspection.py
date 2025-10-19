@@ -25,7 +25,7 @@ class Inspection(Base):  # type: ignore
 
     village_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("villages.id"),
+        ForeignKey("gram_panchayats.id"),
         nullable=False,
         index=True,
     )

@@ -91,6 +91,7 @@ async def create_complaint_with_media(
         district_id=district_id,
         description=description,
         status_id=complaint_status.id,
+        public_user_id=user.id,
         mobile_number=user.mobile_number,
         lat=lat,
         long=long,

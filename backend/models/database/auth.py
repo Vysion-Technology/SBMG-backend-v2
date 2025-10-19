@@ -4,7 +4,7 @@ from datetime import date, datetime
 from sqlalchemy.orm import mapped_column, relationship, Mapped
 from sqlalchemy import String, Integer, Boolean, ForeignKey, Date, UniqueConstraint
 
-from models.database.geography import District, Block, GramPanchayat
+from models.database.geography import District, Block, Village
 from database import Base  # type: ignore
 
 
@@ -37,7 +37,7 @@ class User(Base):  # type: ignore
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)  # type: ignore
     village_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
         Integer,
-        ForeignKey("villages.id"),
+        ForeignKey("gram_panchayats.id"),
         nullable=True,
         index=True,
     )
@@ -87,7 +87,7 @@ class PositionHolder(Base):  # type: ignore
     )
     village_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
         Integer,
-        ForeignKey("villages.id"),
+        ForeignKey("gram_panchayats.id"),
         nullable=True,
     )
     block_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
@@ -115,7 +115,7 @@ class PositionHolder(Base):  # type: ignore
     # Relationships
     user: Mapped[User] = relationship("User", back_populates="positions")
     role: Mapped[Role] = relationship("Role")
-    village: Mapped[GramPanchayat] = relationship("GramPanchayat")
+    village: Mapped["GramPanchayat"] = relationship("GramPanchayat")
     block: Mapped[Block] = relationship("Block")
     district: Mapped[District] = relationship("District")
 

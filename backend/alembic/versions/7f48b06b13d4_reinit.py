@@ -1,8 +1,8 @@
 """reinit
 
-Revision ID: d274610a23c2
+Revision ID: 7f48b06b13d4
 Revises:
-Create Date: 2025-10-19 12:39:24.212394
+Create Date: 2025-10-19 19:16:02.925715
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = "d274610a23c2"
+revision: str = "7f48b06b13d4"
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -66,7 +66,6 @@ def upgrade() -> None:
         sa.Column("active", sa.Boolean(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_events_id"), "events", ["id"], unique=False)
     op.create_table(
         "public_users",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -134,7 +133,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_event_media_id"), "event_media", ["id"], unique=False)
+    op.create_index(op.f("ix_event_media_event_id"), "event_media", ["event_id"], unique=False)
     op.create_table(
         "public_user_device_tokens",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -213,22 +212,6 @@ def upgrade() -> None:
     op.create_index(op.f("ix_gram_panchayats_block_id"), "gram_panchayats", ["block_id"], unique=False)
     op.create_index(op.f("ix_gram_panchayats_name"), "gram_panchayats", ["name"], unique=False)
     op.create_table(
-        "villages",
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("name", sa.String(), nullable=False),
-        sa.Column("gp_id", sa.Integer(), nullable=False),
-        sa.Column("description", sa.String(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["gp_id"],
-            ["gram_panchayats.id"],
-        ),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("name", "gp_id", name="uq_village_name_gp"),
-    )
-    op.create_index("ix_village_name_gp", "villages", ["name", "gp_id"], unique=False)
-    op.create_index(op.f("ix_villages_gp_id"), "villages", ["gp_id"], unique=False)
-    op.create_index(op.f("ix_villages_name"), "villages", ["name"], unique=False)
-    op.create_table(
         "authority_users",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("username", sa.String(), nullable=False),
@@ -248,7 +231,7 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(
             ["village_id"],
-            ["villages.id"],
+            ["gram_panchayats.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("email"),
@@ -280,7 +263,7 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(
             ["village_id"],
-            ["villages.id"],
+            ["gram_panchayats.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -299,6 +282,7 @@ def upgrade() -> None:
         sa.Column("district_id", sa.Integer(), nullable=False),
         sa.Column("description", sa.String(), nullable=False),
         sa.Column("mobile_number", sa.String(), nullable=True),
+        sa.Column("public_user_id", sa.Integer(), nullable=False),
         sa.Column("status_id", sa.Integer(), nullable=False),
         sa.Column("lat", sa.Float(), server_default="0.0", nullable=False),
         sa.Column("long", sa.Float(), server_default="0.0", nullable=False),
@@ -317,12 +301,16 @@ def upgrade() -> None:
             ["districts.id"],
         ),
         sa.ForeignKeyConstraint(
+            ["public_user_id"],
+            ["public_users.id"],
+        ),
+        sa.ForeignKeyConstraint(
             ["status_id"],
             ["complaint_statuses.id"],
         ),
         sa.ForeignKeyConstraint(
             ["village_id"],
-            ["villages.id"],
+            ["gram_panchayats.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -342,11 +330,27 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(
             ["village_id"],
-            ["villages.id"],
+            ["gram_panchayats.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_contractors_village_id"), "contractors", ["village_id"], unique=False)
+    op.create_table(
+        "villages",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("name", sa.String(), nullable=False),
+        sa.Column("gp_id", sa.Integer(), nullable=False),
+        sa.Column("description", sa.String(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["gp_id"],
+            ["gram_panchayats.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("name", "gp_id", name="uq_village_name_gp"),
+    )
+    op.create_index("ix_village_name_gp", "villages", ["name", "gp_id"], unique=False)
+    op.create_index(op.f("ix_villages_gp_id"), "villages", ["gp_id"], unique=False)
+    op.create_index(op.f("ix_villages_name"), "villages", ["name"], unique=False)
     op.create_table(
         "authority_holder_persons",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -379,7 +383,7 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(
             ["village_id"],
-            ["villages.id"],
+            ["gram_panchayats.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -605,7 +609,7 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(
             ["gp_id"],
-            ["villages.id"],
+            ["gram_panchayats.id"],
         ),
         sa.ForeignKeyConstraint(
             ["vdo_id"],
@@ -615,7 +619,7 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_annual_surveys_gp_id"), "annual_surveys", ["gp_id"], unique=False)
     op.create_index("ix_annual_surveys_gp_id_survey_date", "annual_surveys", ["gp_id", "survey_date"], unique=False)
-    op.create_index("ix_annual_surveys_survey_date", "annual_surveys", ["survey_date"], unique=False)
+    op.create_index(op.f("ix_annual_surveys_survey_date"), "annual_surveys", ["survey_date"], unique=False)
     op.create_table(
         "inspections",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -633,12 +637,12 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(
             ["village_id"],
-            ["villages.id"],
+            ["gram_panchayats.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_inspections_date"), "inspections", ["date"], unique=False)
-    op.create_index(op.f("ix_inspections_village_id"), "inspections", ["village_id"], unique=False)
+    op.create_index("ix_inspections_village_id", "inspections", ["village_id"], unique=False)
     op.create_index("ix_inspections_village_id_date", "inspections", ["village_id", "date"], unique=False)
     op.create_table(
         "notices",
@@ -891,6 +895,7 @@ def upgrade() -> None:
         "survey_village_data",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("survey_id", sa.Integer(), nullable=False),
+        sa.Column("village_id", sa.Integer(), nullable=False),
         sa.Column("village_name", sa.String(length=255), nullable=False),
         sa.Column("population", sa.Integer(), nullable=True),
         sa.Column("num_households", sa.Integer(), nullable=True),
@@ -898,9 +903,14 @@ def upgrade() -> None:
             ["survey_id"],
             ["annual_surveys.id"],
         ),
+        sa.ForeignKeyConstraint(
+            ["village_id"],
+            ["villages.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_survey_village_data_survey_id"), "survey_village_data", ["survey_id"], unique=False)
+    op.create_index(op.f("ix_survey_village_data_village_id"), "survey_village_data", ["village_id"], unique=False)
     op.create_table(
         "survey_work_order_details",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -947,6 +957,7 @@ def downgrade() -> None:
     op.drop_table("survey_village_sbmg_assets")
     op.drop_table("survey_village_gwm_assets")
     op.drop_table("survey_work_order_details")
+    op.drop_index(op.f("ix_survey_village_data_village_id"), table_name="survey_village_data")
     op.drop_index(op.f("ix_survey_village_data_survey_id"), table_name="survey_village_data")
     op.drop_table("survey_village_data")
     op.drop_table("survey_swm_assets")
@@ -964,10 +975,10 @@ def downgrade() -> None:
     op.drop_table("inspection_community_sanitation_inspection_items")
     op.drop_table("notices")
     op.drop_index("ix_inspections_village_id_date", table_name="inspections")
-    op.drop_index(op.f("ix_inspections_village_id"), table_name="inspections")
+    op.drop_index("ix_inspections_village_id", table_name="inspections")
     op.drop_index(op.f("ix_inspections_date"), table_name="inspections")
     op.drop_table("inspections")
-    op.drop_index("ix_annual_surveys_survey_date", table_name="annual_surveys")
+    op.drop_index(op.f("ix_annual_surveys_survey_date"), table_name="annual_surveys")
     op.drop_index("ix_annual_surveys_gp_id_survey_date", table_name="annual_surveys")
     op.drop_index(op.f("ix_annual_surveys_gp_id"), table_name="annual_surveys")
     op.drop_table("annual_surveys")
@@ -981,6 +992,10 @@ def downgrade() -> None:
     op.drop_table("complaint_comments")
     op.drop_table("complaint_assignments")
     op.drop_table("authority_holder_persons")
+    op.drop_index(op.f("ix_villages_name"), table_name="villages")
+    op.drop_index(op.f("ix_villages_gp_id"), table_name="villages")
+    op.drop_index("ix_village_name_gp", table_name="villages")
+    op.drop_table("villages")
     op.drop_index(op.f("ix_contractors_village_id"), table_name="contractors")
     op.drop_table("contractors")
     op.drop_index(op.f("ix_complaints_village_id"), table_name="complaints")
@@ -995,10 +1010,6 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_authority_users_district_id"), table_name="authority_users")
     op.drop_index(op.f("ix_authority_users_block_id"), table_name="authority_users")
     op.drop_table("authority_users")
-    op.drop_index(op.f("ix_villages_name"), table_name="villages")
-    op.drop_index(op.f("ix_villages_gp_id"), table_name="villages")
-    op.drop_index("ix_village_name_gp", table_name="villages")
-    op.drop_table("villages")
     op.drop_index(op.f("ix_gram_panchayats_name"), table_name="gram_panchayats")
     op.drop_index(op.f("ix_gram_panchayats_block_id"), table_name="gram_panchayats")
     op.drop_index("ix_gram_panchayat_name", table_name="gram_panchayats")
@@ -1011,7 +1022,7 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_public_user_otps_public_user_id"), table_name="public_user_otps")
     op.drop_table("public_user_otps")
     op.drop_table("public_user_device_tokens")
-    op.drop_index(op.f("ix_event_media_id"), table_name="event_media")
+    op.drop_index(op.f("ix_event_media_event_id"), table_name="event_media")
     op.drop_table("event_media")
     op.drop_index(op.f("ix_blocks_district_id"), table_name="blocks")
     op.drop_table("blocks")
@@ -1021,7 +1032,6 @@ def downgrade() -> None:
     op.drop_table("roles")
     op.drop_index(op.f("ix_public_users_mobile_number"), table_name="public_users")
     op.drop_table("public_users")
-    op.drop_index(op.f("ix_events_id"), table_name="events")
     op.drop_table("events")
     op.drop_table("districts")
     op.drop_table("complaint_types")

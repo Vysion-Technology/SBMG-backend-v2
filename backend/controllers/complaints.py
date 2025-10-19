@@ -79,7 +79,7 @@ async def get_my_complaints(
             selectinload(Complaint.media),
             selectinload(Complaint.comments),
         )
-        .where(Complaint.mobile_number == user.mobile_number)
+        .where(Complaint.public_user_id == user.id)
     )
 
     # Apply ordering

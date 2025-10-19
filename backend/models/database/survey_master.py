@@ -11,7 +11,7 @@ from datetime import date as dt_date, datetime
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy import Index, String, Integer, ForeignKey, Date, DateTime, Enum, Numeric
 
-from models.database.geography import District, Block, GramPanchayat
+from models.database.geography import District, Block, GramPanchayat, Village
 from models.database.auth import PositionHolder as UserPositionHolder
 
 from database import Base  # type: ignore
@@ -62,7 +62,7 @@ class AnnualSurvey(Base):  # type: ignore
     # Survey metadata
     gp_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("villages.id"),
+        ForeignKey("gram_panchayats.id"),
         nullable=False,
         index=True,
     )
@@ -414,6 +414,13 @@ class VillageData(Base):  # type: ignore
         index=True,
     )
 
+    village_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("villages.id"),
+        nullable=False,
+        index=True,
+    )
+
     village_name: Mapped[str] = mapped_column(String(255), nullable=False)
     population: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     num_households: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -437,6 +444,9 @@ class VillageData(Base):  # type: ignore
         uselist=False,
         cascade="all, delete-orphan",
     )
+
+    # Relationships
+    village: Mapped[Village] = relationship("Village")
 
 
 class VillageSBMGAssets(Base):  # type: ignore

@@ -15,7 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-from database import Base  # type: ignore
+from database import Base
 
 
 class ComplaintType(Base):  # type: ignore
@@ -47,14 +47,11 @@ class ComplaintTypeGeographicalIneligibility(Base):  # type: ignore
     )
     district_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("districts.id"), nullable=True)  # type: ignore
     block_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("blocks.id"), nullable=True)  # type: ignore
-    village_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("villages.id"), nullable=True, index=True)  # type: ignore
+    village_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("gram_panchayats.id"), nullable=True, index=True)  # type: ignore
     active: Mapped[Optional[bool]] = mapped_column(Boolean, default=True, server_default="true", nullable=False)  # type: ignore
 
     # Relationships
-    complaint_type = relationship("ComplaintType", back_populates="geographical_eligibilities")
-    district = relationship("District")
-    block = relationship("Block")
-    village = relationship("GramPanchayat")
+    complaint_type: Mapped["ComplaintType"] = relationship("ComplaintType", back_populates="geographical_eligibilities")
 
 
 class ComplaintStatus(Base):  # type: ignore
@@ -83,11 +80,14 @@ class Complaint(Base):  # type: ignore
     complaint_type_id: Mapped[int] = mapped_column(  # type: ignore
         Integer, ForeignKey("complaint_types.id"), nullable=False
     )
-    village_id: Mapped[int] = mapped_column(Integer, ForeignKey("villages.id"), nullable=False, index=True)  # type: ignore
+    village_id: Mapped[int] = mapped_column(Integer, ForeignKey("gram_panchayats.id"), nullable=False, index=True)  # type: ignore
     block_id: Mapped[int] = mapped_column(Integer, ForeignKey("blocks.id"), nullable=False)  # type: ignore
     district_id: Mapped[int] = mapped_column(Integer, ForeignKey("districts.id"), nullable=False)  # type: ignore
     description: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     mobile_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
+    public_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("public_users.id"), nullable=False
+    )
     status_id: Mapped[int] = mapped_column(  # type: ignore
         Integer, ForeignKey("complaint_statuses.id"), nullable=False
     )
