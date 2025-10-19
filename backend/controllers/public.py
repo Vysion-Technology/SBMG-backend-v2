@@ -1,11 +1,15 @@
-from typing import Optional
+"""Public controllers for complaint management system."""
 
+import os
+from typing import Optional, List
+
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response, FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from services.geography import GeographyService
 from database import get_db
 from models.database.auth import User
 from models.database.complaint import (
@@ -14,7 +18,9 @@ from models.database.complaint import (
     ComplaintAssignment,
 )
 from models.database.geography import GramPanchayat, Block
-from services.s3_service import s3_service
+from models.database.complaint import (
+    ComplaintType,
+)
 
 from models.response.complaint import MediaResponse
 from models.response.complaint import (
@@ -22,15 +28,8 @@ from models.response.complaint import (
     DetailedComplaintResponse,
 )
 
-from typing import List
-import os
-
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
-
-from models.database.complaint import (
-    ComplaintType,
-)
+from services.geography import GeographyService
+from services.s3_service import s3_service
 
 router = APIRouter()
 
@@ -100,8 +99,6 @@ async def serve_media(file_path: str):
             elif file_path.lower().endswith(".webp"):
                 content_type = "image/webp"
 
-            from fastapi.responses import Response
-
             return Response(
                 content=file_content,
                 media_type=content_type,
@@ -122,15 +119,11 @@ async def serve_media(file_path: str):
     full_path = os.path.abspath(full_path)
 
     if not full_path.startswith(media_dir):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     # Check if file exists
     if not os.path.exists(full_path) or not os.path.isfile(full_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
 
     # Return the file
     return FileResponse(
@@ -148,16 +141,10 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
         .options(
             selectinload(Complaint.complaint_type),
             selectinload(Complaint.status),
-            selectinload(Complaint.village)
-            .selectinload(GramPanchayat.block)
-            .selectinload(Block.district),
+            selectinload(Complaint.village).selectinload(GramPanchayat.block).selectinload(Block.district),
             selectinload(Complaint.media),
-            selectinload(Complaint.comments)
-            .selectinload(ComplaintComment.user)
-            .selectinload(User.positions),
-            selectinload(Complaint.assignments)
-            .selectinload(ComplaintAssignment.user)
-            .selectinload(User.positions),
+            selectinload(Complaint.comments).selectinload(ComplaintComment.user).selectinload(User.positions),
+            selectinload(Complaint.assignments).selectinload(ComplaintAssignment.user).selectinload(User.positions),
         )
         .where(Complaint.id == complaint_id)
     )
@@ -166,15 +153,11 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
     geo_service: GeographyService = GeographyService(db)
 
     if not complaint:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
 
     # Get media URLs and detailed media information
     media_details = [
-        MediaResponse(
-            id=media.id, media_url=media.media_url, uploaded_at=media.uploaded_at
-        )
+        MediaResponse(id=media.id, media_url=media.media_url, uploaded_at=media.uploaded_at)
         for media in complaint.media
     ]
 

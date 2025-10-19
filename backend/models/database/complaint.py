@@ -1,3 +1,5 @@
+"""Complaint related database models."""
+
 from typing import List, Optional
 from datetime import datetime, timezone
 
@@ -28,9 +30,7 @@ class ComplaintType(Base):  # type: ignore
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
 
     # Relationships
-    geographical_eligibilities = relationship(
-        "ComplaintTypeGeographicalIneligibility", back_populates="complaint_type"
-    )
+    geographical_eligibilities = relationship("ComplaintTypeGeographicalIneligibility", back_populates="complaint_type")
     complaints = relationship("Complaint", back_populates="complaint_type")
 
 
@@ -45,23 +45,13 @@ class ComplaintTypeGeographicalIneligibility(Base):  # type: ignore
     complaint_type_id: Mapped[int] = mapped_column(  # type: ignore
         Integer, ForeignKey("complaint_types.id"), nullable=False
     )
-    district_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("districts.id"), nullable=True
-    )  # type: ignore
-    block_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("blocks.id"), nullable=True
-    )  # type: ignore
-    village_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("villages.id"), nullable=True, index=True
-    )  # type: ignore
-    active: Mapped[Optional[bool]] = mapped_column(
-        Boolean, default=True, server_default="true", nullable=False
-    )  # type: ignore
+    district_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("districts.id"), nullable=True)  # type: ignore
+    block_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("blocks.id"), nullable=True)  # type: ignore
+    village_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("villages.id"), nullable=True, index=True)  # type: ignore
+    active: Mapped[Optional[bool]] = mapped_column(Boolean, default=True, server_default="true", nullable=False)  # type: ignore
 
     # Relationships
-    complaint_type = relationship(
-        "ComplaintType", back_populates="geographical_eligibilities"
-    )
+    complaint_type = relationship("ComplaintType", back_populates="geographical_eligibilities")
     district = relationship("District")
     block = relationship("Block")
     village = relationship("GramPanchayat")
@@ -93,15 +83,9 @@ class Complaint(Base):  # type: ignore
     complaint_type_id: Mapped[int] = mapped_column(  # type: ignore
         Integer, ForeignKey("complaint_types.id"), nullable=False
     )
-    village_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("villages.id"), nullable=False, index=True
-    )  # type: ignore
-    block_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("blocks.id"), nullable=False
-    )  # type: ignore
-    district_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("districts.id"), nullable=False
-    )  # type: ignore
+    village_id: Mapped[int] = mapped_column(Integer, ForeignKey("villages.id"), nullable=False, index=True)  # type: ignore
+    block_id: Mapped[int] = mapped_column(Integer, ForeignKey("blocks.id"), nullable=False)  # type: ignore
+    district_id: Mapped[int] = mapped_column(Integer, ForeignKey("districts.id"), nullable=False)  # type: ignore
     description: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     mobile_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     status_id: Mapped[int] = mapped_column(  # type: ignore
@@ -124,26 +108,14 @@ class Complaint(Base):  # type: ignore
     )
 
     # Relationships
-    village: Mapped["GramPanchayat"] = relationship(
-        "GramPanchayat", back_populates="complaints"
-    )
+    village: Mapped["GramPanchayat"] = relationship("GramPanchayat", back_populates="complaints")
     block: Mapped["Block"] = relationship("Block", back_populates="complaints")
     district: Mapped["District"] = relationship("District", back_populates="complaints")
-    complaint_type: Mapped["ComplaintType"] = relationship(
-        "ComplaintType", back_populates="complaints"
-    )
-    status: Mapped[ComplaintStatus] = relationship(
-        "ComplaintStatus", back_populates="complaints"
-    )
-    assignments: Mapped["ComplaintAssignment"] = relationship(
-        "ComplaintAssignment", back_populates="complaint"
-    )
-    media: Mapped[List["ComplaintMedia"]] = relationship(
-        "ComplaintMedia", back_populates="complaint"
-    )
-    comments: Mapped[List["ComplaintComment"]] = relationship(
-        "ComplaintComment", back_populates="complaint"
-    )
+    complaint_type: Mapped["ComplaintType"] = relationship("ComplaintType", back_populates="complaints")
+    status: Mapped[ComplaintStatus] = relationship("ComplaintStatus", back_populates="complaints")
+    assignments: Mapped["ComplaintAssignment"] = relationship("ComplaintAssignment", back_populates="complaint")
+    media: Mapped[List["ComplaintMedia"]] = relationship("ComplaintMedia", back_populates="complaint")
+    comments: Mapped[List["ComplaintComment"]] = relationship("ComplaintComment", back_populates="complaint")
 
 
 class ComplaintAssignment(Base):  # type: ignore
@@ -154,12 +126,8 @@ class ComplaintAssignment(Base):  # type: ignore
     __tablename__ = "complaint_assignments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
-    complaint_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("complaints.id"), nullable=False
-    )  # type: ignore
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("authority_users.id"), nullable=False
-    )  # type: ignore
+    complaint_id: Mapped[int] = mapped_column(Integer, ForeignKey("complaints.id"), nullable=False)  # type: ignore
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("authority_users.id"), nullable=False)  # type: ignore
     assigned_at: Mapped[datetime] = mapped_column(  # type: ignore
         DateTime(timezone=True),
         default=datetime.now(tz=timezone.utc),
@@ -187,9 +155,7 @@ class ComplaintMedia(Base):  # type: ignore
     __tablename__ = "complaint_media"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
-    complaint_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("complaints.id"), nullable=False
-    )  # type: ignore
+    complaint_id: Mapped[int] = mapped_column(Integer, ForeignKey("complaints.id"), nullable=False)  # type: ignore
     media_url: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     uploaded_at: Mapped[datetime] = mapped_column(  # type: ignore
         DateTime(timezone=True),
@@ -226,12 +192,8 @@ class ComplaintComment(Base):  # type: ignore
     __tablename__ = "complaint_comments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
-    complaint_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("complaints.id"), nullable=False
-    )  # type: ignore
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("authority_users.id"), nullable=True
-    )  # type: ignore
+    complaint_id: Mapped[int] = mapped_column(Integer, ForeignKey("complaints.id"), nullable=False)  # type: ignore
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("authority_users.id"), nullable=True)  # type: ignore
     mobile_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     comment: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     commented_at: Mapped[datetime] = mapped_column(  # type: ignore
