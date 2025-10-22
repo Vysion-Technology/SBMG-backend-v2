@@ -148,6 +148,7 @@ class VillageDataResponse(BaseModel):
 
     id: int
     survey_id: int
+    village_id: int
     village_name: str
     population: Optional[int]
     num_households: Optional[int]

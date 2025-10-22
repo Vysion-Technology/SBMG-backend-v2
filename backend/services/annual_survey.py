@@ -207,7 +207,7 @@ class AnnualSurveyService:
             for village_req in request.village_data:
                 village = VillageData(
                     survey_id=survey.id,
-                    village_name=village_req.village_name,
+                    village_id=village_req.village_id,
                     population=village_req.population,
                     num_households=village_req.num_households,
                 )

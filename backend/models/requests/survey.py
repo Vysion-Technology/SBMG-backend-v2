@@ -100,7 +100,7 @@ class VillageGWMAssetsRequest(BaseModel):
 class VillageDataRequest(BaseModel):
     """Request model for village data."""
 
-    village_name: str = Field(..., description="Name of the village")
+    village_id: str = Field(..., description="ID of the village")
     population: Optional[int] = None
     num_households: Optional[int] = None
     sbmg_assets: Optional[VillageSBMGAssetsRequest] = None
