@@ -72,6 +72,7 @@ class GramPanchayat(Base):  # type: ignore
     block: Mapped[Block] = relationship("Block", back_populates="villages")
     district: Mapped[District] = relationship("District", back_populates="villages")
     villages: Mapped[List["Village"]] = relationship("Village", back_populates="gram_panchayat")
+    complaints: Mapped[List["Complaint"]] = relationship("Complaint", back_populates="gp")
 
     # Table indexes
     __table_args__ = (
@@ -94,7 +95,6 @@ class Village(Base):
     
     # Relationships
     gram_panchayat: Mapped["GramPanchayat"] = relationship("GramPanchayat", back_populates="villages")
-    complaints: Mapped[List["Complaint"]] = relationship("Complaint", back_populates="village")
     
     # Unique constraint on name within Gram Panchayat
     __table_args__ = (

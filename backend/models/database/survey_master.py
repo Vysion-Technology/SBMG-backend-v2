@@ -446,7 +446,6 @@ class VillageData(Base):  # type: ignore
     )
 
     # Relationships
-    gp: Mapped[GramPanchayat] = relationship("GramPanchayat")
     village: Mapped[Village] = relationship("Village")
 
 
