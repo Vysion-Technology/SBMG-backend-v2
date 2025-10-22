@@ -133,7 +133,7 @@ class AuthService:
         is_active: bool = True,
         district_id: Optional[int] = None,
         block_id: Optional[int] = None,
-        village_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
     ) -> User:
         """Create a new user."""
         hashed_password = self.get_password_hash(password)
@@ -144,7 +144,7 @@ class AuthService:
             is_active=is_active,
             district_id=district_id,
             block_id=block_id,
-            village_id=village_id,
+            gp_id=gp_id,
         )
         self.db.add(user)
         await self.db.commit()

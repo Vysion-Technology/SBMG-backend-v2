@@ -94,7 +94,7 @@ async def create_account(
                 password=password,
                 district_id=district_id,
                 block_id=block_id,
-                village_id=village_id,
+                gp_id=village_id,
             )
             print(f"Created contractor user: {contractor_user.username}")
         return
@@ -108,7 +108,7 @@ async def create_account(
         password=password,
         district_id=district_id,
         block_id=block_id,
-        village_id=village_id,
+        gp_id=village_id,
     )
     print(f"Created user: {user.username}")
 
