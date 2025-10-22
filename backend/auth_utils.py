@@ -22,7 +22,7 @@ class PermissionChecker:
         if not user.village_id and user.block_id and user.district_id:
             if UserRole.BDO in required_roles:
                 return True  # BDO access
-        if user.village_id and user.block_id and user.district_id:
+        if user.village_id and user.block_id and user.district_id and "contractor" not in required_roles:
             if UserRole.VDO in required_roles:
                 return True  # VDO access
         if user.village_id and user.block_id and user.district_id:
