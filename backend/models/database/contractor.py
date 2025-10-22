@@ -39,7 +39,7 @@ class Contractor(Base):  # type: ignore
     )
     person_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     person_phone: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
-    village_id: Mapped[int] = mapped_column(
+    gp_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("gram_panchayats.id"), index=True, nullable=False
     )
     contract_start_date: Mapped[Optional[DateTime]] = mapped_column(
@@ -51,7 +51,7 @@ class Contractor(Base):  # type: ignore
 
     # Relationships
     agency: Mapped[Agency] = relationship("Agency", back_populates="contractors")
-    village: Mapped[GramPanchayat] = relationship("GramPanchayat")
+    gp: Mapped[GramPanchayat] = relationship("GramPanchayat")
     attendances: Mapped[List["DailyAttendance"]] = relationship(
         "DailyAttendance", back_populates="contractor"
     )

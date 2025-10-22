@@ -21,7 +21,7 @@ class UserService:
         if block_id is not None:
             query = query.where(User.block_id == block_id)
         if village_id is not None:
-            query = query.where(User.village_id == village_id)
+            query = query.where(User.gp_id == village_id)
 
         result = await self.db.execute(query)
         users = result.scalars().all()

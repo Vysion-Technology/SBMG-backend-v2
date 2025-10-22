@@ -56,7 +56,7 @@ class PositionHolderService:
             .options(
                 selectinload(PositionHolder.user),
                 selectinload(PositionHolder.role),
-                selectinload(PositionHolder.village),
+                selectinload(PositionHolder.gp),
                 selectinload(PositionHolder.block),
                 selectinload(PositionHolder.district),
             )
@@ -77,7 +77,7 @@ class PositionHolderService:
         query = select(PositionHolder).options(
             selectinload(PositionHolder.user),
             selectinload(PositionHolder.role),
-            selectinload(PositionHolder.village),
+            selectinload(PositionHolder.gp),
             selectinload(PositionHolder.block),
             selectinload(PositionHolder.district),
         )

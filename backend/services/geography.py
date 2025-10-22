@@ -157,7 +157,7 @@ class GeographyService:
         """Check if a village can be safely deleted."""
         # Check for complaints
         complaints_result = await self.db.execute(
-            select(func.count(Complaint.id)).where(Complaint.village_id == village_id)
+            select(func.count(Complaint.id)).where(Complaint.gp_id == village_id)
         )
         complaints_count = complaints_result.scalar() or 0
 
@@ -239,7 +239,7 @@ class GeographyService:
 
         # Count complaints
         complaints_result = await self.db.execute(
-            select(func.count(Complaint.id)).where(Complaint.village_id == village_id)
+            select(func.count(Complaint.id)).where(Complaint.gp_id == village_id)
         )
         complaints_count = complaints_result.scalar() or 0
 

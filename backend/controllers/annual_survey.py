@@ -45,7 +45,7 @@ async def create_annual_survey(
     service = AnnualSurveyService(db)
 
     try:
-        if survey_request.gp_id != current_user.village_id:
+        if survey_request.gp_id != current_user.gp_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to fill a survey for this GP",
@@ -85,7 +85,7 @@ async def delete_annual_survey(
                 detail="Survey not found",
             )
         if any(
-            [current_user.village_id, current_user.block_id, current_user.district_id]
+            [current_user.gp_id, current_user.block_id, current_user.district_id]
         ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -121,7 +121,7 @@ async def list_annual_surveys(
     service = AnnualSurveyService(db)
 
     try:
-        if current_user.village_id and gp_id != current_user.village_id:
+        if current_user.gp_id and gp_id != current_user.gp_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to view surveys for this GP",
@@ -164,7 +164,7 @@ async def get_annual_survey(
                 detail="Survey not found",
             )
         if any(
-            [current_user.village_id, current_user.block_id, current_user.district_id]
+            [current_user.gp_id, current_user.block_id, current_user.district_id]
         ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -209,7 +209,7 @@ async def get_annual_survey_analytics(
             [
                 not current_user.block_id
                 and not current_user.district_id
-                and not current_user.village_id,
+                and not current_user.gp_id,
                 not current_user.block_id
                 and current_user.district_id == block.district_id,
                 current_user.block_id != block_id,
@@ -223,11 +223,11 @@ async def get_annual_survey_analytics(
         gp = await geo_svc.get_village(gp_id)
         if not any(
             [
-                not current_user.village_id
+                not current_user.gp_id
                 and not current_user.block_id
                 and not current_user.district_id,
-                not current_user.village_id and current_user.block_id == gp.block_id,
-                current_user.village_id != gp_id,
+                not current_user.gp_id and current_user.block_id == gp.block_id,
+                current_user.gp_id != gp_id,
             ]
         ):
             raise HTTPException(

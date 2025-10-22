@@ -6,13 +6,14 @@ from typing import List
 import pandas as pd
 
 
+from database import get_db
 from services.geography import GeographyService
 from services.auth import AuthService
 
-from models.database.geography import Block
+from models.database.geography import Block, GramPanchayat
 
 from models.requests.geography import CreateDistrictRequest, CreateBlockRequest, CreateGPRequest
-from models.response.geography import BlockResponse, DistrictResponse, GPResponse
+from models.response.geography import BlockResponse, DistrictResponse
 
 
 BASE_DIR = "preprocessing"
@@ -31,7 +32,7 @@ def get_block_username(block: Block) -> str:
     return f"{get_district_username(block.district)}-{block.name.lower().replace(' ', '-')}"
 
 
-def get_gp_username(gp: GPResponse) -> str:
+def get_gp_username(gp: GramPanchayat) -> str:
     """Generate a username for a gram panchayat based on its district, block, and gp name."""
     return f"{get_block_username(gp.block)}-{gp.name.lower().replace(' ', '-')}"
 
@@ -66,7 +67,7 @@ async def create_districts(geography_service: GeographyService, auth_service: Au
             auth_service.create_user(
                 username=district.name.lower().replace(" ", "-"),
                 password="password",
-                email=f"{district.name.lower().replace(' ', '-')}@example.com",
+                email=f"{district.name.lower().replace(' ', '-')}@sbmg-raj.gov.in",
                 district_id=district.id,
             )
             for district in new_created_districts
@@ -109,7 +110,7 @@ async def create_blocks(geography_service: GeographyService, auth_service: AuthS
             auth_service.create_user(
                 username=get_block_username(block),
                 password="password",
-                email=f"{get_block_username(block)}@example.com",
+                email=f"{get_block_username(block)}@sbmg-raj.gov.in",
                 block_id=block.id,
             )
             for block in new_created_blocks
@@ -119,7 +120,7 @@ async def create_blocks(geography_service: GeographyService, auth_service: AuthS
     )
 
 
-async def create_gps(geography_service: GeographyService) -> None:
+async def create_gps(geography_service: GeographyService, auth_service: AuthService) -> None:
     """Create gram panchayats from the GPS CSV file.
     This function reads the gram panchayats from a CSV file and creates them
     in the system using the GeographyService.
@@ -151,7 +152,34 @@ async def create_gps(geography_service: GeographyService) -> None:
                 )
             )
     # Create new gram panchayats concurrently
-    await asyncio.gather(
+    newly_created_gps = await asyncio.gather(
         *[geography_service.create_gp(gp_request) for gp_request in new_gps],
         return_exceptions=True,
     )
+    # Create user accounts for the new gram panchayats
+    await asyncio.gather(
+        *[
+            auth_service.create_user(
+                username=get_gp_username(gp),
+                password="password",
+                email=f"{get_gp_username(gp)}@sbmg-raj.gov.in",
+                village_id=gp.id,
+            )
+            for gp in newly_created_gps
+        ],
+        return_exceptions=True,
+    )
+
+
+async def main() -> None:
+    """Main function to create districts, blocks, and gram panchayats."""
+    async for db in get_db():
+        geography_service = GeographyService(db)
+        auth_service = AuthService(db)
+        await create_districts(geography_service, auth_service)
+        await create_blocks(geography_service, auth_service)
+        await create_gps(geography_service, auth_service)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

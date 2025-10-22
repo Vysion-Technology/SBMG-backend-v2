@@ -174,7 +174,7 @@ async def get_contractors_by_village(
         raise HTTPException(status_code=404, detail="GramPanchayat not found")
 
     # Get contractors for this village with related data
-    query = select(Contractor).where(Contractor.village_id == village_id)
+    query = select(Contractor).where(Contractor.gp_id == village_id)
 
     result = await db.execute(query)
     contractor = result.unique().scalar_one_or_none()
@@ -203,7 +203,7 @@ async def get_contractors_by_village(
         else None,
         person_name=contractor.person_name,
         person_phone=contractor.person_phone,
-        village_id=contractor.village_id,
+        village_id=contractor.gp_id,
         village_name=village.name if village else None,
         block_name=village.block.name if village and village.block else None,
         district_name=village.block.district.name if village and village.block else None,

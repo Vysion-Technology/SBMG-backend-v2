@@ -16,6 +16,7 @@ from sqlalchemy import (
 )
 
 from database import Base
+from models.database.geography import District, Block, GramPanchayat
 
 
 class ComplaintType(Base):  # type: ignore
@@ -80,7 +81,7 @@ class Complaint(Base):  # type: ignore
     complaint_type_id: Mapped[int] = mapped_column(  # type: ignore
         Integer, ForeignKey("complaint_types.id"), nullable=False
     )
-    village_id: Mapped[int] = mapped_column(Integer, ForeignKey("gram_panchayats.id"), nullable=False, index=True)  # type: ignore
+    gp_id: Mapped[int] = mapped_column(Integer, ForeignKey("gram_panchayats.id"), nullable=False, index=True)  # type: ignore
     block_id: Mapped[int] = mapped_column(Integer, ForeignKey("blocks.id"), nullable=False)  # type: ignore
     district_id: Mapped[int] = mapped_column(Integer, ForeignKey("districts.id"), nullable=False)  # type: ignore
     description: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
@@ -108,7 +109,7 @@ class Complaint(Base):  # type: ignore
     )
 
     # Relationships
-    village: Mapped["GramPanchayat"] = relationship("GramPanchayat", back_populates="complaints")
+    gp: Mapped["GramPanchayat"] = relationship("GramPanchayat", back_populates="complaints")
     block: Mapped["Block"] = relationship("Block", back_populates="complaints")
     district: Mapped["District"] = relationship("District", back_populates="complaints")
     complaint_type: Mapped["ComplaintType"] = relationship("ComplaintType", back_populates="complaints")

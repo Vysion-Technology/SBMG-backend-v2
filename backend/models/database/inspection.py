@@ -23,7 +23,7 @@ class Inspection(Base):  # type: ignore
         Integer, ForeignKey("authority_holder_persons.id"), nullable=False
     )
 
-    village_id: Mapped[int] = mapped_column(
+    gp_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("gram_panchayats.id"),
         nullable=False,
@@ -45,8 +45,8 @@ class Inspection(Base):  # type: ignore
         nullable=True,
     )
 
-    village: Mapped[GramPanchayat] = relationship(
-        "GramPanchayat", foreign_keys=[village_id]
+    gp: Mapped[GramPanchayat] = relationship(
+        "GramPanchayat", foreign_keys=[gp_id]
     )
 
     # Create the index on date and village_id separately for faster queries
@@ -54,19 +54,19 @@ class Inspection(Base):  # type: ignore
 
     __table_args__ = (
         Index("ix_inspections_date", "date"),
-        Index("ix_inspections_village_id", "village_id"),
-        Index("ix_inspections_village_id_date", "village_id", "date"),
+        Index("ix_inspections_gp_id", "gp_id"),
+        Index("ix_inspections_date_gp_id", "date", "gp_id"),
     )
 
     @property
     def district(self) -> Optional[District]:
         """Get district from village relationship."""
-        return self.village.district if self.village else None
+        return self.gp.district if self.gp else None
 
     @property
     def block(self) -> Optional[Block]:
         """Get block from village relationship."""
-        return self.village.block if self.village else None
+        return self.gp.block if self.gp else None
 
     media: Mapped[List["InspectionImage"]] = relationship(
         "InspectionImage", back_populates="inspection"

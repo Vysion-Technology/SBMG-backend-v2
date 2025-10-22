@@ -14,18 +14,18 @@ class PermissionChecker:
     def user_has_role(user: User, required_roles: List[str]) -> bool:
         """Check if user has any of the required roles."""
         # If user has no village, block, or district, they are considered ADMIN
-        if not user.village_id and not user.block_id and not user.district_id:
+        if not user.gp_id and not user.block_id and not user.district_id:
             return True  # Admin access
-        if not user.village_id and not user.block_id and user.district_id:
+        if not user.gp_id and not user.block_id and user.district_id:
             if UserRole.CEO in required_roles:
                 return True  # CEO access
-        if not user.village_id and user.block_id and user.district_id:
+        if not user.gp_id and user.block_id and user.district_id:
             if UserRole.BDO in required_roles:
                 return True  # BDO access
-        if user.village_id and user.block_id and user.district_id and "contractor" not in required_roles:
+        if user.gp_id and user.block_id and user.district_id and "contractor" not in required_roles:
             if UserRole.VDO in required_roles:
                 return True  # VDO access
-        if user.village_id and user.block_id and user.district_id:
+        if user.gp_id and user.block_id and user.district_id:
             if UserRole.WORKER in required_roles:
                 return True  # Worker access
         user_roles = [pos.role.name for pos in user.positions if pos.role]

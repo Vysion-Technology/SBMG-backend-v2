@@ -101,7 +101,7 @@ class AuthService:
             select(User)
             .options(
                 selectinload(User.positions).selectinload(PositionHolder.role),
-                selectinload(User.positions).selectinload(PositionHolder.village),
+                selectinload(User.positions).selectinload(PositionHolder.gp),
                 selectinload(User.positions).selectinload(PositionHolder.block),
                 selectinload(User.positions).selectinload(PositionHolder.district),
             )
@@ -116,7 +116,7 @@ class AuthService:
             select(User)
             .options(
                 selectinload(User.positions).selectinload(PositionHolder.role),
-                selectinload(User.positions).selectinload(PositionHolder.village),
+                selectinload(User.positions).selectinload(PositionHolder.gp),
                 selectinload(User.positions).selectinload(PositionHolder.block),
                 selectinload(User.positions).selectinload(PositionHolder.district),
             )
@@ -175,7 +175,7 @@ class AuthService:
         query = select(PositionHolder).options(
             selectinload(PositionHolder.user),
             selectinload(PositionHolder.role),
-            selectinload(PositionHolder.village),
+            selectinload(PositionHolder.gp),
             selectinload(PositionHolder.block),
             selectinload(PositionHolder.district),
         )
@@ -320,15 +320,15 @@ class AuthService:
     @staticmethod
     def get_role_by_user(user: User) -> Optional[UserRole]:
         """Extract roles from user's positions."""
-        if not (user.village_id and user.block_id and user.district_id):
+        if not (user.gp_id and user.block_id and user.district_id):
             return UserRole.ADMIN
         if not user.block_id and user.district_id:
             return UserRole.CEO
-        if user.block_id and not user.village_id:
+        if user.block_id and not user.gp_id:
             return UserRole.BDO
-        if user.village_id and "contractor" in user.username.lower():
+        if user.gp_id and "contractor" in user.username.lower():
             return UserRole.WORKER
-        if user.village_id:
+        if user.gp_id:
             return UserRole.VDO
         return None
 

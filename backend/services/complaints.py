@@ -59,7 +59,7 @@ class ComplaintService:
     ) -> list[DetailedComplaintResponse]:
         query = select(Complaint).options(
             selectinload(Complaint.status),
-            selectinload(Complaint.village),
+            selectinload(Complaint.gp),
             selectinload(Complaint.block),
             selectinload(Complaint.district),
             selectinload(Complaint.complaint_type),
@@ -72,7 +72,7 @@ class ComplaintService:
         if block_id is not None:
             query = query.where(Complaint.block_id == block_id)  # type: ignore
         if village_id is not None:
-            query = query.where(Complaint.village_id == village_id)  # type: ignore
+            query = query.where(Complaint.gp_id == village_id)  # type: ignore
         if complaint_status_id is not None:
             query = query.where(Complaint.status_id == complaint_status_id)  # type: ignore
         if start_date is not None:
@@ -91,7 +91,7 @@ class ComplaintService:
         elif order_by == ComplaintOrderByEnum.BLOCK:
             query = query.order_by(Complaint.block_id)
         elif order_by == ComplaintOrderByEnum.GP:
-            query = query.order_by(Complaint.village_id)
+            query = query.order_by(Complaint.gp_id)
 
         if skip is not None:
             query = query.offset(skip)
@@ -111,7 +111,7 @@ class ComplaintService:
                 status_id=complaint.status_id,
                 complaint_type=complaint.complaint_type.name if complaint.complaint_type else None,
                 status=complaint.status.name if complaint.status else None,
-                village_name=complaint.village.name if complaint.village else None,
+                village_name=complaint.gp.name if complaint.gp else None,
                 block_name=complaint.block.name if complaint.block else None,
                 district_name=complaint.district.name if complaint.district else None,
                 media_urls=[media.media_url for media in complaint.media] if complaint.media else [],
@@ -211,7 +211,7 @@ class ComplaintService:
                     ComplaintStatus.name,
                     func.count(Complaint.id),
                 )
-                .join(Village, Complaint.village_id == Village.id)
+                .join(Village, Complaint.gp_id == Village.id)
                 .join(Block, Village.block_id == Block.id)
                 .join(District, Block.district_id == District.id)
                 .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
@@ -228,7 +228,7 @@ class ComplaintService:
                 select(
                     Complaint.block_id, Block.name, ComplaintStatus.id, ComplaintStatus.name, func.count(Complaint.id)
                 )
-                .join(Village, Complaint.village_id == Village.id)
+                .join(Village, Complaint.gp_id == Village.id)
                 .join(Block, Village.block_id == Block.id)
                 .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
                 .group_by(Complaint.block_id, Block.name, ComplaintStatus.id, ComplaintStatus.name)
@@ -236,22 +236,22 @@ class ComplaintService:
         else:  # GP level
             query = (
                 select(
-                    Complaint.village_id,
+                    Complaint.gp_id,
                     Village.name,
                     ComplaintStatus.id,
                     ComplaintStatus.name,
                     func.count(Complaint.id),
                 )
-                .join(Village, Complaint.village_id == Village.id)
+                .join(Village, Complaint.gp_id == Village.id)
                 .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
-                .group_by(Complaint.village_id, Village.name, ComplaintStatus.id, ComplaintStatus.name)
+                .group_by(Complaint.gp_id, Village.name, ComplaintStatus.id, ComplaintStatus.name)
             )
         if district_id is not None:
             query = query.where(Complaint.district_id == district_id)
         if block_id is not None:
             query = query.where(Complaint.block_id == block_id)  # type: ignore
         if gp_id is not None:
-            query = query.where(Complaint.village_id == gp_id)  # type: ignore
+            query = query.where(Complaint.gp_id == gp_id)  # type: ignore
         if start_date is not None:
             query = query.where(Complaint.created_at >= start_date)
         if end_date is not None:

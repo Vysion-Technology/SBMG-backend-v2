@@ -12,7 +12,7 @@ class PermissionService:
         return (
             current_user.district_id is None
             and current_user.block_id is None
-            and current_user.village_id is None
+            and current_user.gp_id is None
         )
 
     def is_ceo(self, current_user: User) -> bool:
@@ -20,7 +20,7 @@ class PermissionService:
         return (
             current_user.district_id is not None
             and current_user.block_id is None
-            and current_user.village_id is None
+            and current_user.gp_id is None
         )
 
     def is_bdo(self, current_user: User) -> bool:
@@ -28,7 +28,7 @@ class PermissionService:
         return (
             current_user.district_id is not None
             and current_user.block_id is not None
-            and current_user.village_id is None
+            and current_user.gp_id is None
         )
 
     def is_vdo(self, current_user: User) -> bool:
@@ -36,7 +36,7 @@ class PermissionService:
         return (
             current_user.district_id is not None
             and current_user.block_id is not None
-            and current_user.village_id is not None
+            and current_user.gp_id is not None
         )
 
     def valid_sender_receiver_pair(self, sender: User, receiver: User) -> bool:
@@ -50,8 +50,8 @@ class PermissionService:
             )
         elif self.is_bdo(sender):
             return (
-                receiver.block_id == sender.block_id and receiver.village_id is not None
+                receiver.block_id == sender.block_id and receiver.gp_id is not None
             )
         elif self.is_vdo(sender):
-            return receiver.village_id == sender.village_id
+            return receiver.gp_id == sender.gp_id
         return False

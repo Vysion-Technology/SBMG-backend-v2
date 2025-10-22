@@ -4,7 +4,7 @@ from datetime import date, datetime
 from sqlalchemy.orm import mapped_column, relationship, Mapped
 from sqlalchemy import String, Integer, Boolean, ForeignKey, Date, UniqueConstraint
 
-from models.database.geography import District, Block, Village
+from models.database.geography import District, Block, GramPanchayat
 from database import Base  # type: ignore
 
 
@@ -35,7 +35,7 @@ class User(Base):  # type: ignore
     email: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)  # type: ignore
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)  # type: ignore
-    village_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
+    gp_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
         Integer,
         ForeignKey("gram_panchayats.id"),
         nullable=True,
@@ -67,7 +67,7 @@ class User(Base):  # type: ignore
         # Note: This does not prevent a user from holding multiple roles or positions in different areas
         # but prevents role duplication in the same area.
         UniqueConstraint(
-            "village_id", "block_id", "district_id", "username", name="uix_user_geo"
+            "gp_id", "block_id", "district_id", "username", name="uix_user_geo"
         ),
     )
 
@@ -115,7 +115,7 @@ class PositionHolder(Base):  # type: ignore
     # Relationships
     user: Mapped[User] = relationship("User", back_populates="positions")
     role: Mapped[Role] = relationship("Role")
-    village: Mapped["GramPanchayat"] = relationship("GramPanchayat")
+    gp: Mapped["GramPanchayat"] = relationship("GramPanchayat")
     block: Mapped[Block] = relationship("Block")
     district: Mapped[District] = relationship("District")
 

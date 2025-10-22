@@ -197,8 +197,8 @@ class InspectionService:
         result = await self.db.execute(
             select(Inspection)
             .options(
-                selectinload(Inspection.village).selectinload(GramPanchayat.block),
-                selectinload(Inspection.village).selectinload(GramPanchayat.district),
+                selectinload(Inspection.gp).selectinload(GramPanchayat.block),
+                selectinload(Inspection.gp).selectinload(GramPanchayat.district),
                 selectinload(Inspection.media),
             )
             .where(Inspection.id == inspection_id)
@@ -219,14 +219,14 @@ class InspectionService:
             # VDO can see inspections in their village
             if position.role.name == UserRole.VDO and position.village_id:
                 jurisdiction_filters.append(
-                    Inspection.village_id == position.village_id
+                    Inspection.gp_id == position.village_id
                 )
 
             # BDO can see inspections in their block
             elif position.role.name == UserRole.BDO and position.block_id:
                 # Need to join with villages to filter by block
                 jurisdiction_filters.append(
-                    Inspection.village_id.in_(
+                    Inspection.gp_id.in_(
                         select(GramPanchayat.id).where(
                             GramPanchayat.block_id == position.block_id
                         )
@@ -237,7 +237,7 @@ class InspectionService:
             elif position.role.name == UserRole.CEO and position.district_id:
                 # Need to join with villages to filter by district
                 jurisdiction_filters.append(
-                    Inspection.village_id.in_(
+                    Inspection.gp_id.in_(
                         select(GramPanchayat.id).where(
                             GramPanchayat.district_id == position.district_id
                         )
@@ -248,11 +248,11 @@ class InspectionService:
             elif position.role.name == UserRole.WORKER:
                 if position.village_id:
                     jurisdiction_filters.append(
-                        Inspection.village_id == position.village_id
+                        Inspection.gp_id == position.village_id
                     )
                 elif position.block_id:
                     jurisdiction_filters.append(
-                        Inspection.village_id.in_(
+                        Inspection.gp_id.in_(
                             select(GramPanchayat.id).where(
                                 GramPanchayat.block_id == position.block_id
                             )
@@ -260,7 +260,7 @@ class InspectionService:
                     )
                 elif position.district_id:
                     jurisdiction_filters.append(
-                        Inspection.village_id.in_(
+                        Inspection.gp_id.in_(
                             select(GramPanchayat.id).where(
                                 GramPanchayat.district_id == position.district_id
                             )
@@ -283,8 +283,8 @@ class InspectionService:
         """Get paginated list of inspections within user's jurisdiction."""
         # Base query
         query = select(Inspection).options(
-            selectinload(Inspection.village).selectinload(GramPanchayat.block),
-            selectinload(Inspection.village).selectinload(GramPanchayat.district),
+            selectinload(Inspection.gp).selectinload(GramPanchayat.block),
+            selectinload(Inspection.gp).selectinload(GramPanchayat.district),
             selectinload(Inspection.media),
         )
 
@@ -296,16 +296,16 @@ class InspectionService:
         # Apply additional filters
         filters = []
         if village_id:
-            filters.append(Inspection.village_id == village_id)
+            filters.append(Inspection.gp_id == village_id)
         if block_id:
             filters.append(
-                Inspection.village_id.in_(
+                Inspection.gp_id.in_(
                     select(GramPanchayat.id).where(GramPanchayat.block_id == block_id)
                 )
             )
         if district_id:
             filters.append(
-                Inspection.village_id.in_(
+                Inspection.gp_id.in_(
                     select(GramPanchayat.id).where(
                         GramPanchayat.district_id == district_id
                     )
@@ -379,7 +379,7 @@ class InspectionService:
 
         # Unique villages inspected
         villages_query = select(
-            func.count(func.distinct(Inspection.village_id))
+            func.count(func.distinct(Inspection.gp_id))
         ).select_from(Inspection)
         if jurisdiction_filter is not None:
             villages_query = villages_query.where(jurisdiction_filter)
@@ -406,24 +406,24 @@ class InspectionService:
         """Get paginated list of all inspections (admin only)."""
         # Base query
         query = select(Inspection).options(
-            selectinload(Inspection.village).selectinload(GramPanchayat.block),
-            selectinload(Inspection.village).selectinload(GramPanchayat.district),
+            selectinload(Inspection.gp).selectinload(GramPanchayat.block),
+            selectinload(Inspection.gp).selectinload(GramPanchayat.district),
             selectinload(Inspection.media),
         )
 
         # Apply additional filters
         filters: List[Any] = []
         if village_id:
-            filters.append(Inspection.village_id == village_id)
+            filters.append(Inspection.gp_id == village_id)
         if block_id:
             filters.append(
-                Inspection.village_id.in_(
+                Inspection.gp_id.in_(
                     select(GramPanchayat.id).where(GramPanchayat.block_id == block_id)
                 )
             )
         if district_id:
             filters.append(
-                Inspection.village_id.in_(
+                Inspection.gp_id.in_(
                     select(GramPanchayat.id).where(
                         GramPanchayat.district_id == district_id
                     )
@@ -462,16 +462,16 @@ class InspectionService:
         # Apply additional filters
         filters: List[Any] = []
         if village_id:
-            filters.append(Inspection.village_id == village_id)
+            filters.append(Inspection.gp_id == village_id)
         if block_id:
             filters.append(
-                Inspection.village_id.in_(
+                Inspection.gp_id.in_(
                     select(GramPanchayat.id).where(GramPanchayat.block_id == block_id)
                 )
             )
         if district_id:
             filters.append(
-                Inspection.village_id.in_(
+                Inspection.gp_id.in_(
                     select(GramPanchayat.id).where(
                         GramPanchayat.district_id == district_id
                     )

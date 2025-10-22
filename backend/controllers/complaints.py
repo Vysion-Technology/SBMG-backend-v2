@@ -8,6 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from services.auth import AuthService
+from services.fcm_notification_service import notify_user_on_complaint_status_update
+
 from services.complaints import ComplaintOrderByEnum, ComplaintService
 from utils import get_user_jurisdiction_filter
 from database import get_db
@@ -72,7 +74,7 @@ async def get_my_complaints(
         select(Complaint)
         .options(
             selectinload(Complaint.status),
-            selectinload(Complaint.village),
+            selectinload(Complaint.gp),
             selectinload(Complaint.block),
             selectinload(Complaint.district),
             selectinload(Complaint.complaint_type),
@@ -94,7 +96,7 @@ async def get_my_complaints(
     elif order_by == ComplaintOrderByEnum.BLOCK:
         query = query.order_by(Complaint.block_id)
     elif order_by == ComplaintOrderByEnum.GP:
-        query = query.order_by(Complaint.village_id)
+        query = query.order_by(Complaint.gp_id)
 
     # Apply pagination
     if skip is not None:
@@ -118,7 +120,7 @@ async def get_my_complaints(
             status_id=complaint.status_id,
             complaint_type=complaint.complaint_type.name if complaint.complaint_type else None,
             status=complaint.status.name if complaint.status else None,
-            village_name=complaint.village.name if complaint.village else None,
+            village_name=complaint.gp.name if complaint.gp else None,
             block_name=complaint.block.name if complaint.block else None,
             district_name=complaint.district.name if complaint.district else None,
             media_urls=[media.media_url for media in complaint.media] if complaint.media else [],
@@ -152,7 +154,7 @@ async def update_complaint_status(
     complaint_id: int,
     status_request: UpdateComplaintStatusRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role),
+    current_user: User = Depends(require_staff_role), # pylint: disable=unused-variable
 ):
     """Update complaint status (Staff only)."""
     # Get complaint
@@ -176,13 +178,13 @@ async def update_complaint_status(
     await db.commit()
 
     # Send notification to the user who created the complaint
-    from services.fcm_notification_service import notify_user_on_complaint_status_update
 
     try:
         await notify_user_on_complaint_status_update(db, complaint, new_status.name)
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         # Log error but don't fail the request
-        logging.error(f"Failed to send FCM notification: {e}")
+        logging.error("Failed to send FCM notification: %s", e)
+
 
     return {"message": "Complaint status updated successfully"}
 
@@ -219,7 +221,7 @@ async def check_complaint_village_access(user: User, complaint: Complaint) -> bo
         return True
 
     # Check if user has access to the complaint's village
-    return PermissionChecker.user_can_access_village(user, complaint.village_id)
+    return PermissionChecker.user_can_access_village(user, complaint.gp_id)
 
 
 @router.post("/{complaint_id}/comments", response_model=ComplaintCommentResponse)
@@ -240,7 +242,7 @@ async def add_complaint_comment(
 
     # Get complaint with village information
     result = await db.execute(
-        select(Complaint).options(selectinload(Complaint.village)).where(Complaint.id == complaint_id)
+        select(Complaint).options(selectinload(Complaint.gp)).where(Complaint.id == complaint_id)
     )
     complaint = result.scalar_one_or_none()
 
@@ -320,7 +322,7 @@ async def upload_complaint_media(
 
     # Get complaint with village information
     result = await db.execute(
-        select(Complaint).options(selectinload(Complaint.village)).where(Complaint.id == complaint_id)
+        select(Complaint).options(selectinload(Complaint.gp)).where(Complaint.id == complaint_id)
     )
     complaint = result.scalar_one_or_none()
 
@@ -383,7 +385,7 @@ async def resolve_complaint(
 
     # Get complaint with village information
     result = await db.execute(
-        select(Complaint).options(selectinload(Complaint.village)).where(Complaint.id == complaint_id)
+        select(Complaint).options(selectinload(Complaint.gp)).where(Complaint.id == complaint_id)
     )
     complaint = result.scalar_one_or_none()
 
@@ -559,7 +561,7 @@ async def get_complaint_counts_by_status(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access district-level analytics",
         )
-    if current_user.village_id is not None and level in [
+    if current_user.gp_id is not None and level in [
         GeoTypeEnum.DISTRICT,
         GeoTypeEnum.BLOCK,
     ]:

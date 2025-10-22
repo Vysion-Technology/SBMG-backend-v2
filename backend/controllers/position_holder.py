@@ -34,7 +34,7 @@ def get_user_role(user: User) -> str:
     }
     
     # Check for special admin roles based on geography
-    if not user.village_id and not user.block_id and not user.district_id:
+    if not user.gp_id and not user.block_id and not user.district_id:
         return UserRole.ADMIN
     
     # Get role from positions
@@ -127,7 +127,7 @@ def validate_geographical_hierarchy(creator: User, district_id: Optional[int],
     
     # VDO validation (if needed for future worker assignments)
     elif creator_role == UserRole.VDO and village_id:
-        if creator.village_id != village_id:
+        if creator.gp_id != village_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="VDO can only create positions within their own village"
@@ -232,7 +232,7 @@ async def create_position_holder(
         block_id=position.block_id,
         block_name=position.block.name if position.block else None,
         village_id=position.village_id,
-        village_name=position.village.name if position.village else None,
+        village_name=position.gp.name if position.gp else None,
         date_of_joining=position.date_of_joining,
         start_date=position.start_date,
         end_date=position.end_date,
@@ -271,7 +271,7 @@ async def get_position_holder(
         block_id=position.block_id,
         block_name=position.block.name if position.block else None,
         village_id=position.village_id,
-        village_name=position.village.name if position.village else None,
+        village_name=position.gp.name if position.gp else None,
         date_of_joining=position.date_of_joining,
         start_date=position.start_date,
         end_date=position.end_date,
@@ -325,14 +325,14 @@ async def get_all_position_holders(
             block_id = current_user.block_id
         elif creator_role == UserRole.VDO:
             # VDO can only see positions in their village
-            if village_id and village_id != current_user.village_id:
+            if village_id and village_id != current_user.gp_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="VDO can only view positions within their village"
                 )
             district_id = current_user.district_id
             block_id = current_user.block_id
-            village_id = current_user.village_id
+            village_id = current_user.gp_id
     
     # Get role_id if role_name is provided
     role_id = None
@@ -371,7 +371,7 @@ async def get_all_position_holders(
             block_id=position.block_id,
             block_name=position.block.name if position.block else None,
             village_id=position.village_id,
-            village_name=position.village.name if position.village else None,
+            village_name=position.gp.name if position.gp else None,
             date_of_joining=position.date_of_joining,
             start_date=position.start_date,
             end_date=position.end_date,
@@ -472,7 +472,7 @@ async def update_position_holder(
         block_id=updated_position.block_id,
         block_name=updated_position.block.name if updated_position.block else None,
         village_id=updated_position.village_id,
-        village_name=updated_position.village.name if updated_position.village else None,
+        village_name=updated_position.gp.name if updated_position.gp else None,
         date_of_joining=updated_position.date_of_joining,
         start_date=updated_position.start_date,
         end_date=updated_position.end_date,

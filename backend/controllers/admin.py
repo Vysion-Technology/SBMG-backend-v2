@@ -485,7 +485,7 @@ async def delete_village(
 
     # Check if village has associated complaints
     complaints_result = await db.execute(
-        select(func.count(Complaint.id)).where(Complaint.village_id == village_id)
+        select(func.count(Complaint.id)).where(Complaint.gp_id == village_id)
     )
     complaints_count = complaints_result.scalar() or 0
 
@@ -598,7 +598,7 @@ async def get_dashboard_stats(
         )
         .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
         .join(District, Complaint.district_id == District.id)
-        .join(GramPanchayat, Complaint.village_id == GramPanchayat.id)
+        .join(GramPanchayat, Complaint.gp_id == GramPanchayat.id)
         .order_by(Complaint.created_at.desc())
         .limit(10)
     )

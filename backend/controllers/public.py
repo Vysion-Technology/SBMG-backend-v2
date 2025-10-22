@@ -141,7 +141,7 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
         .options(
             selectinload(Complaint.complaint_type),
             selectinload(Complaint.status),
-            selectinload(Complaint.village).selectinload(GramPanchayat.block).selectinload(Block.district),
+            selectinload(Complaint.gp).selectinload(GramPanchayat.block).selectinload(Block.district),
             selectinload(Complaint.media),
             selectinload(Complaint.comments).selectinload(ComplaintComment.user).selectinload(User.positions),
             selectinload(Complaint.assignments).selectinload(ComplaintAssignment.user).selectinload(User.positions),
@@ -193,7 +193,7 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
             assigned_worker = latest_assignment.user.username
         assignment_date = latest_assignment.assigned_at
 
-    village: GramPanchayat = await geo_service.get_village(complaint.village_id)
+    gp: GramPanchayat = await geo_service.get_village(complaint.gp_id)
 
     print("Complaint:  ", complaint)
 
@@ -205,9 +205,9 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
         status_id=complaint.status_id,
         # complaint_type_name=complaint.complaint_type.name,
         # status_name=complaint.status.name,
-        village_name=village.name,
-        block_name=village.block.name,
-        district_name=village.block.district.name,
+        village_name=gp.name,
+        block_name=gp.block.name,
+        district_name=gp.block.district.name,
         created_at=complaint.created_at,
         updated_at=complaint.updated_at,
         media=media_details,

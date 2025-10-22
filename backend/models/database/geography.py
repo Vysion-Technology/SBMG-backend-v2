@@ -12,7 +12,6 @@ from sqlalchemy import (
 )
 
 from database import Base  # type: ignore
-from models.database.complaint import Complaint  # type: ignore
 
 
 class District(Base):  # type: ignore
@@ -50,7 +49,7 @@ class Block(Base):  # type: ignore
     # Relationships
     district: Mapped[District] = relationship("District", back_populates="blocks")
     villages: Mapped[List["GramPanchayat"]] = relationship("GramPanchayat", back_populates="block")
-    complaints: Mapped[List[Complaint]] = relationship("Complaint", back_populates="block")
+    complaints: Mapped[List["Complaint"]] = relationship("Complaint", back_populates="block")
 
 
 class GramPanchayat(Base):  # type: ignore
@@ -95,7 +94,7 @@ class Village(Base):
     
     # Relationships
     gram_panchayat: Mapped["GramPanchayat"] = relationship("GramPanchayat", back_populates="villages")
-    complaints: Mapped[List[Complaint]] = relationship("Complaint", back_populates="village")
+    complaints: Mapped[List["Complaint"]] = relationship("Complaint", back_populates="village")
     
     # Unique constraint on name within Gram Panchayat
     __table_args__ = (

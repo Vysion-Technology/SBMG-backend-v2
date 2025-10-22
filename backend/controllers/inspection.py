@@ -98,7 +98,7 @@ async def get_inspection_analytics(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access district-level analytics",
         )
-    if current_user.village_id is not None and level in [
+    if current_user.gp_id is not None and level in [
         GeoTypeEnum.DISTRICT,
         GeoTypeEnum.BLOCK,
     ]:
@@ -174,7 +174,7 @@ async def get_inspection(
 
         # Check jurisdiction
         can_access = await service.can_inspect_village(
-            current_user, inspection.village_id
+            current_user, inspection.gp_id
         )
         if not can_access:
             raise HTTPException(
@@ -219,7 +219,7 @@ async def get_inspections(
             detail="Page size must be between 1 and 100",
         )
 
-    if current_user.village_id and (block_id or district_id):
+    if current_user.gp_id and (block_id or district_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Block or District filter not allowed for Village-level users",
@@ -272,15 +272,15 @@ async def get_inspections(
         inspection_items.append(
             InspectionListItemResponse(
                 id=inspection.id,
-                village_id=inspection.village_id,
-                village_name=inspection.village.name
-                if inspection.village
+                village_id=inspection.gp_id,
+                village_name=inspection.gp.name
+                if inspection.gp
                 else "Unknown",
-                block_name=inspection.village.block.name
-                if inspection.village and inspection.village.block
+                block_name=inspection.gp.block.name
+                if inspection.gp and inspection.gp.block
                 else "Unknown",
-                district_name=inspection.village.district.name
-                if inspection.village and inspection.village.district
+                district_name=inspection.gp.district.name
+                if inspection.gp and inspection.gp.district
                 else "Unknown",
                 date=inspection.date,
                 officer_name=officer_name,
@@ -323,8 +323,8 @@ async def get_inspection_detail(
     result = await db.execute(
         select(Inspection)
         .options(
-            selectinload(Inspection.village).selectinload(GramPanchayat.block),
-            selectinload(Inspection.village).selectinload(GramPanchayat.district),
+            selectinload(Inspection.gp).selectinload(GramPanchayat.block),
+            selectinload(Inspection.gp).selectinload(GramPanchayat.district),
             selectinload(Inspection.media),
         )
         .where(Inspection.id == inspection_id)
@@ -385,7 +385,7 @@ async def get_inspection_detail(
         id=inspection.id,
         remarks=inspection.remarks,
         position_holder_id=inspection.position_holder_id,
-        village_id=inspection.village_id,
+        village_id=inspection.gp_id,
         date=inspection.date,
         start_time=inspection.start_time,
         lat=inspection.lat,
@@ -393,12 +393,12 @@ async def get_inspection_detail(
         register_maintenance=inspection.register_maintenance,
         officer_name=officer_name,
         officer_role=officer_role,
-        village_name=inspection.village.name if inspection.village else "Unknown",
-        block_name=inspection.village.block.name
-        if inspection.village and inspection.village.block
+        village_name=inspection.gp.name if inspection.gp else "Unknown",
+        block_name=inspection.gp.block.name
+        if inspection.gp and inspection.gp.block
         else "Unknown",
-        district_name=inspection.village.district.name
-        if inspection.village and inspection.village.district
+        district_name=inspection.gp.district.name
+        if inspection.gp and inspection.gp.district
         else "Unknown",
         household_waste=HouseHoldWasteCollectionResponse.model_validate(household)
         if household

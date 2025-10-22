@@ -20,7 +20,7 @@ def get_user_jurisdiction_filter(user: User) -> Optional[Any]:
             elif position.role.name == UserRole.BDO and position.block_id:
                 jurisdiction_filters.append(Complaint.block_id == position.block_id)
             elif position.role.name == UserRole.VDO and position.village_id:
-                jurisdiction_filters.append(Complaint.village_id == position.village_id)
+                jurisdiction_filters.append(Complaint.gp_id == position.village_id)
             elif position.role.name == UserRole.WORKER:
                 # Workers can only see assigned complaints
                 jurisdiction_filters.append(

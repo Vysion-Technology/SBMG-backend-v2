@@ -97,7 +97,7 @@ class AttendanceService:
             await self.db.execute(
                 select(DailyAttendance)
                 .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
-                .join(GramPanchayat, Contractor.village_id == GramPanchayat.id)
+                .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
                 .join(Block, GramPanchayat.block_id == Block.id)
                 .options(joinedload(DailyAttendance.contractor))
                 .where(DailyAttendance.id == attendance.id)
@@ -149,7 +149,7 @@ class AttendanceService:
                 joinedload(DailyAttendance.contractor).joinedload(Contractor.agency)
             )
             .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
-            .join(GramPanchayat, Contractor.village_id == GramPanchayat.id)
+            .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
             .join(Block, GramPanchayat.block_id == Block.id)
             .join(District, Block.district_id == District.id)
         )
@@ -204,7 +204,7 @@ class AttendanceService:
                 .select_from(District)
                 .join(Block, Block.district_id == District.id)
                 .join(GramPanchayat, GramPanchayat.block_id == Block.id)
-                .join(Contractor, Contractor.village_id == GramPanchayat.id)
+                .join(Contractor, Contractor.gp_id == GramPanchayat.id)
                 .outerjoin(
                     DailyAttendance,
                     and_(
@@ -243,7 +243,7 @@ class AttendanceService:
                 )
                 .select_from(Block)
                 .join(GramPanchayat, GramPanchayat.block_id == Block.id)
-                .join(Contractor, Contractor.village_id == GramPanchayat.id)
+                .join(Contractor, Contractor.gp_id == GramPanchayat.id)
                 .outerjoin(
                     DailyAttendance,
                     and_(
@@ -283,7 +283,7 @@ class AttendanceService:
                     DailyAttendance.date,
                 )
                 .select_from(GramPanchayat)
-                .join(Contractor, Contractor.village_id == GramPanchayat.id)
+                .join(Contractor, Contractor.gp_id == GramPanchayat.id)
                 .outerjoin(
                     DailyAttendance,
                     and_(
@@ -354,7 +354,7 @@ class AttendanceService:
         query = (
             select(DailyAttendance, Contractor, GramPanchayat, Block, District)
             .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
-            .join(GramPanchayat, Contractor.village_id == GramPanchayat.id)
+            .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
             .join(Block, GramPanchayat.block_id == Block.id)
             .join(District, Block.district_id == District.id)
             .where(DailyAttendance.date == attendance_date)
@@ -372,7 +372,7 @@ class AttendanceService:
         count_query = (
             select(func.count(func.distinct(Contractor.id)))  # type: ignore
             .select_from(Contractor)
-            .join(GramPanchayat, Contractor.village_id == GramPanchayat.id)
+            .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
             .join(Block, GramPanchayat.block_id == Block.id)
             .join(District, Block.district_id == District.id)
         )
@@ -462,7 +462,7 @@ class AttendanceService:
                 joinedload(DailyAttendance.contractor).joinedload(Contractor.agency)
             )
             .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
-            .join(GramPanchayat, Contractor.village_id == GramPanchayat.id)
+            .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
             .join(Block, GramPanchayat.block_id == Block.id)
             .join(District, Block.district_id == District.id)
         )

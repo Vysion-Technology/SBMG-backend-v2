@@ -66,7 +66,7 @@ async def get_contractor_from_user(user: User, db: AsyncSession) -> Contractor:
     # You might need to adjust this logic based on your authentication setup
 
     result = await db.execute(
-        select(Contractor).where(Contractor.village_id == user.village_id)
+        select(Contractor).where(Contractor.gp_id == user.gp_id)
     )
     contractor = result.scalar_one_or_none()
 
@@ -90,7 +90,7 @@ async def log_attendance(
     """
     try:
         # Get contractor record for this user
-        if not request.village_id == current_user.village_id:
+        if not request.village_id == current_user.gp_id:
             raise AttemptingToLogAttendanceForAnotherUserError(
                 "You can only log attendance for your own village."
             )
@@ -111,9 +111,9 @@ async def log_attendance(
 
         geo_service = GeographyService(db)
 
-        assert current_user.village_id is not None, "User must have a village_id"
+        assert current_user.gp_id is not None, "User must have a village_id"
 
-        village: GramPanchayat = await geo_service.get_village(current_user.village_id)
+        gp: GramPanchayat = await geo_service.get_village(current_user.gp_id)
 
         return AttendanceResponse(
             id=full_attendance.id,
@@ -121,16 +121,16 @@ async def log_attendance(
             contractor_name=contractor.person_name
             if full_attendance.contractor
             else None,
-            village_id=village.id,
-            village_name=village.name,
-            block_name=village.block.name
-            if full_attendance.contractor and village and village.block
+            village_id=gp.id,
+            village_name=gp.name,
+            block_name=gp.block.name
+            if full_attendance.contractor and gp and gp.block
             else None,
-            district_name=village.block.district.name
+            district_name=gp.block.district.name
             if full_attendance.contractor
-            and village
-            and village.block
-            and village.block.district
+            and gp
+            and gp.block
+            and gp.block.district
             else None,
             date=full_attendance.date,
             start_time=full_attendance.start_time,
@@ -187,9 +187,9 @@ async def end_attendance(
 
         geo_service: GeographyService = GeographyService(db)
 
-        assert contractor.village_id is not None, "Contractor must have a village_id"
+        assert contractor.gp_id is not None, "Contractor must have a village_id"
 
-        village: GramPanchayat = await geo_service.get_village(contractor.village_id)
+        gp: GramPanchayat = await geo_service.get_village(contractor.gp_id)
 
         return AttendanceResponse(
             id=full_attendance.id,
@@ -197,11 +197,11 @@ async def end_attendance(
             contractor_name=contractor.person_name
             if full_attendance.contractor
             else None,
-            village_id=village.id,
-            village_name=village.name,
-            block_name=village.block.name if village.block else None,
-            district_name=village.block.district.name
-            if village.block and village.block.district
+            village_id=gp.id,
+            village_name=gp.name,
+            block_name=gp.block.name if gp.block else None,
+            district_name=gp.block.district.name
+            if gp.block and gp.block.district
             else None,
             date=full_attendance.date,
             start_time=full_attendance.start_time,
@@ -348,7 +348,7 @@ async def get_attendance_analytics(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to access district-level analytics",
             )
-        if current_user.village_id is not None and level in [
+        if current_user.gp_id is not None and level in [
             GeoTypeEnum.DISTRICT,
             GeoTypeEnum.BLOCK,
         ]:
@@ -420,7 +420,7 @@ async def get_attendance_for_day(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access district-level data",
         )
-    if current_user.village_id is not None and level in [
+    if current_user.gp_id is not None and level in [
         GeoTypeEnum.DISTRICT,
         GeoTypeEnum.BLOCK,
     ]:
@@ -473,8 +473,8 @@ async def get_attendance_by_id(
 
         geo_svc = GeographyService(db)
 
-        village: GramPanchayat = await geo_svc.get_village(
-            village_id=contractor.village_id
+        gp: GramPanchayat = await geo_svc.get_village(
+            village_id=contractor.gp_id
         )
 
         return AttendanceResponse(
@@ -483,10 +483,10 @@ async def get_attendance_by_id(
             contractor_name=attendance.contractor.person_name
             if attendance.contractor
             else None,
-            village_id=village.id,
-            village_name=village.name,
-            block_name=village.block.name,
-            district_name=village.district.name,
+            village_id=gp.id,
+            village_name=gp.name,
+            block_name=gp.block.name,
+            district_name=gp.district.name,
             date=attendance.date,
             start_time=attendance.start_time,
             start_lat=attendance.start_lat or "",

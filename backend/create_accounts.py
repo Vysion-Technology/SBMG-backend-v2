@@ -160,7 +160,7 @@ async def main():
         print("District Data Saved")
         await save_block_data(auth_service, geo_service, district_name_to_id)
         print("Block Data Saved")
-        await save_village_data(auth_service, geo_service, district_name_to_id)
+        await save_gp_data(auth_service, geo_service, district_name_to_id)
         print("Village Data Saved")
 
 
@@ -290,7 +290,7 @@ async def save_block_data(
     return res
 
 
-async def save_village_data(
+async def save_gp_data(
     auth_service: AuthService,
     geo_service: GeographyService,
     district_name_to_id: Dict[str, int],
@@ -355,7 +355,7 @@ async def save_village_data(
             )
         res.append(village)
         print(
-            f"Created village: {village.name} in block {block_name}, district {district_name}"
+            f"Created GP: {village.name} in block {block_name}, district {district_name}"
         )
         # For all villages, create resp user accounts
         pwd = village_passwords.get(

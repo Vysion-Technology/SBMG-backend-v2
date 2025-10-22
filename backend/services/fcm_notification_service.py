@@ -37,7 +37,7 @@ async def notify_workers_on_new_complaint(
             .where(
                 and_(
                     Role.name == "WORKER",
-                    PositionHolder.village_id == complaint.village_id,
+                    PositionHolder.village_id == complaint.gp_id,
                     User.is_active.is_(True),
                 )
             )
@@ -47,7 +47,7 @@ async def notify_workers_on_new_complaint(
         workers = result.all()
 
         if not workers:
-            logger.info(f"No workers found for village {complaint.village_id}")
+            logger.info("No workers found for village %d", complaint.gp_id)
             return
 
         # Collect all FCM tokens
@@ -55,7 +55,7 @@ async def notify_workers_on_new_complaint(
 
         # Get village name for better notification
         village_result = await db.execute(
-            select(GramPanchayat).where(GramPanchayat.id == complaint.village_id)
+            select(GramPanchayat).where(GramPanchayat.id == complaint.gp_id)
         )
         village = village_result.scalar_one_or_none()
         village_name = village.name if village else "your village"
@@ -68,7 +68,7 @@ async def notify_workers_on_new_complaint(
             data={
                 "type": "new_complaint",
                 "complaint_id": str(complaint.id),
-                "village_id": str(complaint.village_id),
+                "village_id": str(complaint.gp_id),
                 "village_name": village_name,
             },
         )
