@@ -40,7 +40,7 @@ router = APIRouter()
 @router.post("/with-media", response_model=ComplaintResponse)
 async def create_complaint_with_media(
     complaint_type_id: int = Form(...),
-    village_id: int = Form(...),
+    gp_id: int = Form(...),
     block_id: int = Form(...),
     district_id: int = Form(...),
     description: str = Form(...),
@@ -61,7 +61,7 @@ async def create_complaint_with_media(
     village_result = await db.execute(
         select(GramPanchayat)
         .options(selectinload(GramPanchayat.block), selectinload(GramPanchayat.district))
-        .where(GramPanchayat.id == village_id)
+        .where(GramPanchayat.id == gp_id)
     )
     village = village_result.scalar_one_or_none()
     if not village:
@@ -86,7 +86,7 @@ async def create_complaint_with_media(
     # Create complaint
     complaint = Complaint(
         complaint_type_id=complaint_type_id,
-        village_id=village_id,
+        gp_id=gp_id,
         block_id=block_id,
         district_id=district_id,
         description=description,
@@ -130,6 +130,7 @@ async def create_complaint_with_media(
                 )
                 db.add(media)
                 media_urls.append(media_url)
+                print(f"Uploaded file to {media_url}")
 
             except HTTPException:
                 # If S3 upload fails, continue without media
