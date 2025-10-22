@@ -23,19 +23,15 @@ class CreateEventRequest(BaseModel):
 
 @router.post("/", response_model=EventResponse)
 async def create_event(
-    event: Optional[CreateEventRequest] = None,
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    start_time: Optional[datetime] = None,
-    end_time: Optional[datetime] = None,
+    event: CreateEventRequest,
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> EventResponse:
     """Create a new event."""
-    name = event.name if event else name
-    description = event.description if event else description
-    start_time = event.start_time if event else start_time
-    end_time = event.end_time if event else end_time
+    name = event.name
+    description = event.description
+    start_time = event.start_time
+    end_time = event.end_time
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
 

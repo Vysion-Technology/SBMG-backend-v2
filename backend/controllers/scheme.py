@@ -25,25 +25,19 @@ class CreateSchemeRequest(BaseModel):
 
 @router.post("/", response_model=SchemeResponse)
 async def create_scheme(
-    scheme: Optional[CreateSchemeRequest],
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    eligibility: Optional[str] = None,
-    benefits: Optional[str] = None,
-    start_time: Optional[datetime] = None,
-    end_time: Optional[datetime] = None,
+    scheme: CreateSchemeRequest,
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> SchemeResponse:
     """Create a new scheme."""
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
-    name = scheme.name if scheme else name
-    description = scheme.description if scheme else description
-    eligibility = scheme.eligibility if scheme else eligibility
-    benefits = scheme.benefits if scheme else benefits
-    start_time = scheme.start_time if scheme else start_time
-    end_time = scheme.end_time if scheme else end_time
+    name = scheme.name
+    description = scheme.description
+    eligibility = scheme.eligibility
+    benefits = scheme.benefits
+    start_time = scheme.start_time
+    end_time = scheme.end_time
 
     assert name is not None, "Name is required"
     assert start_time is not None, "Start time is required"
