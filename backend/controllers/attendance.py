@@ -5,11 +5,11 @@ from typing import Optional
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from models.response.contractor import AgencyResponse
+from controllers.auth import get_current_user
 from database import get_db
 
 from models.database.auth import User
@@ -19,6 +19,7 @@ from models.requests.attendance import (
     AttendanceLogRequest,
     AttendanceEndRequest,
 )
+from models.response.contractor import AgencyResponse
 from models.response.attendance import (
     AttendanceResponse,
     AttendanceListResponse,
@@ -43,20 +44,6 @@ security = HTTPBearer()
 router = APIRouter()
 
 
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_db),
-) -> User:
-    """Get current authenticated user."""
-    auth_service = AuthService(db)
-    token = credentials.credentials
-    user = await auth_service.get_current_user_from_token(token)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token",
-        )
-    return user
 
 
 async def get_contractor_from_user(user: User, db: AsyncSession) -> Contractor:
