@@ -136,7 +136,7 @@ def require_roles(required_roles: List[str]):
         async def wrapper(*args, **kwargs):
             # Extract user from kwargs (should be injected by dependency)
             current_user = None
-            for key, value in kwargs.items():
+            for _, value in kwargs.items():
                 if isinstance(value, User):
                     current_user = value
                     break
