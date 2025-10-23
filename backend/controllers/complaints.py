@@ -1,3 +1,5 @@
+"""Controller for managing complaints in the SBM Rajasthan system."""
+# pylint: disable=line-too-long
 import logging
 from typing import Any, Dict, List, Optional
 from datetime import date, datetime, timezone
@@ -7,19 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from services.auth import AuthService
-from services.fcm_notification_service import notify_user_on_complaint_status_update
 
-from services.complaints import ComplaintOrderByEnum, ComplaintService
-from utils import get_user_jurisdiction_filter
 from database import get_db
-from models.database.auth import User
-from models.database.complaint import (
-    Complaint,
-    ComplaintStatus,
-    ComplaintMedia,
-    ComplaintComment,
-)
 from auth_utils import (
     require_staff_role,
     PermissionChecker,
@@ -27,20 +18,29 @@ from auth_utils import (
     require_worker_role,
 )
 
+from models.database.auth import User
+from models.database.complaint import (
+    Complaint,
+    ComplaintStatus,
+    ComplaintMedia,
+    ComplaintComment,
+)
 from models.response.complaint import DetailedComplaintResponse, MediaResponse
 from models.response.analytics import ComplaintAnalyticsResponse
+from models.response.complaint import (
+    ComplaintCommentResponse,
+    ResolveComplaintResponse,
+)
 from models.internal import GeoTypeEnum
 from models.requests.complaint import (
     UpdateComplaintStatusRequest,
     ResolveComplaintRequest,
 )
-from models.response.complaint import (
-    ComplaintCommentResponse,
-    ResolveComplaintResponse,
-    ComplaintStatusResponse,
-)
 
 from services.s3_service import s3_service
+from services.auth import AuthService
+from services.fcm_notification_service import notify_user_on_complaint_status_update
+from services.complaints import ComplaintOrderByEnum, ComplaintService
 
 router = APIRouter()
 
@@ -154,7 +154,7 @@ async def update_complaint_status(
     complaint_id: int,
     status_request: UpdateComplaintStatusRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role), # pylint: disable=unused-variable
+    current_user: User = Depends(require_staff_role),  # pylint: disable=unused-argument
 ):
     """Update complaint status (Staff only)."""
     # Get complaint
@@ -181,36 +181,11 @@ async def update_complaint_status(
 
     try:
         await notify_user_on_complaint_status_update(db, complaint, new_status.name)
-    except Exception as e: # pylint: disable=broad-exception-caught
+    except Exception as e:  # pylint: disable=broad-exception-caught
         # Log error but don't fail the request
         logging.error("Failed to send FCM notification: %s", e)
 
-
     return {"message": "Complaint status updated successfully"}
-
-
-# TODO: Remove this API as detailed response is already there.
-@router.get("/{complaint_id}/status", response_model=ComplaintStatusResponse)
-async def get_complaint_status(complaint_id: int, db: AsyncSession = Depends(get_db)):
-    """Get complaint status (Public access)."""
-    # Get complaint with its status
-    result = await db.execute(
-        select(Complaint, ComplaintStatus)
-        .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
-        .where(Complaint.id == complaint_id)
-    )
-    complaint_data = result.first()
-
-    if not complaint_data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
-
-    complaint, complaint_status = complaint_data
-
-    return ComplaintStatusResponse(
-        id=complaint.id,
-        status_name=complaint_status.name,
-        updated_at=complaint.updated_at,
-    )
 
 
 # Helper function to check if user has access to a complaint in their village
@@ -241,9 +216,7 @@ async def add_complaint_comment(
         )
 
     # Get complaint with village information
-    result = await db.execute(
-        select(Complaint).options(selectinload(Complaint.gp)).where(Complaint.id == complaint_id)
-    )
+    result = await db.execute(select(Complaint).options(selectinload(Complaint.gp)).where(Complaint.id == complaint_id))
     complaint = result.scalar_one_or_none()
 
     if not complaint:
@@ -321,9 +294,7 @@ async def upload_complaint_media(
         )
 
     # Get complaint with village information
-    result = await db.execute(
-        select(Complaint).options(selectinload(Complaint.gp)).where(Complaint.id == complaint_id)
-    )
+    result = await db.execute(select(Complaint).options(selectinload(Complaint.gp)).where(Complaint.id == complaint_id))
     complaint = result.scalar_one_or_none()
 
     if not complaint:
@@ -384,9 +355,7 @@ async def resolve_complaint(
         )
 
     # Get complaint with village information
-    result = await db.execute(
-        select(Complaint).options(selectinload(Complaint.gp)).where(Complaint.id == complaint_id)
-    )
+    result = await db.execute(select(Complaint).options(selectinload(Complaint.gp)).where(Complaint.id == complaint_id))
     complaint = result.scalar_one_or_none()
 
     if not complaint:
@@ -435,7 +404,7 @@ async def verify_complaint(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
 ) -> Dict[str, Any]:
-    """VDO verifies and closes a completed complaint."""
+    """Verify a completed complaint (VDOs only, within their village)."""
 
     if not PermissionChecker.user_has_role(current_user, [UserRole.VDO]):
         raise HTTPException(
@@ -443,21 +412,14 @@ async def verify_complaint(
             detail="Only VDOs can verify complaints",
         )
 
-    # Get complaint with jurisdiction check
-    jurisdiction_filter: Any = get_user_jurisdiction_filter(current_user)  # type: ignore
-
     query = select(Complaint).options(selectinload(Complaint.status)).where(Complaint.id == complaint_id)
-
-    if jurisdiction_filter is not None:
-        query = query.where(jurisdiction_filter)  # type: ignore
-
     result = await db.execute(query)
     complaint = result.scalar_one_or_none()
 
     if not complaint:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Complaint not found or not in your jurisdiction",
+            detail="Complaint not found for the provided ID",
         )
 
     # Check if complaint is in COMPLETED status
@@ -524,13 +486,13 @@ async def verify_complaint(
             )
             db.add(verification_media)
             await db.commit()
-        except HTTPException:
+        except HTTPException as e:
             # If S3 upload fails, continue without media
             logging.warning("Failed to upload verification media, continuing without it.")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to upload verification media",
-            )
+            ) from e
 
     # Update complaint status
     complaint.status_id = verified_status.id
@@ -556,6 +518,7 @@ async def get_complaint_counts_by_status(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
 ) -> ComplaintAnalyticsResponse:
+    """Get complaint counts by status for analytics (Staff only)."""
     if current_user.block_id is not None and level == GeoTypeEnum.DISTRICT:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -609,7 +572,7 @@ async def get_complaint_counts_by_status(
 @router.get("")
 async def get_all_complaints(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role),
+    current_user: User = Depends(require_staff_role),  # pylint: disable=unused-argument
     district_id: Optional[int] = None,
     block_id: Optional[int] = None,
     gp_id: Optional[int] = None,
