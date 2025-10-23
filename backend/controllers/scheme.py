@@ -89,7 +89,7 @@ async def add_scheme_media(
         raise HTTPException(status_code=404, detail="Scheme not found")
 
     # Upload media to S3
-    media_url = await s3_service.upload_file(media, f"schemes/{scheme_id}/")
+    media_url = await s3_service.upload_file(media, f"schemes/{scheme_id}")
 
     # Add media record to the database
     await service.add_scheme_media(scheme_id, media_url)
