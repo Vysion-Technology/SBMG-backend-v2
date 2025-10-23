@@ -1,5 +1,5 @@
 """Request models for geographical entities like districts, blocks, and villages."""
-from models.base import DistrictBase, BlockBase, GPBase
+from models.base import DistrictBase, BlockBase, GPBase, VillageBase
 
 
 # Request models
@@ -31,3 +31,12 @@ class CreateGPRequest(GPBase):
 class UpdateGPRequest(GPBase):
     """Request model for updating a village."""
 
+
+
+class CreateVillageRequest(VillageBase):
+    """Request model for creating a village (in villages table)."""
+
+
+
+class UpdateVillageRequest(VillageBase):
+    """Request model for updating a village (in villages table)."""

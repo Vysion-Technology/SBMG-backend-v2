@@ -54,6 +54,15 @@ class GPResponse(BaseModel):
     district_id: int
 
 
+class VillageResponse(BaseModel):
+    """Village response model."""
+
+    id: int
+    name: str
+    description: Optional[str] = None
+    gp_id: int
+
+
 class GPDetailResponse(BaseModel):
     """Detailed gram panchayat response with counts."""
 

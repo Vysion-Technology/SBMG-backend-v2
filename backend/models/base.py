@@ -23,3 +23,11 @@ class GPBase(BaseModel):
     description: Optional[str] = None
     block_id: int
     district_id: int
+
+
+class VillageBase(BaseModel):
+    """Base village model (for villages table)."""
+
+    name: str
+    description: Optional[str] = None
+    gp_id: int

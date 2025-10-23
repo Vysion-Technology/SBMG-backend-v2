@@ -4,12 +4,13 @@ from sqlalchemy import select, func, insert
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 
-from models.database.geography import District, Block, GramPanchayat
+from models.database.geography import District, Block, GramPanchayat, Village
 from models.database.complaint import Complaint
 from models.requests.geography import (
     CreateDistrictRequest,
     CreateBlockRequest,
     CreateGPRequest,
+    CreateVillageRequest,
 )
 
 
@@ -119,6 +120,23 @@ class GeographyService:
         existing = result.scalar_one_or_none()
         return existing is None
 
+    async def check_village_name_unique_in_gp(
+        self,
+        name: str,
+        gp_id: int,
+        exclude_id: Optional[int] = None,
+    ) -> bool:
+        """Check if village name is unique within a Gram Panchayat."""
+        query = select(Village).where(
+            Village.name == name, Village.gp_id == gp_id
+        )
+        if exclude_id:
+            query = query.where(Village.id != exclude_id)
+
+        result = await self.db.execute(query)
+        existing = result.scalar_one_or_none()
+        return existing is None
+
     async def can_delete_district(self, district_id: int) -> bool:
         """Check if a district can be safely deleted."""
         # Check for blocks
@@ -223,6 +241,18 @@ class GeographyService:
         village = await self.validate_village_exists(village_id)
         return village
 
+    async def get_village_by_id(self, village_id: int) -> Village:
+        """Get village (from villages table) by ID."""
+        result = await self.db.execute(
+            select(Village)
+            .options(selectinload(Village.gram_panchayat))
+            .where(Village.id == village_id)
+        )
+        village = result.scalar_one_or_none()
+        if not village:
+            raise HTTPException(status_code=404, detail="Village not found")
+        return village
+
     async def get_block(self, block_id: int) -> Block:
         """Get block details."""
         block = await self.validate_block_exists(block_id)
@@ -273,6 +303,15 @@ class GeographyService:
             query = query.where(GramPanchayat.block_id == block_id)
         if district_id:
             query = query.where(GramPanchayat.district_id == district_id)
+
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def list_villages_by_gp(self, gp_id: Optional[int] = None) -> list[Village]:
+        """List all villages from villages table, optionally filtered by Gram Panchayat."""
+        query = select(Village).order_by(Village.name)
+        if gp_id:
+            query = query.where(Village.gp_id == gp_id)
 
         result = await self.db.execute(query)
         return list(result.scalars().all())
@@ -341,6 +380,33 @@ class GeographyService:
                 district_id=village_req.district_id,
             )
             .returning(GramPanchayat)
+        )
+        await self.db.commit()
+        return new_village.scalar_one()
+
+    async def create_village(self, village_req: CreateVillageRequest) -> Village:
+        """Create a new village in the villages table."""
+        # Validate GP exists
+        await self.validate_village_exists(village_req.gp_id)
+
+        # Check if village name is unique within the GP
+        is_unique = await self.check_village_name_unique_in_gp(
+            village_req.name, village_req.gp_id
+        )
+        if not is_unique:
+            raise HTTPException(
+                status_code=400,
+                detail="Village name must be unique within the Gram Panchayat",
+            )
+
+        new_village = await self.db.execute(
+            insert(Village)
+            .values(
+                name=village_req.name,
+                description=village_req.description,
+                gp_id=village_req.gp_id,
+            )
+            .returning(Village)
         )
         await self.db.commit()
         return new_village.scalar_one()
