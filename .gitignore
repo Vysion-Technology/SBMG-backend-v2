@@ -143,3 +143,5 @@ logs/
 postgres_data/
 
 *.json
+
+minio_data/
