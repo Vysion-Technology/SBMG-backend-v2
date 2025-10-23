@@ -1,3 +1,4 @@
+"""Contractor Service Module."""
 from typing import Optional
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +9,7 @@ from models.response.contractor import AgencyResponse
 
 
 def map_agency_to_response(agency: Agency) -> AgencyResponse:
+    """Map Agency database model to AgencyResponse model."""
     return AgencyResponse(
         id=agency.id,
         name=agency.name,
@@ -18,10 +20,12 @@ def map_agency_to_response(agency: Agency) -> AgencyResponse:
 
 
 class ContractorService:
+    """Service class for managing contractors."""
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
     async def get_agency_by_id(self, agency_id: int) -> Agency:
+        """Get agency by its ID."""
         result = await self.db.execute(select(Agency).where(Agency.id == agency_id))
         return result.scalar_one()
 
@@ -31,6 +35,7 @@ class ContractorService:
         limit: int = 100,
         name_like: Optional[str] = None,
     ) -> list[AgencyResponse]:
+        """List agencies with optional name filtering and pagination."""
         query = select(Agency).offset(skip).limit(limit)
         if name_like:
             query = query.where(Agency.name.ilike(f"%{name_like}%"))
@@ -42,6 +47,7 @@ class ContractorService:
         self,
         agency_req: CreateAgencyRequest,
     ) -> AgencyResponse:
+        """Create a new agency."""
         existing = await self.db.execute(
             select(Agency).where(Agency.name == agency_req.name)
         )
