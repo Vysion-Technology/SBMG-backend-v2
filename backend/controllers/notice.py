@@ -1,20 +1,24 @@
+"""Controller module for managing notices."""
+import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.permission import PermissionService
-from services.user import UserService
 from database import get_db
+
 from models.database.auth import User
 from models.requests.notice import CreateNoticeRequest
 from models.response.notice import (
     NoticeDetailResponse,
 )
+
 from auth_utils import require_staff_role
+
+from services.permission import PermissionService
+from services.user import UserService
 from services.notice import NoticeService
 
-import logging
 
 logger = logging.getLogger(__name__)
 

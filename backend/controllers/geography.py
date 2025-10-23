@@ -7,17 +7,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from database import get_db
-from models.database.geography import District, Block, GramPanchayat
+from models.database.geography import District, Block, GramPanchayat, Village
+from models.database.auth import User
 from models.response.geography import (
     DistrictResponse,
     BlockResponse,
     GPResponse,
+    VillageResponse,
 )
+from models.requests.geography import CreateVillageRequest
 from models.database.contractor import Agency, Contractor
 from models.response.contractor import AgencyResponse, ContractorResponse
 
 from services.geography import GeographyService
 from services.contractor import ContractorService
+from services.permission import PermissionService
+from controllers.auth import get_current_user
 
 
 router = APIRouter()
@@ -210,3 +215,91 @@ async def get_contractors_by_village(
         contract_start_date=contractor.contract_start_date,
         contract_end_date=contractor.contract_end_date,
     )
+
+
+# Village endpoints
+@router.get("/villages", response_model=List[VillageResponse])
+async def list_villages(
+    gp_id: Optional[int] = None,
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+) -> List[VillageResponse]:
+    """List all villages with pagination, optionally filtered by Gram Panchayat."""
+    query = select(Village)
+
+    if gp_id:
+        query = query.where(Village.gp_id == gp_id)
+
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    villages = result.scalars().all()
+
+    return [
+        VillageResponse(
+            id=village.id,
+            name=village.name,
+            description=village.description,
+            gp_id=village.gp_id,
+        )
+        for village in villages
+    ]
+
+
+@router.get("/villages/{village_id}", response_model=VillageResponse)
+async def get_village(
+    village_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> VillageResponse:
+    """Get a specific village by ID."""
+    result = await db.execute(select(Village).where(Village.id == village_id))
+    village = result.scalar_one_or_none()
+
+    if not village:
+        raise HTTPException(status_code=404, detail="Village not found")
+
+    return VillageResponse(
+        id=village.id,
+        name=village.name,
+        description=village.description,
+        gp_id=village.gp_id,
+    )
+
+
+@router.post("/villages", response_model=VillageResponse)
+async def create_village(
+    village_data: CreateVillageRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> VillageResponse:
+    """Create a new village (VDO only)."""
+    # Check if user is VDO
+    permission_service = PermissionService(db)
+    if not permission_service.is_vdo(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only VDOs can create villages",
+        )
+
+    # Check if VDO is creating village in their own GP
+    if current_user.gp_id != village_data.gp_id:
+        raise HTTPException(
+            status_code=403,
+            detail="VDOs can only create villages within their own Gram Panchayat",
+        )
+
+    # Create the village
+    geo_service = GeographyService(db)
+    try:
+        new_village = await geo_service.create_village(village_data)
+        return VillageResponse(
+            id=new_village.id,
+            name=new_village.name,
+            description=new_village.description,
+            gp_id=new_village.gp_id,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating village: {str(e)}") from e
+

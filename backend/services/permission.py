@@ -1,9 +1,12 @@
+"""Permission service module to handle user role-based permission checks."""
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.database.auth import User
 
 
 class PermissionService:
+    """Service to handle permission checks based on user roles and geographic assignments."""
+
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
@@ -26,17 +29,14 @@ class PermissionService:
     def is_bdo(self, current_user: User) -> bool:
         """Check if the user is a Block Development Officer (BDO)."""
         return (
-            current_user.district_id is not None
-            and current_user.block_id is not None
+            current_user.block_id is not None
             and current_user.gp_id is None
         )
 
     def is_vdo(self, current_user: User) -> bool:
         """Check if the user is a Village Development Officer (VDO)."""
         return (
-            current_user.district_id is not None
-            and current_user.block_id is not None
-            and current_user.gp_id is not None
+            current_user.gp_id is not None and "contractor" not in current_user.username.lower()
         )
 
     def valid_sender_receiver_pair(self, sender: User, receiver: User) -> bool:
