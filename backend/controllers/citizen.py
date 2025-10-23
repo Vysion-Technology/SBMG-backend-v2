@@ -40,13 +40,13 @@ router = APIRouter()
 @router.post("/with-media", response_model=ComplaintResponse)
 async def create_complaint_with_media(
     complaint_type_id: int = Form(...),
-    gp_id: int = Form(...),
-    block_id: int = Form(...),
-    district_id: int = Form(...),
-    description: str = Form(...),
+    gp_id: int = Form(..., description="Gram Panchayat (village) ID"),
+    block_id: int = Form(..., description="Block ID"),
+    district_id: int = Form(..., description="District ID"),
+    description: str = Form(..., description="Complaint description"),
     files: List[UploadFile] = File(default=[]),
-    lat: float = Form(...),
-    long: float = Form(...),
+    lat: float = Form(..., description="Latitude"),
+    long: float = Form(..., description="Longitude"),
     db: AsyncSession = Depends(get_db),
     token: str = Header(..., description="Public user token"),
 ) -> ComplaintResponse:
