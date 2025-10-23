@@ -320,7 +320,7 @@ class AuthService:
     @staticmethod
     def get_role_by_user(user: User) -> Optional[UserRole]:
         """Extract roles from user's positions."""
-        if not (user.gp_id and user.block_id and user.district_id):
+        if not user.gp_id and not user.block_id and not user.district_id:
             return UserRole.ADMIN
         if not user.block_id and user.district_id:
             return UserRole.CEO
