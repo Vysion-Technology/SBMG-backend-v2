@@ -139,23 +139,6 @@ async def login(login_request: LoginRequest, db: AsyncSession = Depends(get_db))
 @router.get("/me", response_model=UserResponse)
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
     """Get current user information."""
-    # Extract roles from positions
-    # roles = [pos.role.name for pos in current_user.positions if pos.role]
-
-    # Create position info
-    # positions: List[PositionInfo] = []
-    # for pos in current_user.positions:
-    #     position_info = PositionInfo(
-    #         role=pos.role.name if pos.role else "",
-    #         role_id=pos.role.id if pos.role else 0,
-    #         first_name=pos.first_name,
-    #         middle_name=pos.middle_name,
-    #         last_name=pos.last_name,
-    #         district_name=pos.district.name if pos.district else None,
-    #         block_name=pos.block.name if pos.block else None,
-    #         village_name=pos.village.name if pos.village else None,
-    #     )
-    #     positions.append(position_info)
 
     return UserResponse(
         id=current_user.id,
