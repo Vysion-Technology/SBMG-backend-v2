@@ -26,7 +26,7 @@ from models.database.complaint import (
     ComplaintComment,
 )
 from models.response.complaint import DetailedComplaintResponse, MediaResponse
-from models.response.analytics import ComplaintAnalyticsResponse
+from models.response.analytics import ComplaintDateAnalyticsResponse, ComplaintGeoAnalyticsResponse
 from models.response.complaint import (
     ComplaintCommentResponse,
     ResolveComplaintResponse,
@@ -507,7 +507,7 @@ async def verify_complaint(
     }
 
 
-@router.get("/analytics")
+@router.get("/analytics/geo")
 async def get_complaint_counts_by_status(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
@@ -517,7 +517,7 @@ async def get_complaint_counts_by_status(
     level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-) -> ComplaintAnalyticsResponse:
+) -> ComplaintGeoAnalyticsResponse:
     """Get complaint counts by status for analytics (Staff only)."""
     if current_user.block_id is not None and level == GeoTypeEnum.DISTRICT:
         raise HTTPException(
@@ -547,7 +547,7 @@ async def get_complaint_counts_by_status(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="block_id and gp_id should not be provided when level is BLOCK",
         )
-    return await ComplaintService(db).count_complaints_by_status(
+    return await ComplaintService(db).count_complaints_by_status_and_geo(
         district_id=district_id,
         block_id=block_id,
         gp_id=gp_id,
@@ -568,6 +568,51 @@ async def get_complaint_counts_by_status(
         level=level,
     )
 
+@router.get("/analytics/daterange")
+async def get_complaint_counts_by_date(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+    district_id: Optional[int] = None,
+    block_id: Optional[int] = None,
+    gp_id: Optional[int] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+) -> List[ComplaintDateAnalyticsResponse]:
+    """Get complaint counts by date range for analytics (Staff only)."""
+    if current_user.block_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access date range analytics",
+        )
+    if current_user.gp_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access date range analytics",
+        )
+    if (district_id and block_id) or (district_id and gp_id) or (block_id and gp_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide only one of district_id, block_id, or gp_id",
+        )
+    return await ComplaintService(db).count_complaints_by_date(
+        district_id=district_id,
+        block_id=block_id,
+        gp_id=gp_id,
+        start_date=datetime(
+            start_date.year,
+            start_date.month,
+            start_date.day,
+            0,
+            0,
+            0,
+            tzinfo=timezone.utc,
+        )
+        if start_date
+        else None,
+        end_date=datetime(end_date.year, end_date.month, end_date.day, 23, 59, 59, tzinfo=timezone.utc)
+        if end_date
+        else None,
+    )
 
 @router.get("")
 async def get_all_complaints(

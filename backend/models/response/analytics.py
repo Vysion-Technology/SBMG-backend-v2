@@ -1,8 +1,8 @@
 """Response models for analytics across different modules."""
 
-from datetime import datetime, date
+from datetime import date
 from enum import Enum
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 
 from models.internal import GeoTypeEnum
@@ -31,12 +31,22 @@ class GeographyComplaintCountByStatusResponse(BaseModel):
     count: int
 
 
-class ComplaintAnalyticsResponse(BaseModel):
+class ComplaintGeoAnalyticsResponse(BaseModel):
     """Response model for complaint analytics aggregated by geography type."""
 
     geo_type: GeoTypeEnum
     response: List[GeographyComplaintCountByStatusResponse]
 
+
+class ComplaintDateAnalyticsResponse(BaseModel):
+    """Response model for complaint analytics aggregated by date."""
+
+    district_id: Optional[int]
+    block_id: Optional[int]
+    gp_id: Optional[int]
+    date: date
+    status_id: int
+    count: int
 
 class AttendanceStatusEnum(str, Enum):
     """Enum for attendance status types."""
@@ -66,32 +76,3 @@ class AttendanceAnalyticsResponse(BaseModel):
     response: List[GeographyAttendanceCountResponse]
 
 
-class DaySummaryAttendanceResponse(BaseModel):
-    """Response model for a single day's attendance summary."""
-
-    contractor_id: int
-    contractor_name: str
-    village_id: int
-    village_name: str
-    block_id: int
-    block_name: str
-    district_id: int
-    district_name: str
-    date: date
-    start_time: datetime | None
-    end_time: datetime | None
-    status: AttendanceStatusEnum
-    duration_hours: float | None
-    remarks: str | None
-
-
-class DayAttendanceSummaryResponse(BaseModel):
-    """Response model for day attendance summary."""
-
-    date: date
-    geo_type: GeoTypeEnum
-    total_contractors: int
-    present_count: int
-    absent_count: int
-    attendance_rate: float
-    attendances: List[DaySummaryAttendanceResponse]

@@ -1,8 +1,8 @@
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, select
+from sqlalchemy import Date, func, select
 from sqlalchemy.orm import selectinload
 from models.database.complaint import (
     Complaint,
@@ -17,8 +17,9 @@ from models.response.complaint import (
     MediaResponse,
 )
 from models.response.analytics import (
+    ComplaintDateAnalyticsResponse,
     GeographyComplaintCountByStatusResponse,
-    ComplaintAnalyticsResponse,
+    ComplaintGeoAnalyticsResponse,
 )
 from models.internal import GeoTypeEnum
 
@@ -192,7 +193,7 @@ class ComplaintService:
         await self.db.commit()
         return True
 
-    async def count_complaints_by_status(
+    async def count_complaints_by_status_and_geo(
         self,
         district_id: Optional[int] = None,
         block_id: Optional[int] = None,
@@ -200,7 +201,7 @@ class ComplaintService:
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
         level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
-    ) -> ComplaintAnalyticsResponse:
+    ) -> ComplaintGeoAnalyticsResponse:
         """Count complaints grouped by their status."""
         if level == GeoTypeEnum.DISTRICT:
             query = (
@@ -258,7 +259,7 @@ class ComplaintService:
             query = query.where(Complaint.created_at <= end_date)
         result = await self.db.execute(query)
         counts = result.fetchall()
-        return ComplaintAnalyticsResponse(
+        return ComplaintGeoAnalyticsResponse(
             geo_type=level,
             response=[
                 GeographyComplaintCountByStatusResponse(
@@ -271,3 +272,41 @@ class ComplaintService:
                 for row in counts
             ],
         )
+
+    async def count_complaints_by_date(
+        self,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> List[ComplaintDateAnalyticsResponse]:
+        """Count complaints grouped by their creation date."""
+        query = select(Complaint.created_at.cast(Date), func.count(Complaint.id), Complaint.status_id).group_by(
+            Complaint.created_at.cast(Date), Complaint.status_id
+        )
+        if district_id is not None:
+            query = query.where(Complaint.district_id == district_id)
+        if block_id is not None:
+            query = query.where(Complaint.block_id == block_id)
+        if gp_id is not None:
+            query = query.where(Complaint.gp_id == gp_id)
+
+        if start_date is not None:
+            query = query.where(Complaint.created_at >= start_date)
+        if end_date is not None:
+            query = query.where(Complaint.created_at <= end_date)
+
+        result = await self.db.execute(query)
+        counts = result.fetchall()
+        return [
+            ComplaintDateAnalyticsResponse(
+                district_id=district_id,
+                block_id=block_id,
+                gp_id=gp_id,
+                date=row[0],
+                count=row[1],
+                status_id=row[2],
+            )
+            for row in counts
+        ]
