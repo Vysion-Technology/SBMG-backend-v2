@@ -282,9 +282,9 @@ class ComplaintService:
         end_date: Optional[datetime] = None,
     ) -> List[ComplaintDateAnalyticsResponse]:
         """Count complaints grouped by their creation date."""
-        query = select(Complaint.created_at.cast(Date), func.count(Complaint.id), Complaint.status_id).group_by(
-            Complaint.created_at.cast(Date), Complaint.status_id
-        )
+        query = select(Complaint.created_at.cast(Date), func.count(Complaint.id), Complaint.status_id, ComplaintStatus.name).group_by(
+            Complaint.created_at.cast(Date), Complaint.status_id, ComplaintStatus.name
+        ).join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
         if district_id is not None:
             query = query.where(Complaint.district_id == district_id)
         if block_id is not None:
@@ -307,6 +307,7 @@ class ComplaintService:
                 date=row[0],
                 count=row[1],
                 status_id=row[2],
+                status=row[3],
             )
             for row in counts
         ]

@@ -47,6 +47,7 @@ class ComplaintDateAnalyticsResponse(BaseModel):
     date: date
     status_id: int
     count: int
+    status: Optional[ComplaintStatusEnum]
 
 class AttendanceStatusEnum(str, Enum):
     """Enum for attendance status types."""
