@@ -9,7 +9,7 @@ from typing import Optional, List
 from datetime import date as dt_date, datetime
 
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy import Index, String, Integer, ForeignKey, Date, DateTime, Enum, Numeric, UniqueConstraint
+from sqlalchemy import Boolean, Index, String, Integer, ForeignKey, Date, DateTime, Enum, Numeric, UniqueConstraint
 
 from models.database.geography import District, Block, GramPanchayat, Village
 from models.database.auth import PositionHolder as UserPositionHolder
@@ -58,7 +58,7 @@ class AnnualSurveyFY(Base): # type: ignore
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     fy: Mapped[str] = mapped_column(String, unique=True, index=True, doc="Annual Survey Financial Year")
     active: Mapped[bool] = mapped_column(
-        Integer,
+        Boolean,
         nullable=False,
         default=True,
         index=True,
