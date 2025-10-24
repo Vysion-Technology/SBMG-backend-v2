@@ -3,38 +3,38 @@ Inspection Controller
 Handles API endpoints for inspection management
 """
 
-from typing import List, Optional
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List, Optional
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from auth_utils import UserRole, require_staff_role
 from database import get_db
-from models.database.auth import User, PositionHolder
+from models.database.auth import PositionHolder, User
+from models.database.geography import GramPanchayat
+from models.database.inspection import (
+    CommunitySanitationInspectionItem,
+    HouseHoldWasteCollectionAndDisposalInspectionItem,
+    Inspection,
+    OtherInspectionItem,
+    RoadAndDrainCleaningInspectionItem,
+)
+from models.internal import GeoTypeEnum
 from models.requests.inspection import CreateInspectionRequest
 from models.response.inspection import (
-    InspectionResponse,
-    InspectionListItemResponse,
-    PaginatedInspectionResponse,
-    InspectionStatsResponse,
-    InspectionAnalyticsResponse,
-    HouseHoldWasteCollectionResponse,
-    RoadAndDrainCleaningResponse,
     CommunitySanitationResponse,
+    HouseHoldWasteCollectionResponse,
+    InspectionAnalyticsResponse,
+    InspectionListItemResponse,
+    InspectionResponse,
     OtherInspectionItemsResponse,
+    PaginatedInspectionResponse,
+    RoadAndDrainCleaningResponse,
 )
 from services.inspection import InspectionService
-from auth_utils import require_staff_role, UserRole
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-from models.database.inspection import (
-    Inspection,
-    HouseHoldWasteCollectionAndDisposalInspectionItem,
-    RoadAndDrainCleaningInspectionItem,
-    CommunitySanitationInspectionItem,
-    OtherInspectionItem,
-)
-from models.database.geography import GramPanchayat
-from models.internal import GeoTypeEnum
 
 router = APIRouter()
 
@@ -299,19 +299,6 @@ async def get_inspections(
         total_pages=total_pages,
     )
 
-
-@router.get("/stats/summary", response_model=InspectionStatsResponse)
-async def get_inspection_stats(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role),
-):
-    """
-    Get inspection statistics for the user's jurisdiction.
-    """
-    service = InspectionService(db)
-    stats = await service.get_inspection_statistics(current_user)
-
-    return InspectionStatsResponse(**stats)
 
 
 # Helper function to get inspection details

@@ -3,30 +3,30 @@ Inspection Service
 Handles business logic for inspection management
 """
 
-from typing import Any, List, Optional, Tuple, Dict, TYPE_CHECKING
+
 from datetime import date, datetime
-import sqlalchemy
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+from sqlalchemy import and_, func, select, text
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_, extract
 
 if TYPE_CHECKING:
     from models.internal import GeoTypeEnum
-from sqlalchemy.orm import selectinload
 
+
+from auth_utils import UserRole
+from models.database.auth import PositionHolder, User
+from models.database.geography import Block, GramPanchayat, District
 from models.database.inspection import (
+    CommunitySanitationInspectionItem,
+    HouseHoldWasteCollectionAndDisposalInspectionItem,
     Inspection,
     InspectionImage,
-    HouseHoldWasteCollectionAndDisposalInspectionItem,
-    RoadAndDrainCleaningInspectionItem,
-    CommunitySanitationInspectionItem,
     OtherInspectionItem,
+    RoadAndDrainCleaningInspectionItem,
 )
-from models.database.auth import User, PositionHolder
-from models.database.geography import GramPanchayat, Block
-from models.requests.inspection import (
-    CreateInspectionRequest,
-)
-from auth_utils import UserRole
+from models.requests.inspection import CreateInspectionRequest
 
 
 class InspectionService:
@@ -48,9 +48,7 @@ class InspectionService:
         # Get village details
         result = await self.db.execute(
             select(GramPanchayat)
-            .options(
-                selectinload(GramPanchayat.block), selectinload(GramPanchayat.district)
-            )
+            .options(selectinload(GramPanchayat.block), selectinload(GramPanchayat.district))
             .where(GramPanchayat.id == village_id)
         )
         village = result.scalar_one_or_none()
@@ -71,10 +69,7 @@ class InspectionService:
                 return True
 
             # CEO can inspect in their district
-            if (
-                role_name == UserRole.CEO
-                and position.district_id == village.district_id
-            ):
+            if role_name == UserRole.CEO and position.district_id == village.district_id:
                 return True
 
             # BDO can inspect in their block
@@ -92,9 +87,7 @@ class InspectionService:
 
         return False
 
-    async def create_inspection(
-        self, user: User, request: CreateInspectionRequest
-    ) -> Inspection:
+    async def create_inspection(self, user: User, request: CreateInspectionRequest) -> Inspection:
         """Create a new inspection."""
         # Get active position
         position = await self.get_user_active_position(user)
@@ -106,9 +99,7 @@ class InspectionService:
             raise ValueError("User does not have jurisdiction to inspect this village")
 
         # Get village details to populate district and block
-        result = await self.db.execute(
-            select(GramPanchayat).where(GramPanchayat.id == request.village_id)
-        )
+        result = await self.db.execute(select(GramPanchayat).where(GramPanchayat.id == request.village_id))
         village = result.scalar_one_or_none()
         if not village:
             raise ValueError("Village not found")
@@ -192,207 +183,6 @@ class InspectionService:
 
         return inspection
 
-    async def get_inspection_by_id(self, inspection_id: int) -> Optional[Inspection]:
-        """Get inspection by ID with all related data."""
-        result = await self.db.execute(
-            select(Inspection)
-            .options(
-                selectinload(Inspection.gp).selectinload(GramPanchayat.block),
-                selectinload(Inspection.gp).selectinload(GramPanchayat.district),
-                selectinload(Inspection.media),
-            )
-            .where(Inspection.id == inspection_id)
-        )
-        return result.scalar_one_or_none()
-
-    def get_user_jurisdiction_filter(self, user: User):
-        """Get jurisdiction filter for inspections based on user role."""
-        user_roles = [pos.role.name for pos in user.positions if pos.role]
-
-        # Admin can see all inspections
-        if UserRole.ADMIN in user_roles or UserRole.SUPERADMIN in user_roles:
-            return None
-
-        jurisdiction_filters = []
-
-        for position in user.positions:
-            # VDO can see inspections in their village
-            if position.role.name == UserRole.VDO and position.village_id:
-                jurisdiction_filters.append(
-                    Inspection.gp_id == position.village_id
-                )
-
-            # BDO can see inspections in their block
-            elif position.role.name == UserRole.BDO and position.block_id:
-                # Need to join with villages to filter by block
-                jurisdiction_filters.append(
-                    Inspection.gp_id.in_(
-                        select(GramPanchayat.id).where(
-                            GramPanchayat.block_id == position.block_id
-                        )
-                    )
-                )
-
-            # CEO can see inspections in their district
-            elif position.role.name == UserRole.CEO and position.district_id:
-                # Need to join with villages to filter by district
-                jurisdiction_filters.append(
-                    Inspection.gp_id.in_(
-                        select(GramPanchayat.id).where(
-                            GramPanchayat.district_id == position.district_id
-                        )
-                    )
-                )
-
-            # Worker can see inspections in their assigned area
-            elif position.role.name == UserRole.WORKER:
-                if position.village_id:
-                    jurisdiction_filters.append(
-                        Inspection.gp_id == position.village_id
-                    )
-                elif position.block_id:
-                    jurisdiction_filters.append(
-                        Inspection.gp_id.in_(
-                            select(GramPanchayat.id).where(
-                                GramPanchayat.block_id == position.block_id
-                            )
-                        )
-                    )
-                elif position.district_id:
-                    jurisdiction_filters.append(
-                        Inspection.gp_id.in_(
-                            select(GramPanchayat.id).where(
-                                GramPanchayat.district_id == position.district_id
-                            )
-                        )
-                    )
-
-        return or_(*jurisdiction_filters) if jurisdiction_filters else None
-
-    async def get_inspections_paginated(
-        self,
-        user: User,
-        page: int = 1,
-        page_size: int = 20,
-        village_id: Optional[int] = None,
-        block_id: Optional[int] = None,
-        district_id: Optional[int] = None,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-    ) -> Tuple[List[Inspection], int]:
-        """Get paginated list of inspections within user's jurisdiction."""
-        # Base query
-        query = select(Inspection).options(
-            selectinload(Inspection.gp).selectinload(GramPanchayat.block),
-            selectinload(Inspection.gp).selectinload(GramPanchayat.district),
-            selectinload(Inspection.media),
-        )
-
-        # Apply jurisdiction filter
-        jurisdiction_filter = self.get_user_jurisdiction_filter(user)
-        if jurisdiction_filter is not None:
-            query = query.where(jurisdiction_filter)
-
-        # Apply additional filters
-        filters = []
-        if village_id:
-            filters.append(Inspection.gp_id == village_id)
-        if block_id:
-            filters.append(
-                Inspection.gp_id.in_(
-                    select(GramPanchayat.id).where(GramPanchayat.block_id == block_id)
-                )
-            )
-        if district_id:
-            filters.append(
-                Inspection.gp_id.in_(
-                    select(GramPanchayat.id).where(
-                        GramPanchayat.district_id == district_id
-                    )
-                )
-            )
-        if start_date:
-            filters.append(Inspection.date >= start_date)
-        if end_date:
-            filters.append(Inspection.date <= end_date)
-
-        if filters:
-            query = query.where(and_(*filters))
-
-        # Get total count
-        count_query = select(func.count()).select_from(Inspection)
-        if jurisdiction_filter is not None:
-            count_query = count_query.where(jurisdiction_filter)
-        if filters:
-            count_query = count_query.where(and_(*filters))
-
-        total_result = await self.db.execute(count_query)
-        total = total_result.scalar() or 0
-
-        # Apply pagination
-        query = query.order_by(Inspection.date.desc(), Inspection.start_time.desc())
-        query = query.offset((page - 1) * page_size).limit(page_size)
-
-        # Execute query
-        result = await self.db.execute(query)
-        inspections = list(result.scalars().all())
-
-        return inspections, total
-
-    async def get_inspection_statistics(self, user: User) -> Dict[str, int]:
-        """Get inspection statistics for user's jurisdiction."""
-        jurisdiction_filter = self.get_user_jurisdiction_filter(user)
-
-        # Total inspections
-        total_query = select(func.count()).select_from(Inspection)
-        if jurisdiction_filter is not None:
-            total_query = total_query.where(jurisdiction_filter)
-        total_result = await self.db.execute(total_query)
-        total = total_result.scalar() or 0
-
-        # This month
-        month_query = (
-            select(func.count())
-            .select_from(Inspection)
-            .where(
-                and_(
-                    extract("month", Inspection.date) == datetime.now().month,
-                    extract("year", Inspection.date) == datetime.now().year,
-                )
-            )
-        )
-        if jurisdiction_filter is not None:
-            month_query = month_query.where(jurisdiction_filter)
-        month_result = await self.db.execute(month_query)
-        this_month = month_result.scalar() or 0
-
-        # Today
-        today_query = (
-            select(func.count())
-            .select_from(Inspection)
-            .where(Inspection.date == date.today())
-        )
-        if jurisdiction_filter is not None:
-            today_query = today_query.where(jurisdiction_filter)
-        today_result = await self.db.execute(today_query)
-        today = today_result.scalar() or 0
-
-        # Unique villages inspected
-        villages_query = select(
-            func.count(func.distinct(Inspection.gp_id))
-        ).select_from(Inspection)
-        if jurisdiction_filter is not None:
-            villages_query = villages_query.where(jurisdiction_filter)
-        villages_result = await self.db.execute(villages_query)
-        villages = villages_result.scalar() or 0
-
-        return {
-            "total_inspections": total,
-            "inspections_this_month": this_month,
-            "inspections_today": today,
-            "villages_inspected": villages,
-        }
-
     async def get_inspections(
         self,
         page: int = 1,
@@ -416,18 +206,10 @@ class InspectionService:
         if village_id:
             filters.append(Inspection.gp_id == village_id)
         if block_id:
-            filters.append(
-                Inspection.gp_id.in_(
-                    select(GramPanchayat.id).where(GramPanchayat.block_id == block_id)
-                )
-            )
+            filters.append(Inspection.gp_id.in_(select(GramPanchayat.id).where(GramPanchayat.block_id == block_id)))
         if district_id:
             filters.append(
-                Inspection.gp_id.in_(
-                    select(GramPanchayat.id).where(
-                        GramPanchayat.district_id == district_id
-                    )
-                )
+                Inspection.gp_id.in_(select(GramPanchayat.id).where(GramPanchayat.district_id == district_id))
             )
         if start_date:
             filters.append(Inspection.date >= start_date)
@@ -464,18 +246,10 @@ class InspectionService:
         if village_id:
             filters.append(Inspection.gp_id == village_id)
         if block_id:
-            filters.append(
-                Inspection.gp_id.in_(
-                    select(GramPanchayat.id).where(GramPanchayat.block_id == block_id)
-                )
-            )
+            filters.append(Inspection.gp_id.in_(select(GramPanchayat.id).where(GramPanchayat.block_id == block_id)))
         if district_id:
             filters.append(
-                Inspection.gp_id.in_(
-                    select(GramPanchayat.id).where(
-                        GramPanchayat.district_id == district_id
-                    )
-                )
+                Inspection.gp_id.in_(select(GramPanchayat.id).where(GramPanchayat.district_id == district_id))
             )
         if start_date:
             filters.append(Inspection.date >= start_date)
@@ -489,131 +263,6 @@ class InspectionService:
         total = total_result.scalar() or 0
 
         return total
-
-    async def get_inspection_score(
-        self, inspection_id: int
-    ) -> Optional[Dict[str, Any]]:
-        """Get inspection score for a specific inspection."""
-        from sqlalchemy import text
-
-        query = text("""
-            SELECT * FROM calculate_inspection_score(:inspection_id)
-        """)
-
-        result = await self.db.execute(query, {"inspection_id": inspection_id})
-        row = result.fetchone()
-
-        if row:
-            return {
-                "household_waste_score": row.household_waste_score,
-                "road_cleaning_score": row.road_cleaning_score,
-                "drain_cleaning_score": row.drain_cleaning_score,
-                "community_sanitation_score": row.community_sanitation_score,
-                "other_score": row.other_score,
-                "overall_score": row.overall_score,
-                "total_points": row.total_points,
-                "max_points": row.max_points,
-            }
-        return None
-
-    async def get_village_inspection_analytics(
-        self,
-        village_id: int,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-    ) -> Dict[str, Any]:
-        """Get inspection analytics for a village."""
-        from sqlalchemy import text
-
-        query = text("""
-            SELECT * FROM get_village_inspection_analytics(:village_id, :start_date, :end_date)
-        """)
-
-        result = await self.db.execute(
-            query,
-            {
-                "village_id": village_id,
-                "start_date": start_date,
-                "end_date": end_date,
-            },
-        )
-        row = result.fetchone()
-
-        if row:
-            return {
-                "village_id": row.village_id,
-                "total_inspections": row.total_inspections,
-                "average_score": row.average_score,
-                "latest_score": row.latest_score,
-                "coverage_percentage": row.coverage_percentage,
-            }
-        return {}
-
-    async def get_gp_inspection_analytics(
-        self,
-        gp_id: int,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-    ) -> Dict[str, Any]:
-        """Get inspection analytics for a GP."""
-        from sqlalchemy import text
-
-        query = text("""
-            SELECT * FROM get_gp_inspection_analytics(:village_id, :start_date, :end_date)
-        """)
-
-        result = await self.db.execute(
-            query,
-            {
-                "village_id": gp_id,
-                "start_date": start_date,
-                "end_date": end_date,
-            },
-        )
-        row = result.fetchone()
-
-        if row:
-            return {
-                "village_id": row.village_id,
-                "total_villages": row.total_villages,
-                "inspected_villages": row.inspected_villages,
-                "average_score": row.average_score,
-                "coverage_percentage": row.coverage_percentage,
-            }
-        return {}
-
-    async def get_block_inspection_analytics(
-        self,
-        block_id: int,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-    ) -> Dict[str, Any]:
-        """Get inspection analytics for a block."""
-        from sqlalchemy import text
-
-        query = text("""
-            SELECT * FROM get_block_inspection_analytics(:block_id, :start_date, :end_date)
-        """)
-
-        result = await self.db.execute(
-            query,
-            {
-                "block_id": block_id,
-                "start_date": start_date,
-                "end_date": end_date,
-            },
-        )
-        row = result.fetchone()
-
-        if row:
-            return {
-                "block_id": row.block_id,
-                "total_gps": row.total_gps,
-                "inspected_gps": row.inspected_gps,
-                "average_score": row.average_score,
-                "coverage_percentage": row.coverage_percentage,
-            }
-        return {}
 
     async def get_district_inspection_analytics(
         self,
@@ -763,7 +412,6 @@ class InspectionService:
         end_date: Optional[date] = None,
     ) -> Dict[int, Dict[str, Any]]:
         """Get inspection analytics for multiple districts in one query."""
-        from sqlalchemy import text
 
         if not district_ids:
             return {}
@@ -821,18 +469,13 @@ class InspectionService:
 
         if level == GeoTypeEnum.DISTRICT:
             # Get analytics for all districts or specific district
-            from sqlalchemy import select
-            from models.database.geography import District
+
 
             if district_id:
-                analytics = await self.get_district_inspection_analytics(
-                    district_id, start_date, end_date
-                )
+                analytics = await self.get_district_inspection_analytics(district_id, start_date, end_date)
                 if analytics:
                     # Get district name
-                    result = await self.db.execute(
-                        select(District.name).where(District.id == district_id)
-                    )
+                    result = await self.db.execute(select(District.name).where(District.id == district_id))
                     name = result.scalar()
 
                     item = {
@@ -844,6 +487,7 @@ class InspectionService:
                     response_items.append(item)
             else:
                 # Get all districts - use batch query
+                
                 districts_result = await self.db.execute(
                     select(District.id, District.name)
                 )
@@ -867,9 +511,8 @@ class InspectionService:
 
         elif level == GeoTypeEnum.BLOCK:
             # Get analytics for blocks
-            from sqlalchemy import select
-            from models.database.geography import Block
 
+            
             query = select(Block.id, Block.name)
             if district_id:
                 query = query.where(Block.district_id == district_id)
@@ -879,9 +522,7 @@ class InspectionService:
 
             # Get analytics for all blocks in one batch query
             block_ids = [b.id for b in blocks]
-            analytics_batch = await self.get_blocks_inspection_analytics_batch(
-                block_ids, start_date, end_date
-            )
+            analytics_batch = await self.get_blocks_inspection_analytics_batch(block_ids, start_date, end_date)
 
             for block_item in blocks:
                 analytics = analytics_batch.get(block_item.id)
@@ -895,8 +536,8 @@ class InspectionService:
 
         else:  # VILLAGE level
             # Get analytics for villages (gram panchayats)
-            from sqlalchemy import select
-            from models.database.geography import GramPanchayat
+            
+
 
             query = select(GramPanchayat.id, GramPanchayat.name)
             if block_id:
@@ -910,9 +551,7 @@ class InspectionService:
 
             # Get analytics for all villages in one batch query
             village_ids = [gp.id for gp in gps]
-            analytics_batch = await self.get_villages_inspection_analytics_batch(
-                village_ids, start_date, end_date
-            )
+            analytics_batch = await self.get_villages_inspection_analytics_batch(village_ids, start_date, end_date)
 
             for gp_item in gps:
                 analytics = analytics_batch.get(gp_item.id)
