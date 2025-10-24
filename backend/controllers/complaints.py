@@ -1,4 +1,5 @@
 """Controller for managing complaints in the SBM Rajasthan system."""
+
 # pylint: disable=line-too-long
 import logging
 from typing import Any, Dict, List, Optional
@@ -188,17 +189,6 @@ async def update_complaint_status(
     return {"message": "Complaint status updated successfully"}
 
 
-# Helper function to check if user has access to a complaint in their village
-async def check_complaint_village_access(user: User, complaint: Complaint) -> bool:
-    """Check if user can access complaint based on village assignment."""
-    # Admin can access everything
-    if PermissionChecker.user_has_role(user, [UserRole.ADMIN.value]):
-        return True
-
-    # Check if user has access to the complaint's village
-    return PermissionChecker.user_can_access_village(user, complaint.gp_id)
-
-
 @router.post("/{complaint_id}/comments", response_model=ComplaintCommentResponse)
 async def add_complaint_comment(
     complaint_id: int,
@@ -222,8 +212,7 @@ async def add_complaint_comment(
     if not complaint:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
 
-    # Check village access
-    if not await check_complaint_village_access(current_user, complaint):
+    if complaint.gp_id != current_user.gp_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only comment on complaints in your assigned village",
@@ -301,7 +290,7 @@ async def upload_complaint_media(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
 
     # Check village access
-    if not await check_complaint_village_access(current_user, complaint):
+    if complaint.gp_id != current_user.gp_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only upload media to complaints in your assigned village",
@@ -346,12 +335,12 @@ async def resolve_complaint(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_worker_role),
 ):
-    """Mark complaint as resolved (VDOs only, within their village)."""
-    # Check if user is a VDO
-    if not PermissionChecker.user_has_role(current_user, [UserRole.VDO.value]):
+    """Mark complaint as resolved (Workers only, within their village)."""
+    # Check if user is a Worker
+    if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER.value]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only VDOs can resolve complaints",
+            detail="Only Workers can resolve complaints",
         )
 
     # Get complaint with village information
@@ -361,13 +350,12 @@ async def resolve_complaint(
     if not complaint:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
 
-    # Check village access
-    if not await check_complaint_village_access(current_user, complaint):
+    # Check if the user has access to the complaint's village
+    if current_user.gp_id != complaint.gp_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only resolve complaints in your assigned village",
         )
-
     # Get or create "RESOLVED" status
     status_result = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "RESOLVED"))
     resolved_status = status_result.scalar_one_or_none()
@@ -568,6 +556,7 @@ async def get_complaint_counts_by_status(
         level=level,
     )
 
+
 @router.get("/analytics/daterange")
 async def get_complaint_counts_by_date(
     db: AsyncSession = Depends(get_db),
@@ -613,6 +602,7 @@ async def get_complaint_counts_by_date(
         if end_date
         else None,
     )
+
 
 @router.get("")
 async def get_all_complaints(
