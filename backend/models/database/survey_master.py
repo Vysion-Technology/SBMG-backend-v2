@@ -50,6 +50,23 @@ class CleaningFrequency(str, PyEnum):
     NONE = "NONE"
 
 
+class AnnualSurveyFY(Base): # type: ignore
+    """Annual Survey Financial Year."""
+
+    __tablename__ = "annual_survey_financial_year"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    fy: Mapped[str] = mapped_column(String, unique=True, index=True, doc="Annual Survey Financial Year")
+    active: Mapped[bool] = mapped_column(
+        Integer,
+        nullable=False,
+        default=True,
+        index=True,
+    )
+
+    __table_args__ = (Index("ix_annual_survey_financial_year_fy", "fy"),)
+
+
 class AnnualSurvey(Base):  # type: ignore
     """
     Top-level annual survey entity for a Gram Panchayat
@@ -57,42 +74,46 @@ class AnnualSurvey(Base):  # type: ignore
 
     __tablename__ = "annual_surveys"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
 
     # Survey metadata
-    gp_id: Mapped[int] = mapped_column(
+    fy_id: Mapped[int] = mapped_column(  # type: ignore
+        Integer,
+        ForeignKey("annual_survey_financial_year.id"),
+        nullable=False,
+        index=True,
+    )
+    
+
+    gp_id: Mapped[int] = mapped_column(  # type: ignore
         Integer,
         ForeignKey("gram_panchayats.id"),
         nullable=False,
         index=True,
     )
-    survey_date: Mapped[dt_date] = mapped_column(
+    survey_date: Mapped[dt_date] = mapped_column(  # type: ignore
         Date,
         nullable=False,
         default=dt_date.today,
         index=True,
     )
     # 1. VDO Details
-    vdo_id: Mapped[int] = mapped_column(
+    vdo_id: Mapped[int] = mapped_column(  # type: ignore
         Integer, ForeignKey("authority_holder_persons.id"), nullable=False
     )
 
     # 2. Sarpanch Details
-    sarpanch_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    sarpanch_contact: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    sarpanch_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # type: ignore
+    sarpanch_contact: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # type: ignore
 
     # 3. No. of Ward Panchs
     num_ward_panchs: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     # 4. Bidder Name (Sanitation activities)
-    agency_id: Mapped[Agency] = mapped_column(
-        Integer, ForeignKey("agencies.id"), nullable=False
-    )
+    agency_id: Mapped[Agency] = mapped_column(Integer, ForeignKey("agencies.id"), nullable=False)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=datetime.now
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -102,9 +123,7 @@ class AnnualSurvey(Base):  # type: ignore
 
     # Relationships
     gp: Mapped[GramPanchayat] = relationship("GramPanchayat", foreign_keys=[gp_id])
-    vdo: Mapped[UserPositionHolder] = relationship(
-        "PositionHolder", foreign_keys=[vdo_id]
-    )
+    vdo: Mapped[UserPositionHolder] = relationship("PositionHolder", foreign_keys=[vdo_id])
     agency: Mapped[Agency] = relationship("Agency", foreign_keys=[agency_id])
 
     # 1:1 relationships with sub-sections
@@ -122,13 +141,11 @@ class AnnualSurvey(Base):  # type: ignore
         cascade="all, delete-orphan",
     )
 
-    door_to_door_collection: Mapped[Optional["DoorToDoorCollectionDetails"]] = (
-        relationship(
-            "DoorToDoorCollectionDetails",
-            back_populates="survey",
-            uselist=False,
-            cascade="all, delete-orphan",
-        )
+    door_to_door_collection: Mapped[Optional["DoorToDoorCollectionDetails"]] = relationship(
+        "DoorToDoorCollectionDetails",
+        back_populates="survey",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
 
     road_sweeping: Mapped[Optional["RoadSweepingDetails"]] = relationship(
@@ -173,8 +190,11 @@ class AnnualSurvey(Base):  # type: ignore
         cascade="all, delete-orphan",
     )
 
+    fy: Mapped[AnnualSurveyFY] = relationship("AnnualSurveyFY", foreign_keys=[fy_id])
+
     # Indexes
     __table_args__ = (
+        Index("ix_annual_surveys_fy", "fy_id"),
         Index("ix_annual_surveys_gp_id", "gp_id"),
         Index("ix_annual_surveys_survey_date", "survey_date"),
         Index("ix_annual_surveys_gp_id_survey_date", "gp_id", "survey_date"),
@@ -198,20 +218,14 @@ class WorkOrderDetails(Base):  # type: ignore
 
     __tablename__ = "survey_work_order_details"
 
-    id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("annual_surveys.id"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
 
     work_order_no: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     work_order_date: Mapped[Optional[dt_date]] = mapped_column(Date, nullable=True)
-    work_order_amount: Mapped[Optional[float]] = mapped_column(
-        Numeric(15, 2), nullable=True
-    )
+    work_order_amount: Mapped[Optional[float]] = mapped_column(Numeric(15, 2), nullable=True)
 
     # 1:1 relationship back to survey
-    survey: Mapped["AnnualSurvey"] = relationship(
-        "AnnualSurvey", back_populates="work_order"
-    )
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="work_order")
 
 
 class FundSanctioned(Base):  # type: ignore
@@ -221,19 +235,13 @@ class FundSanctioned(Base):  # type: ignore
 
     __tablename__ = "survey_fund_sanctioned"
 
-    id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("annual_surveys.id"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
 
     amount: Mapped[Optional[float]] = mapped_column(Numeric(15, 2), nullable=True)
-    head: Mapped[FundHead] = mapped_column(
-        Enum(FundHead, name="fund_head"), nullable=True
-    )
+    head: Mapped[FundHead] = mapped_column(Enum(FundHead, name="fund_head"), nullable=True)
 
     # 1:1 relationship back to survey
-    survey: Mapped["AnnualSurvey"] = relationship(
-        "AnnualSurvey", back_populates="fund_sanctioned"
-    )
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="fund_sanctioned")
 
 
 class DoorToDoorCollectionDetails(Base):  # type: ignore
@@ -243,9 +251,7 @@ class DoorToDoorCollectionDetails(Base):  # type: ignore
 
     __tablename__ = "survey_door_to_door_collection"
 
-    id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("annual_surveys.id"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
 
     num_households: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     num_shops: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -254,9 +260,7 @@ class DoorToDoorCollectionDetails(Base):  # type: ignore
     )
 
     # 1:1 relationship back to survey
-    survey: Mapped["AnnualSurvey"] = relationship(
-        "AnnualSurvey", back_populates="door_to_door_collection"
-    )
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="door_to_door_collection")
 
 
 class RoadSweepingDetails(Base):  # type: ignore
@@ -266,24 +270,16 @@ class RoadSweepingDetails(Base):  # type: ignore
 
     __tablename__ = "survey_road_sweeping"
 
-    id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("annual_surveys.id"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
 
-    width: Mapped[Optional[float]] = mapped_column(
-        Numeric(10, 2), nullable=True
-    )  # in meters
-    length: Mapped[Optional[float]] = mapped_column(
-        Numeric(10, 2), nullable=True
-    )  # in meters/km
+    width: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)  # in meters
+    length: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)  # in meters/km
     cleaning_frequency: Mapped[Optional[CleaningFrequency]] = mapped_column(
         Enum(CleaningFrequency, name="road_cleaning_frequency"), nullable=True
     )
 
     # 1:1 relationship back to survey
-    survey: Mapped["AnnualSurvey"] = relationship(
-        "AnnualSurvey", back_populates="road_sweeping"
-    )
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="road_sweeping")
 
 
 class DrainCleaningDetails(Base):  # type: ignore
@@ -293,21 +289,15 @@ class DrainCleaningDetails(Base):  # type: ignore
 
     __tablename__ = "survey_drain_cleaning"
 
-    id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("annual_surveys.id"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
 
-    length: Mapped[Optional[float]] = mapped_column(
-        Numeric(10, 2), nullable=True
-    )  # in meters/km
+    length: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)  # in meters/km
     cleaning_frequency: Mapped[Optional[CleaningFrequency]] = mapped_column(
         Enum(CleaningFrequency, name="drain_cleaning_frequency"), nullable=True
     )
 
     # 1:1 relationship back to survey
-    survey: Mapped["AnnualSurvey"] = relationship(
-        "AnnualSurvey", back_populates="drain_cleaning"
-    )
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="drain_cleaning")
 
 
 class CSCDetails(Base):  # type: ignore
@@ -317,9 +307,7 @@ class CSCDetails(Base):  # type: ignore
 
     __tablename__ = "survey_csc_details"
 
-    id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("annual_surveys.id"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
 
     numbers: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     cleaning_frequency: Mapped[Optional[CleaningFrequency]] = mapped_column(
@@ -327,9 +315,7 @@ class CSCDetails(Base):  # type: ignore
     )
 
     # 1:1 relationship back to survey
-    survey: Mapped["AnnualSurvey"] = relationship(
-        "AnnualSurvey", back_populates="csc_details"
-    )
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="csc_details")
 
 
 class SWMAssets(Base):  # type: ignore
@@ -339,23 +325,15 @@ class SWMAssets(Base):  # type: ignore
 
     __tablename__ = "survey_swm_assets"
 
-    id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("annual_surveys.id"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
 
-    rrc: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )  # Resource Recovery Center
-    pwmu: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )  # Plastic Waste Management Unit
+    rrc: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Resource Recovery Center
+    pwmu: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Plastic Waste Management Unit
     compost_pit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     collection_vehicle: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     # 1:1 relationship back to survey
-    survey: Mapped["AnnualSurvey"] = relationship(
-        "AnnualSurvey", back_populates="swm_assets"
-    )
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="swm_assets")
 
 
 class SBMGYearTargets(Base):  # type: ignore
@@ -365,36 +343,20 @@ class SBMGYearTargets(Base):  # type: ignore
 
     __tablename__ = "survey_sbmg_year_targets"
 
-    id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("annual_surveys.id"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
 
-    ihhl: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )  # Individual Household Latrine
-    csc: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )  # Community Sanitation Complex
-    rrc: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )  # Resource Recovery Center
-    pwmu: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )  # Plastic Waste Management Unit
+    ihhl: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Individual Household Latrine
+    csc: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Community Sanitation Complex
+    rrc: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Resource Recovery Center
+    pwmu: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Plastic Waste Management Unit
     soak_pit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     magic_pit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     leach_pit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    wsp: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )  # Waste Stabilization Pond
-    dewats: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )  # Decentralized Wastewater Treatment System
+    wsp: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Waste Stabilization Pond
+    dewats: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Decentralized Wastewater Treatment System
 
     # 1:1 relationship back to survey
-    survey: Mapped["AnnualSurvey"] = relationship(
-        "AnnualSurvey", back_populates="sbmg_targets"
-    )
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="sbmg_targets")
 
 
 class VillageData(Base):  # type: ignore
@@ -426,9 +388,7 @@ class VillageData(Base):  # type: ignore
     num_households: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     # Many:1 relationship back to survey
-    survey: Mapped["AnnualSurvey"] = relationship(
-        "AnnualSurvey", back_populates="village_data"
-    )
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="village_data")
 
     # 1:1 relationships with asset details
     sbmg_assets: Mapped[Optional["VillageSBMGAssets"]] = relationship(
@@ -456,21 +416,13 @@ class VillageSBMGAssets(Base):  # type: ignore
 
     __tablename__ = "survey_village_sbmg_assets"
 
-    id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("survey_village_data.id"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("survey_village_data.id"), primary_key=True)
 
-    ihhl: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )  # Individual Household Latrine
-    csc: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )  # Community Sanitation Complex
+    ihhl: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Individual Household Latrine
+    csc: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Community Sanitation Complex
 
     # 1:1 relationship back to village data
-    village_data: Mapped["VillageData"] = relationship(
-        "VillageData", back_populates="sbmg_assets"
-    )
+    village_data: Mapped["VillageData"] = relationship("VillageData", back_populates="sbmg_assets")
 
 
 class VillageGWMAssets(Base):  # type: ignore
@@ -480,21 +432,13 @@ class VillageGWMAssets(Base):  # type: ignore
 
     __tablename__ = "survey_village_gwm_assets"
 
-    id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("survey_village_data.id"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("survey_village_data.id"), primary_key=True)
 
     soak_pit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     magic_pit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     leach_pit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    wsp: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )  # Waste Stabilization Pond
-    dewats: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )  # Decentralized Wastewater Treatment System
+    wsp: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Waste Stabilization Pond
+    dewats: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Decentralized Wastewater Treatment System
 
     # 1:1 relationship back to village data
-    village_data: Mapped["VillageData"] = relationship(
-        "VillageData", back_populates="gwm_assets"
-    )
+    village_data: Mapped["VillageData"] = relationship("VillageData", back_populates="gwm_assets")
