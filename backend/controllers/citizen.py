@@ -328,6 +328,7 @@ async def close_complaint(
         await db.commit()
         await db.refresh(verified_status)
     complaint.status = verified_status.id  # type: ignore
+    complaint.closed_at = datetime.now(tz=timezone.utc)
     # Add a new comment indicating resolution
     if not public_user:
         raise HTTPException(

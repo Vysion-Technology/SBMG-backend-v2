@@ -22,6 +22,9 @@ class ComplaintResponse(BaseModel):
     location: str
     created_at: datetime
     updated_at: Optional[datetime]
+    resolved_at: Optional[datetime] = None
+    verified_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
     media_urls: List[str] = []
     media: List[MediaResponse] = []
 
@@ -68,6 +71,9 @@ class DetailedComplaintResponse(BaseModel):
     lat: float
     long: float
     location: str
+    resolved_at: Optional[datetime] = None
+    verified_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
     complaint_type: Optional[str] = None
     status: Optional[str] = None
     village_name: Optional[str] = None

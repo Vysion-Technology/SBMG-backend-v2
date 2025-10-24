@@ -376,6 +376,7 @@ async def resolve_complaint(
 
     # Update complaint status
     complaint.status_id = resolved_status.id
+    complaint.resolved_at = datetime.now(tz=timezone.utc)
     complaint.updated_at = datetime.now()  # type: ignore
 
     # Add resolution comment if provided
@@ -505,6 +506,7 @@ async def verify_complaint(
 
     # Update complaint status
     complaint.status_id = verified_status.id
+    complaint.verified_at = datetime.now(tz=timezone.utc)
     complaint.updated_at = datetime.now()
 
     await db.commit()
