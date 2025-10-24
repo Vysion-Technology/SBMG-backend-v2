@@ -180,14 +180,27 @@ class AttendanceService:
 
         # Build query based on geographic level
         if level == GeoTypeEnum.DISTRICT:
-            # Get all contractors grouped by district
+            # Subquery to get total contractors per district
+            total_contractors_subq = (
+                select(
+                    District.id.label("dist_id"),
+                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                )
+                .select_from(District)
+                .join(Block, Block.district_id == District.id)
+                .join(GramPanchayat, GramPanchayat.block_id == Block.id)
+                .join(Contractor, Contractor.gp_id == GramPanchayat.id)
+                .group_by(District.id)
+            ).subquery()
+
+            # Main query for attendance
             query = (
                 select(
                     District.id,
                     District.name,
-                    func.count(func.distinct(Contractor.id)).label("total_contractors"),  # type: ignore
+                    total_contractors_subq.c.total_contractors,
                     func.count(func.distinct(DailyAttendance.contractor_id)).label("present_count"),  # type: ignore
-                    func.coalesce(DailyAttendance.date, start_date).label("attendance_date"),
+                    DailyAttendance.date.label("attendance_date"),
                     (
                         select(func.count(func.distinct(GramPanchayat.id)))
                         .select_from(GramPanchayat)
@@ -198,6 +211,7 @@ class AttendanceService:
                     ).label("gp_count"),
                 )
                 .select_from(District)
+                .join(total_contractors_subq, District.id == total_contractors_subq.c.dist_id)
                 .join(Block, Block.district_id == District.id)
                 .join(GramPanchayat, GramPanchayat.block_id == Block.id)
                 .join(Contractor, Contractor.gp_id == GramPanchayat.id)
@@ -209,21 +223,38 @@ class AttendanceService:
                         DailyAttendance.date <= end_date,
                     ),
                 )
-                .group_by(District.id, District.name, DailyAttendance.date)
+                .group_by(
+                    District.id, 
+                    District.name, 
+                    total_contractors_subq.c.total_contractors,
+                    DailyAttendance.date
+                )
             )
 
             if district_id:
                 query = query.where(District.id == district_id)
 
         elif level == GeoTypeEnum.BLOCK:
-            # Get all contractors grouped by block
+            # Subquery to get total contractors per block
+            total_contractors_subq = (
+                select(
+                    Block.id.label("block_id"),
+                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                )
+                .select_from(Block)
+                .join(GramPanchayat, GramPanchayat.block_id == Block.id)
+                .join(Contractor, Contractor.gp_id == GramPanchayat.id)
+                .group_by(Block.id)
+            ).subquery()
+
+            # Main query for attendance
             query = (
                 select(
                     Block.id,
                     Block.name,
-                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                    total_contractors_subq.c.total_contractors,
                     func.count(func.distinct(DailyAttendance.contractor_id)).label("present_count"),
-                    func.coalesce(DailyAttendance.date, start_date).label("attendance_date"),
+                    DailyAttendance.date.label("attendance_date"),
                     (
                         select(func.count(func.distinct(GramPanchayat.id)))
                         .select_from(GramPanchayat)
@@ -233,6 +264,7 @@ class AttendanceService:
                     ).label("gp_count"),
                 )
                 .select_from(Block)
+                .join(total_contractors_subq, Block.id == total_contractors_subq.c.block_id)
                 .join(GramPanchayat, GramPanchayat.block_id == Block.id)
                 .join(Contractor, Contractor.gp_id == GramPanchayat.id)
                 .outerjoin(
@@ -243,7 +275,12 @@ class AttendanceService:
                         DailyAttendance.date <= end_date,
                     ),
                 )
-                .group_by(Block.id, Block.name, DailyAttendance.date)
+                .group_by(
+                    Block.id,
+                    Block.name,
+                    total_contractors_subq.c.total_contractors,
+                    DailyAttendance.date
+                )
             )
 
             if district_id:
@@ -252,14 +289,28 @@ class AttendanceService:
                 query = query.where(Block.id == block_id)
 
         else:  # GP level
-            # Get all contractors grouped by village/GP
+            # Subquery to get total contractors per GP
+            total_contractors_subq = (
+                select(
+                    GramPanchayat.id.label("gp_id"),
+                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                )
+                .select_from(GramPanchayat)
+                .join(Contractor, Contractor.gp_id == GramPanchayat.id)
+                .group_by(GramPanchayat.id)
+            ).subquery()
+
+            # Main query for attendance
             query = (
                 select(
                     GramPanchayat.id,
                     GramPanchayat.name,
-                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                    (
+                        select(1)
+                        .scalar_subquery()
+                    ).label("total_contractors"),
                     func.count(func.distinct(DailyAttendance.contractor_id)).label("present_count"),
-                    func.coalesce(DailyAttendance.date, start_date).label("attendance_date"),
+                    DailyAttendance.date.label("attendance_date"),
                     (
                         select(1)
                         .scalar_subquery()
@@ -295,12 +346,20 @@ class AttendanceService:
             total_contractors = row[2]
             present_count = row[3]
             __date = row[4]
+            gp_count = row[5]
+            
+            # Skip rows where date is None (no attendance records for this geography)
+            if __date is None:
+                continue
+                
             absent_count = total_contractors - present_count
             attendance_rate = (
-                (present_count / total_contractors * 100)
+                (present_count / gp_count * 100)
                 if total_contractors > 0
                 else 0.0
             )
+            print("GP Count:", gp_count)
+            print("Attendance Rate:", attendance_rate)
 
             response_items.append(
                 GeographyAttendanceCountResponse(
@@ -311,7 +370,7 @@ class AttendanceService:
                     present_count=present_count,
                     absent_count=absent_count,
                     attendance_rate=attendance_rate,
-                    gp_count=row[5],
+                    gp_count=gp_count,
                 )
             )
 
