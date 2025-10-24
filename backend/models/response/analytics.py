@@ -29,6 +29,7 @@ class GeographyComplaintCountByStatusResponse(BaseModel):
     status_id: int
     status: ComplaintStatusEnum
     count: int
+    average_resolution_time: Optional[float]
 
 
 class ComplaintGeoAnalyticsResponse(BaseModel):

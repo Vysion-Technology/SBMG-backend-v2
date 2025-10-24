@@ -3,6 +3,7 @@ from typing import List, Optional
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import Date, func, select
+from sqlalchemy.sql.functions import coalesce
 from sqlalchemy.orm import selectinload
 from models.database.complaint import (
     Complaint,
@@ -214,6 +215,11 @@ class ComplaintService:
                     Complaint.status_id,
                     ComplaintStatus.name,
                     func.count(Complaint.id),
+                    func.avg(
+                        func.extract(
+                            "epoch", coalesce(Complaint.resolved_at, Complaint.created_at) - Complaint.created_at
+                        )
+                    ).label("avg_resolution_time"),
                 )
                 .join(Village, Complaint.gp_id == Village.id)
                 .join(Block, Village.block_id == Block.id)
@@ -230,7 +236,16 @@ class ComplaintService:
         elif level == GeoTypeEnum.BLOCK:
             query = (
                 select(
-                    Complaint.block_id, Block.name, ComplaintStatus.id, ComplaintStatus.name, func.count(Complaint.id)
+                    Complaint.block_id,
+                    Block.name,
+                    ComplaintStatus.id,
+                    ComplaintStatus.name,
+                    func.count(Complaint.id),
+                    func.avg(
+                        func.extract(
+                            "epoch", coalesce(Complaint.resolved_at, Complaint.created_at) - Complaint.created_at
+                        )
+                    ).label("avg_resolution_time"),
                 )
                 .join(Village, Complaint.gp_id == Village.id)
                 .join(Block, Village.block_id == Block.id)
@@ -245,6 +260,11 @@ class ComplaintService:
                     ComplaintStatus.id,
                     ComplaintStatus.name,
                     func.count(Complaint.id),
+                    func.avg(
+                        func.extract(
+                            "epoch", coalesce(Complaint.resolved_at, Complaint.created_at) - Complaint.created_at
+                        )
+                    ).label("avg_resolution_time"),
                 )
                 .join(Village, Complaint.gp_id == Village.id)
                 .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
@@ -271,6 +291,7 @@ class ComplaintService:
                     status_id=row[2],
                     status=row[3],
                     count=row[4],
+                    average_resolution_time=row[5],
                 )
                 for row in counts
             ],
@@ -285,9 +306,11 @@ class ComplaintService:
         end_date: Optional[datetime] = None,
     ) -> List[ComplaintDateAnalyticsResponse]:
         """Count complaints grouped by their creation date."""
-        query = select(Complaint.created_at.cast(Date), func.count(Complaint.id), Complaint.status_id, ComplaintStatus.name).group_by(
-            Complaint.created_at.cast(Date), Complaint.status_id, ComplaintStatus.name
-        ).join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
+        query = (
+            select(Complaint.created_at.cast(Date), func.count(Complaint.id), Complaint.status_id, ComplaintStatus.name)
+            .group_by(Complaint.created_at.cast(Date), Complaint.status_id, ComplaintStatus.name)
+            .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
+        )
         if district_id is not None:
             query = query.where(Complaint.district_id == district_id)
         if block_id is not None:
