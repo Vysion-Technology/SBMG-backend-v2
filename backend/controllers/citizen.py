@@ -178,6 +178,10 @@ async def create_complaint_with_media(
         long=complaint.long,
         media_urls=media_urls,
         media=media_details,
+        location=complaint.location,
+        resolved_at=complaint.resolved_at,
+        verified_at=complaint.verified_at,
+        closed_at=complaint.closed_at,
     )
 
 

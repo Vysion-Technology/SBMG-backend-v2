@@ -122,6 +122,9 @@ async def get_my_complaints(
             lat=complaint.lat,
             long=complaint.long,
             location=complaint.location,
+            resolved_at=complaint.resolved_at,
+            verified_at=complaint.verified_at,
+            closed_at=complaint.closed_at,
             complaint_type=complaint.complaint_type.name if complaint.complaint_type else None,
             status=complaint.status.name if complaint.status else None,
             village_name=complaint.gp.name if complaint.gp else None,
@@ -432,7 +435,7 @@ async def verify_complaint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Complaint is already verified",
         )
-    
+
     if complaint.status.name != "RESOLVED":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
