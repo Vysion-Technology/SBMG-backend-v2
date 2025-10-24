@@ -105,6 +105,18 @@ class Complaint(Base):  # type: ignore
         DateTime(timezone=True),
         default=datetime.now(tz=timezone.utc),
     )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(  # type: ignore
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    verified_at: Mapped[Optional[datetime]] = mapped_column(  # type: ignore
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    closed_at: Mapped[Optional[datetime]] = mapped_column(  # type: ignore
+        DateTime(timezone=True),
+        nullable=True,
+    )
     updated_at: Mapped[Optional[datetime]] = mapped_column(  # type: ignore
         DateTime(timezone=True),
         onupdate=datetime.now(tz=timezone.utc),
