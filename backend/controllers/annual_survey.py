@@ -20,9 +20,17 @@ from models.response.annual_survey import (
     AnnualSurveyFYResponse,
     AnnualSurveyResponse,
 )
+from models.response.annual_survey_analytics import (
+    StateAnalytics,
+    DistrictAnalytics,
+    BlockAnalytics,
+    GPAnalytics,
+)
 
 from services.geography import GeographyService
 from services.annual_survey import AnnualSurveyService
+# from services.annual_survey_analytics import AnnualSurveyAnalyticsService
+from services.annual_survey_analytics_optimized import AnnualSurveyAnalyticsServiceOptimized as AnnualSurveyAnalyticsService
 
 
 router = APIRouter()
@@ -193,8 +201,187 @@ async def get_gp_latest_survey(
     return survey
 
 
+@router.get("/analytics/state", response_model=StateAnalytics)
+async def get_state_analytics(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_staff_role),
+    fy_id: Optional[int] = None,
+) -> StateAnalytics:
+    """
+    Get state-level annual survey analytics.
+
+    Returns comprehensive analytics including:
+    - Total village master data count
+    - Coverage percentage
+    - Financial metrics (funds sanctioned, work order amounts)
+    - SBMG target achievement rates
+    - Scheme-wise target vs achievement
+    - Annual overview metrics
+    - District-wise coverage
+    """
+    service = AnnualSurveyAnalyticsService(db)
+
+    try:
+        analytics = await service.get_state_analytics(fy_id=fy_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    return analytics
+
+
+@router.get("/analytics/district/{district_id}", response_model=DistrictAnalytics)
+async def get_district_analytics(
+    district_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+    fy_id: Optional[int] = None,
+) -> DistrictAnalytics:
+    """
+    Get district-level annual survey analytics.
+
+    Returns comprehensive analytics including:
+    - District survey metrics
+    - Coverage percentage
+    - Financial metrics
+    - SBMG target achievement rates
+    - Scheme-wise target vs achievement
+    - Annual overview metrics
+    - Block-wise coverage within the district
+
+    Users can only view analytics within their jurisdiction.
+    """
+    # Permission check
+    if current_user.district_id and current_user.district_id != district_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view analytics for this district",
+        )
+
+    service = AnnualSurveyAnalyticsService(db)
+
+    try:
+        analytics = await service.get_district_analytics(district_id=district_id, fy_id=fy_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    return analytics
+
+
+@router.get("/analytics/block/{block_id}", response_model=BlockAnalytics)
+async def get_block_analytics(
+    block_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+    fy_id: Optional[int] = None,
+) -> BlockAnalytics:
+    """
+    Get block-level annual survey analytics.
+
+    Returns comprehensive analytics including:
+    - Block survey metrics
+    - Coverage percentage
+    - Financial metrics
+    - SBMG target achievement rates
+    - Scheme-wise target vs achievement
+    - Annual overview metrics
+    - GP-wise coverage within the block
+
+    Users can only view analytics within their jurisdiction.
+    """
+    # Get block to check jurisdiction
+    geo_service = GeographyService(db)
+    block = await geo_service.get_block(block_id)
+
+    if not block:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Block not found",
+        )
+
+    # Permission check
+    if current_user.district_id and current_user.district_id != block.district_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view analytics for this block",
+        )
+
+    if current_user.block_id and current_user.block_id != block_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view analytics for this block",
+        )
+
+    service = AnnualSurveyAnalyticsService(db)
+
+    try:
+        analytics = await service.get_block_analytics(block_id=block_id, fy_id=fy_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    return analytics
+
+
+@router.get("/analytics/gp/{gp_id}", response_model=GPAnalytics)
+async def get_gp_analytics(
+    gp_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+    fy_id: Optional[int] = None,
+) -> GPAnalytics:
+    """
+    Get GP-level annual survey analytics.
+
+    Returns comprehensive analytics including:
+    - GP information
+    - Master data availability status
+    - Survey details (if available)
+    - Financial metrics
+    - Scheme-wise target vs achievement
+    - Annual overview metrics
+
+    Users can only view analytics within their jurisdiction.
+    """
+    # Get GP to check jurisdiction
+    geo_service = GeographyService(db)
+    gp = await geo_service.get_village(gp_id)
+
+    if not gp:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Gram Panchayat not found",
+        )
+
+    # Permission check
+    if current_user.district_id and current_user.district_id != gp.district_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view analytics for this GP",
+        )
+
+    if current_user.block_id and current_user.block_id != gp.block_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view analytics for this GP",
+        )
+
+    if current_user.gp_id and current_user.gp_id != gp_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view analytics for this GP",
+        )
+
+    service = AnnualSurveyAnalyticsService(db)
+
+    try:
+        analytics = await service.get_gp_analytics(gp_id=gp_id, fy_id=fy_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    return analytics
+
+
 @router.get("/analytics")
-async def get_annual_survey_analytics(
+async def get_annual_survey_analytics_deprecated(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
     district_id: int | None = None,
@@ -202,7 +389,13 @@ async def get_annual_survey_analytics(
     gp_id: int | None = None,
 ):
     """
-    Get annual survey analytics.
+    Get annual survey analytics (deprecated).
+
+    Please use the specific endpoints:
+    - GET /analytics/state - for state-level analytics
+    - GET /analytics/district/{district_id} - for district-level analytics
+    - GET /analytics/block/{block_id} - for block-level analytics
+    - GET /analytics/gp/{gp_id} - for GP-level analytics
 
     Users can only view analytics within their jurisdiction.
     """
