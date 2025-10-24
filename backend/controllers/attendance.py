@@ -339,9 +339,12 @@ async def get_attendance_analytics(
     """
     Get attendance analytics aggregated by geographic level.
     Returns attendance statistics for each geographic unit at the specified level.
+
+    By default:
+    - START DATE: 1st of current month
+    - END DATE: Current date
     """
     try:
-        print("Hi" * 100)
         # Permission checks based on user's jurisdiction
         if current_user.block_id is not None and level == GeoTypeEnum.DISTRICT:
             raise HTTPException(

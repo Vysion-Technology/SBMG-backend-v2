@@ -71,6 +71,7 @@ class GeographyAttendanceCountResponse(BaseModel):
     present_count: int
     absent_count: int
     attendance_rate: float
+    gp_count: int
 
 
 class AttendanceAnalyticsResponse(BaseModel):

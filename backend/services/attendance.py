@@ -4,7 +4,7 @@ from typing import Optional
 
 from datetime import date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import insert, select, func, and_, case
+from sqlalchemy import insert, select, func, and_
 from sqlalchemy.orm import joinedload
 
 from models.database.attendance import DailyAttendance
@@ -186,20 +186,16 @@ class AttendanceService:
                     District.id,
                     District.name,
                     func.count(func.distinct(Contractor.id)).label("total_contractors"),  # type: ignore
-                    func.count(
-                        func.distinct(  # type: ignore
-                            case(
-                                (
-                                    and_(
-                                        DailyAttendance.date >= start_date,
-                                        DailyAttendance.date <= end_date,
-                                    ),
-                                    DailyAttendance.contractor_id,
-                                )
-                            )
-                        )
-                    ).label("present_count"),
-                    DailyAttendance.date,
+                    func.count(func.distinct(DailyAttendance.contractor_id)).label("present_count"),  # type: ignore
+                    func.coalesce(DailyAttendance.date, start_date).label("attendance_date"),
+                    (
+                        select(func.count(func.distinct(GramPanchayat.id)))
+                        .select_from(GramPanchayat)
+                        .join(Block, GramPanchayat.block_id == Block.id)
+                        .where(Block.district_id == District.id)
+                        .correlate(District)
+                        .scalar_subquery()
+                    ).label("gp_count"),
                 )
                 .select_from(District)
                 .join(Block, Block.district_id == District.id)
@@ -226,20 +222,15 @@ class AttendanceService:
                     Block.id,
                     Block.name,
                     func.count(func.distinct(Contractor.id)).label("total_contractors"),
-                    func.count(
-                        func.distinct(
-                            case(
-                                (
-                                    and_(
-                                        DailyAttendance.date >= start_date,
-                                        DailyAttendance.date <= end_date,
-                                    ),
-                                    DailyAttendance.contractor_id,
-                                )
-                            )
-                        )
-                    ).label("present_count"),
-                    DailyAttendance.date,
+                    func.count(func.distinct(DailyAttendance.contractor_id)).label("present_count"),
+                    func.coalesce(DailyAttendance.date, start_date).label("attendance_date"),
+                    (
+                        select(func.count(func.distinct(GramPanchayat.id)))
+                        .select_from(GramPanchayat)
+                        .where(GramPanchayat.block_id == Block.id)
+                        .correlate(Block)
+                        .scalar_subquery()
+                    ).label("gp_count"),
                 )
                 .select_from(Block)
                 .join(GramPanchayat, GramPanchayat.block_id == Block.id)
@@ -267,20 +258,12 @@ class AttendanceService:
                     GramPanchayat.id,
                     GramPanchayat.name,
                     func.count(func.distinct(Contractor.id)).label("total_contractors"),
-                    func.count(
-                        func.distinct(
-                            case(
-                                (
-                                    and_(
-                                        DailyAttendance.date >= start_date,
-                                        DailyAttendance.date <= end_date,
-                                    ),
-                                    DailyAttendance.contractor_id,
-                                )
-                            )
-                        )
-                    ).label("present_count"),
-                    DailyAttendance.date,
+                    func.count(func.distinct(DailyAttendance.contractor_id)).label("present_count"),
+                    func.coalesce(DailyAttendance.date, start_date).label("attendance_date"),
+                    (
+                        select(1)
+                        .scalar_subquery()
+                    ).label("gp_count"),
                 )
                 .select_from(GramPanchayat)
                 .join(Contractor, Contractor.gp_id == GramPanchayat.id)
@@ -328,6 +311,7 @@ class AttendanceService:
                     present_count=present_count,
                     absent_count=absent_count,
                     attendance_rate=attendance_rate,
+                    gp_count=row[5],
                 )
             )
 
