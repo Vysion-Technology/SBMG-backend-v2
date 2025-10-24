@@ -1,5 +1,6 @@
 """Public controllers for complaint management system."""
 
+from datetime import datetime
 import os
 from typing import Optional, List
 
@@ -17,6 +18,7 @@ from models.database.complaint import (
     ComplaintComment,
     ComplaintAssignment,
 )
+from models.database.contractor import Contractor
 from models.database.geography import GramPanchayat, Block
 from models.database.complaint import (
     ComplaintType,
@@ -182,16 +184,28 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
         )
 
     # Get assigned worker info
-    assigned_worker = None
-    assignment_date = None
-    if complaint.assignments:
-        latest_assignment = max(complaint.assignments, key=lambda a: a.assigned_at)
-        if latest_assignment.user and latest_assignment.user.positions:
-            first_pos = latest_assignment.user.positions[0]
-            assigned_worker = f"{first_pos.first_name} {first_pos.last_name}"
-        elif latest_assignment.user:
-            assigned_worker = latest_assignment.user.username
-        assignment_date = latest_assignment.assigned_at
+    assigned_worker: Optional[str] = None
+    assignment_date: Optional[datetime] = None
+    complaint_assignment = (
+        await db.execute(
+            select(ComplaintAssignment)
+            .options(selectinload(ComplaintAssignment.user).selectinload(User.positions))
+            .where(ComplaintAssignment.complaint_id == complaint.id)
+        )
+    ).scalars().all()
+    if complaint_assignment:
+        max_date_assignment = max(complaint_assignment, key=lambda a: a.assigned_at)
+        if max_date_assignment:
+            assignment_date = max_date_assignment.assigned_at
+        contractor_id = max_date_assignment.contractor_id
+        if contractor_id:
+            contractor = (
+                await db.execute(
+                    select(Contractor).where(Contractor.id == contractor_id)
+                )
+            ).scalar_one_or_none()
+            if contractor:
+                assigned_worker = contractor.name
 
     gp: GramPanchayat = await geo_service.get_village(complaint.gp_id)
 
@@ -206,8 +220,6 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
         lat=complaint.lat,
         long=complaint.long,
         location=complaint.location,
-        # complaint_type_name=complaint.complaint_type.name,
-        # status_name=complaint.status.name,
         village_name=gp.name,
         block_name=gp.block.name,
         district_name=gp.block.district.name,

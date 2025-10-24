@@ -144,6 +144,9 @@ class ComplaintAssignment(Base):  # type: ignore
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
     complaint_id: Mapped[int] = mapped_column(Integer, ForeignKey("complaints.id"), nullable=False)  # type: ignore
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("authority_users.id"), nullable=False)  # type: ignore
+    contractor_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
+        Integer, ForeignKey("contractors.id"), nullable=True
+    )
     assigned_at: Mapped[datetime] = mapped_column(  # type: ignore
         DateTime(timezone=True),
         default=datetime.now(tz=timezone.utc),

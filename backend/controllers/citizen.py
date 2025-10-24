@@ -1,4 +1,10 @@
+"""Controller for citizen (public user) related complaint operations."""
+
 import logging
+from datetime import datetime, timezone
+import os
+import traceback
+import uuid
 from typing import Any, Dict, List, Optional
 
 from fastapi import (
@@ -16,23 +22,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from database import get_db
-from models.database.complaint import Complaint, ComplaintStatus, ComplaintMedia
-from models.database.geography import GramPanchayat
 from services.auth import AuthService
 from services.fcm_notification_service import notify_workers_on_new_complaint
 from services.s3_service import s3_service
 
+from models.database.complaint import Complaint, ComplaintStatus, ComplaintMedia, ComplaintComment
+from models.database.contractor import Contractor
+from models.database.geography import GramPanchayat
+from models.database.auth import PublicUser, PublicUserToken, User
 from models.response.complaint import ComplaintResponse, MediaResponse
-
-from datetime import datetime, timezone
-import os
-import uuid
-
-
-from models.database.auth import PublicUser, PublicUserToken
-from models.database.complaint import (
-    ComplaintComment,
-)
 
 router = APIRouter()
 
@@ -52,137 +50,164 @@ async def create_complaint_with_media(
     token: str = Header(..., description="Public user token"),
 ) -> ComplaintResponse:
     """Create a new complaint with optional media files (Public access)."""
-    # Create the complaint first using similar logic to create_complaint
-    # Verify village exists
-    if not lat or not long:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Latitude and Longitude are required",
+    try:
+        # Create the complaint first using similar logic to create_complaint
+        # Verify village exists
+        if not lat or not long:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Latitude and Longitude are required",
+            )
+        village_result = await db.execute(
+            select(GramPanchayat)
+            .options(selectinload(GramPanchayat.block), selectinload(GramPanchayat.district))
+            .where(GramPanchayat.id == gp_id)
         )
-    village_result = await db.execute(
-        select(GramPanchayat)
-        .options(selectinload(GramPanchayat.block), selectinload(GramPanchayat.district))
-        .where(GramPanchayat.id == gp_id)
-    )
-    village = village_result.scalar_one_or_none()
-    if not village:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Village not found")
+        village = village_result.scalar_one_or_none()
+        if not village:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Village not found")
 
-    auth_service = AuthService(db)
-    user = await auth_service.get_public_user_by_token(token)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing user token",
+        auth_service = AuthService(db)
+        user = await auth_service.get_public_user_by_token(token)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or missing user token",
+            )
+        # Get or create "OPEN" status
+        status_result = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "OPEN"))
+        complaint_status = status_result.scalar_one_or_none()
+        if not complaint_status:
+            complaint_status = ComplaintStatus(name="OPEN", description="Newly created complaint")
+            db.add(complaint_status)
+            await db.commit()
+            await db.refresh(complaint_status)
+
+        # Create complaint
+        complaint = Complaint(
+            complaint_type_id=complaint_type_id,
+            gp_id=gp_id,
+            block_id=block_id,
+            district_id=district_id,
+            description=description,
+            status_id=complaint_status.id,
+            public_user_id=user.id,
+            mobile_number=user.mobile_number,
+            lat=lat,
+            long=long,
+            location=location,
         )
-    # Get or create "OPEN" status
-    status_result = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "OPEN"))
-    complaint_status = status_result.scalar_one_or_none()
-    if not complaint_status:
-        complaint_status = ComplaintStatus(name="OPEN", description="Newly created complaint")
-        db.add(complaint_status)
+
+        db.add(complaint)
         await db.commit()
-        await db.refresh(complaint_status)
-
-    # Create complaint
-    complaint = Complaint(
-        complaint_type_id=complaint_type_id,
-        gp_id=gp_id,
-        block_id=block_id,
-        district_id=district_id,
-        description=description,
-        status_id=complaint_status.id,
-        public_user_id=user.id,
-        mobile_number=user.mobile_number,
-        lat=lat,
-        long=long,
-        location=location,
-    )
-
-    db.add(complaint)
-    await db.commit()
-    await db.refresh(complaint)
-
-    # Handle media files if provided
-    media_urls: List[str] = []
-    for file in files:
-        if file.filename:
-            try:
-                # Upload file to S3/MinIO
-                s3_key = await s3_service.upload_file(
-                    file=file,
-                    folder=f"complaints/{complaint.id}",
-                    filename=file.filename,
-                )
-
-                # Get the public URL for the uploaded file
-                if s3_service.is_available():
-                    # Use S3 URL for database storage
-                    media_url = s3_key
-                else:
-                    # Fallback to local path
-                    media_url = f"/media/complaints/{complaint.id}/{file.filename}"
-
-                # Create media record
-                media = ComplaintMedia(
-                    complaint_id=complaint.id,
-                    media_url=media_url,
-                    uploaded_by_public_mobile=user.mobile_number,
-                    uploaded_by_user_id=None,
-                )
-                db.add(media)
-                media_urls.append(media_url)
-                print(f"Uploaded file to {media_url}")
-
-            except HTTPException:
-                # If S3 upload fails, continue without media
-                # In production, you might want to handle this differently
-                continue
-
-    if media_urls:
-        await db.commit()
-        # Refresh complaint to get the latest media records
         await db.refresh(complaint)
 
-        # Fetch media details after commit
-        media_result = await db.execute(select(ComplaintMedia).where(ComplaintMedia.complaint_id == complaint.id))
-        media_records = media_result.scalars().all()
+        # Handle media files if provided
+        media_urls: List[str] = []
+        for file in files:
+            if file.filename:
+                try:
+                    # Upload file to S3/MinIO
+                    s3_key = await s3_service.upload_file(
+                        file=file,
+                        folder=f"complaints/{complaint.id}",
+                        filename=file.filename,
+                    )
 
-        media_details = [
-            MediaResponse(id=media.id, media_url=media.media_url, uploaded_at=media.uploaded_at)
-            for media in media_records
-        ]
-    else:
-        media_details = []
+                    # Get the public URL for the uploaded file
+                    if s3_service.is_available():
+                        # Use S3 URL for database storage
+                        media_url = s3_key
+                    else:
+                        # Fallback to local path
+                        media_url = f"/media/complaints/{complaint.id}/{file.filename}"
 
-    # Send notification to workers in the village (async, non-blocking)
+                    # Create media record
+                    media = ComplaintMedia(
+                        complaint_id=complaint.id,
+                        media_url=media_url,
+                        uploaded_by_public_mobile=user.mobile_number,
+                        uploaded_by_user_id=None,
+                    )
+                    db.add(media)
+                    media_urls.append(media_url)
+                    print(f"Uploaded file to {media_url}")
 
-    try:
-        await notify_workers_on_new_complaint(db, complaint)
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        # Log error but don't fail the request
+                except HTTPException:
+                    # If S3 upload fails, continue without media
+                    # In production, you might want to handle this differently
+                    continue
 
-        logging.error("Failed to send FCM notification: %s", e)
+        if media_urls:
+            await db.commit()
+            # Refresh complaint to get the latest media records
+            await db.refresh(complaint)
 
-    return ComplaintResponse(
-        id=complaint.id,
-        description=complaint.description,
-        mobile_number=complaint.mobile_number,
-        status_name=complaint_status.name,
-        village_name=village.name,
-        block_name=village.block.name,
-        district_name=village.district.name,
-        created_at=complaint.created_at,
-        updated_at=complaint.updated_at,
-        lat=complaint.lat,
-        long=complaint.long,
-        media_urls=media_urls,
-        media=media_details,
-        location=complaint.location,
-        resolved_at=complaint.resolved_at,
-        verified_at=complaint.verified_at,
-        closed_at=complaint.closed_at,
-    )
+            # Fetch media details after commit
+            media_result = await db.execute(select(ComplaintMedia).where(ComplaintMedia.complaint_id == complaint.id))
+            media_records = media_result.scalars().all()
+
+            media_details = [
+                MediaResponse(id=media.id, media_url=media.media_url, uploaded_at=media.uploaded_at)
+                for media in media_records
+            ]
+        else:
+            media_details = []
+
+        # Send notification to workers in the village (async, non-blocking)
+
+        try:
+            # Create a ComplaintAssignment entry and notify workers
+            # Get the worker of the village (there should be only one assigned)
+            contractor = (await db.execute(select(Contractor).where(Contractor.gp_id == gp_id))).scalar_one_or_none()
+            if contractor:
+                # Get the user ID of the village contractor
+                authority_users = (
+                    await db.execute(select(User).where(User.gp_id == contractor.gp_id))
+                ).scalars()
+                # Filter the one that contains contractor in username
+                authority_user = next(
+                    (user for user in authority_users if "contractor" in user.username.lower()), None
+                )
+                if authority_user:
+                    # TODO: Create ComplaintAssignment entry if needed
+                    pass
+            else:
+                logging.warning("No contractor found for village ID %s", gp_id)
+            await notify_workers_on_new_complaint(db, complaint)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # Log error but don't fail the request
+            traceback.print_exc()
+
+            logging.error("Failed to send FCM notification: %s", e)
+
+        return ComplaintResponse(
+            id=complaint.id,
+            description=complaint.description,
+            mobile_number=complaint.mobile_number,
+            status_name=complaint_status.name,
+            village_name=village.name,
+            block_name=village.block.name,
+            district_name=village.district.name,
+            created_at=complaint.created_at,
+            updated_at=complaint.updated_at,
+            lat=complaint.lat,
+            long=complaint.long,
+            media_urls=media_urls,
+            media=media_details,
+            location=complaint.location,
+            resolved_at=complaint.resolved_at,
+            verified_at=complaint.verified_at,
+            closed_at=complaint.closed_at,
+        )
+
+    except Exception as e:
+        logging.error("Error creating complaint with media: %s", e)
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create complaint",
+        ) from e
 
 
 @router.post("/{complaint_id}/comments")
@@ -319,6 +344,7 @@ async def close_complaint(
     # Check if the public user is the one who created the complaint
     auth_service = AuthService(db)
     public_user = await auth_service.get_public_user_by_token(user_token)
+    assert public_user is not None, "Public user should be valid here"
     if complaint.public_user_id != public_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -55,3 +55,7 @@ class Contractor(Base):  # type: ignore
     attendances: Mapped[List["DailyAttendance"]] = relationship(
         "DailyAttendance", back_populates="contractor"
     )
+
+    @property
+    def name(self) -> str:
+        return self.person_name if self.person_name else "Unnamed Contractor"
