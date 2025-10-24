@@ -296,20 +296,28 @@ async def upload_complaint_media(
     }
 
 
-@router.post("/{complaint_id}/resolve", response_model=ComplaintResponse)
-async def resolve_complaint(
+@router.post("/{complaint_id}/close", response_model=ComplaintResponse)
+async def close_complaint(
     complaint_id: int,
     resolution: str,
     db: AsyncSession = Depends(get_db),
     user_token: str = Header(..., description="Public user token"),
 ):
-    """Resolve a complaint (Admin only)."""
+    """Close a complaint (User who created the complaint only)."""
     result = await db.execute(select(Complaint).where(Complaint.id == complaint_id))
     complaint = result.scalar_one_or_none()
 
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
 
+    # Check if the public user is the one who created the complaint
+    auth_service = AuthService(db)
+    public_user = await auth_service.get_public_user_by_token(user_token)
+    if complaint.public_user_id != public_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only close your own complaints",
+        )
     verified_status = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "VERIFIED"))
     verified_status = verified_status.scalar_one_or_none()
     if not verified_status:
@@ -319,8 +327,6 @@ async def resolve_complaint(
         await db.refresh(verified_status)
     complaint.status = verified_status.id  # type: ignore
     # Add a new comment indicating resolution
-    auth_service = AuthService(db)
-    public_user = await auth_service.get_public_user_by_token(user_token)
     if not public_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
