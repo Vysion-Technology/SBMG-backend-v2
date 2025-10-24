@@ -98,6 +98,9 @@ class Complaint(Base):  # type: ignore
     long: Mapped[float] = mapped_column(  # type: ignore
         Float, nullable=False, default=0.0, server_default="0.0"
     )
+    location: Mapped[str] = mapped_column(  # type: ignore
+        String, nullable=False, default="location", server_default="location"
+    )
     created_at: Mapped[datetime] = mapped_column(  # type: ignore
         DateTime(timezone=True),
         default=datetime.now(tz=timezone.utc),

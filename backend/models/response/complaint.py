@@ -19,6 +19,7 @@ class ComplaintResponse(BaseModel):
     district_name: str
     lat: float
     long: float
+    location: str
     created_at: datetime
     updated_at: Optional[datetime]
     media_urls: List[str] = []
@@ -64,6 +65,9 @@ class DetailedComplaintResponse(BaseModel):
     complaint_type_id: int
     created_at: datetime
     status_id: int
+    lat: float
+    long: float
+    location: str
     complaint_type: Optional[str] = None
     status: Optional[str] = None
     village_name: Optional[str] = None

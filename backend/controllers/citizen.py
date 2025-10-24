@@ -47,6 +47,7 @@ async def create_complaint_with_media(
     files: List[UploadFile] = File(default=[]),
     lat: float = Form(..., description="Latitude"),
     long: float = Form(..., description="Longitude"),
+    location: str = Form(..., description="Location description"),
     db: AsyncSession = Depends(get_db),
     token: str = Header(..., description="Public user token"),
 ) -> ComplaintResponse:
@@ -95,6 +96,7 @@ async def create_complaint_with_media(
         mobile_number=user.mobile_number,
         lat=lat,
         long=long,
+        location=location,
     )
 
     db.add(complaint)

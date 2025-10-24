@@ -119,6 +119,9 @@ async def get_my_complaints(
             created_at=complaint.created_at,
             updated_at=complaint.updated_at,
             status_id=complaint.status_id,
+            lat=complaint.lat,
+            long=complaint.long,
+            location=complaint.location,
             complaint_type=complaint.complaint_type.name if complaint.complaint_type else None,
             status=complaint.status.name if complaint.status else None,
             village_name=complaint.gp.name if complaint.gp else None,
@@ -359,6 +362,12 @@ async def resolve_complaint(
     # Get or create "RESOLVED" status
     status_result = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "RESOLVED"))
     resolved_status = status_result.scalar_one_or_none()
+    assert resolved_status is not None, "Resolved status should not be None"
+    if complaint.status_id == resolved_status.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Complaint is already resolved",
+        )
     if not resolved_status:
         resolved_status = ComplaintStatus(name="RESOLVED", description="Complaint has been resolved")
         db.add(resolved_status)
@@ -411,10 +420,22 @@ async def verify_complaint(
         )
 
     # Check if complaint is in COMPLETED status
-    if complaint.status.name != "COMPLETED":
+    if complaint.status.name == "COMPLETED":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Can only verify complaints that are marked as completed",
+        )
+
+    if complaint.status.name == "VERIFIED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Complaint is already verified",
+        )
+    
+    if complaint.status.name != "RESOLVED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Can only verify complaints that are marked as resolved",
         )
 
     # Get "VERIFIED" status
