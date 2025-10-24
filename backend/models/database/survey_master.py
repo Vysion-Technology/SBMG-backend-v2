@@ -9,7 +9,7 @@ from typing import Optional, List
 from datetime import date as dt_date, datetime
 
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy import Index, String, Integer, ForeignKey, Date, DateTime, Enum, Numeric
+from sqlalchemy import Index, String, Integer, ForeignKey, Date, DateTime, Enum, Numeric, UniqueConstraint
 
 from models.database.geography import District, Block, GramPanchayat, Village
 from models.database.auth import PositionHolder as UserPositionHolder
@@ -198,6 +198,7 @@ class AnnualSurvey(Base):  # type: ignore
         Index("ix_annual_surveys_gp_id", "gp_id"),
         Index("ix_annual_surveys_survey_date", "survey_date"),
         Index("ix_annual_surveys_gp_id_survey_date", "gp_id", "survey_date"),
+        UniqueConstraint("fy_id", "gp_id", name="uq_annual_survey_fy_gp") # Ensure one survey per GP per FY
     )
 
     @property
