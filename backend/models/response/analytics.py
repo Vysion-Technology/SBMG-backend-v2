@@ -39,6 +39,16 @@ class ComplaintGeoAnalyticsResponse(BaseModel):
     response: List[GeographyComplaintCountByStatusResponse]
 
 
+class TopNGeographiesInDateRangeResponse(BaseModel):
+    """Response model for top N geographies with highest complaint counts in a date range."""
+
+    geo_type: GeoTypeEnum
+    start_date: date
+    end_date: date
+    geo_id: int
+    geo_name: str
+    score: float
+
 class ComplaintDateAnalyticsResponse(BaseModel):
     """Response model for complaint analytics aggregated by date."""
 

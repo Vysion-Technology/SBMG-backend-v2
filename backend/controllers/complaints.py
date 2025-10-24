@@ -27,7 +27,11 @@ from models.database.complaint import (
     ComplaintComment,
 )
 from models.response.complaint import DetailedComplaintResponse, MediaResponse
-from models.response.analytics import ComplaintDateAnalyticsResponse, ComplaintGeoAnalyticsResponse
+from models.response.analytics import (
+    ComplaintDateAnalyticsResponse,
+    ComplaintGeoAnalyticsResponse,
+    TopNGeographiesInDateRangeResponse,
+)
 from models.response.complaint import (
     ComplaintCommentResponse,
     ResolveComplaintResponse,
@@ -627,6 +631,61 @@ async def get_complaint_counts_by_date(
         end_date=datetime(end_date.year, end_date.month, end_date.day, 23, 59, 59, tzinfo=timezone.utc)
         if end_date
         else None,
+    )
+
+
+@router.get("/analytics/top-n")
+async def get_top_n_complaint_types(
+    start_date: date,
+    end_date: date,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+    n: int = 5,
+    level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
+    district_id: Optional[int] = None,
+    block_id: Optional[int] = None,
+    gp_id: Optional[int] = None,
+) -> List[TopNGeographiesInDateRangeResponse]:
+    """Get top N complaint types for analytics (Staff only)."""
+    if current_user.block_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access top N complaint types analytics",
+        )
+    if current_user.gp_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access top N complaint types analytics",
+        )
+    if (district_id and block_id) or (district_id and gp_id) or (block_id and gp_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide only one of district_id, block_id, or gp_id",
+        )
+    return await ComplaintService(db).get_top_n_complaint_types(
+        n=n,
+        district_id=district_id,
+        block_id=block_id,
+        gp_id=gp_id,
+        level=level,
+        start_date=datetime(
+            start_date.year,
+            start_date.month,
+            start_date.day,
+            0,
+            0,
+            0,
+            tzinfo=timezone.utc,
+        ),
+        end_date=datetime(
+            end_date.year,
+            end_date.month,
+            end_date.day,
+            23,
+            59,
+            59,
+            tzinfo=timezone.utc,
+        ),
     )
 
 
