@@ -119,6 +119,13 @@ class PositionHolder(Base):  # type: ignore
     block: Mapped[Block] = relationship("Block")
     district: Mapped[District] = relationship("District")
 
+    @property
+    def full_name(self) -> str:
+        """Returns the full name of the position holder."""
+        if self.middle_name:
+            return f"{self.first_name} {self.middle_name} {self.last_name}"
+        return f"{self.first_name} {self.last_name}"
+
 
 class PublicUser(Base):  # type: ignore
     """
