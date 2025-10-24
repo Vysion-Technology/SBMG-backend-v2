@@ -25,13 +25,10 @@ from services.geography import GeographyService
 from services.annual_survey import AnnualSurveyService
 
 
-
 router = APIRouter()
 
 
-@router.post(
-    "/fill", response_model=AnnualSurveyResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/fill", response_model=AnnualSurveyResponse, status_code=status.HTTP_201_CREATED)
 async def create_annual_survey(
     survey_request: CreateAnnualSurveyRequest,
     db: AsyncSession = Depends(get_db),
@@ -58,9 +55,7 @@ async def create_annual_survey(
             )
         survey = await service.vdo_fills_the_survey(current_user, survey_request)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
     return survey
 
@@ -85,18 +80,14 @@ async def delete_annual_survey(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Survey not found",
             )
-        if any(
-            [current_user.gp_id, current_user.block_id, current_user.district_id]
-        ):
+        if any([current_user.gp_id, current_user.block_id, current_user.district_id]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only ADMIN users can delete surveys.",
             )
         await service.delete_survey(survey_id)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
     return None
 
@@ -137,9 +128,7 @@ async def list_annual_surveys(
             skip=skip,
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
     return surveys
 
@@ -164,17 +153,13 @@ async def get_annual_survey(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Survey not found",
             )
-        if any(
-            [current_user.gp_id, current_user.block_id, current_user.district_id]
-        ):
+        if any([current_user.gp_id, current_user.block_id, current_user.district_id]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only ADMIN users can view surveys.",
             )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
     return survey
 
@@ -183,7 +168,6 @@ async def get_annual_survey(
 async def get_gp_latest_survey(
     gp_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role),
 ) -> AnnualSurveyResponse:
     """
     Get the latest annual survey for a specific GP.
@@ -193,21 +177,18 @@ async def get_gp_latest_survey(
     service = AnnualSurveyService(db)
 
     try:
-        if current_user.gp_id and gp_id != current_user.gp_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to view surveys for this GP",
-            )
         survey = await service.get_latest_survey_by_gp(gp_id)
         if not survey:
+            geo_serv = GeographyService(db)
+            gp = await geo_serv.get_village(gp_id)
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Survey not found",
+                detail=f"Survey not found for Gram Panchayat {gp.name}"
+                if gp
+                else "Survey not found for your Gram Panchayat",
             )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
     return survey
 
@@ -227,43 +208,32 @@ async def get_annual_survey_analytics(
     """
     geo_svc = GeographyService(db)
     if district_id:
-        if not any(
-            [
-                not current_user.district_id,
-                current_user.district_id != district_id,
-            ]
-        ):
+        if not any([
+            not current_user.district_id,
+            current_user.district_id != district_id,
+        ]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to view analytics for this district",
             )
     if block_id:
         block = await geo_svc.get_block(block_id)
-        if not any(
-            [
-                not current_user.block_id
-                and not current_user.district_id
-                and not current_user.gp_id,
-                not current_user.block_id
-                and current_user.district_id == block.district_id,
-                current_user.block_id != block_id,
-            ]
-        ):
+        if not any([
+            not current_user.block_id and not current_user.district_id and not current_user.gp_id,
+            not current_user.block_id and current_user.district_id == block.district_id,
+            current_user.block_id != block_id,
+        ]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to view analytics for this block",
             )
     if gp_id:
         gp = await geo_svc.get_village(gp_id)
-        if not any(
-            [
-                not current_user.gp_id
-                and not current_user.block_id
-                and not current_user.district_id,
-                not current_user.gp_id and current_user.block_id == gp.block_id,
-                current_user.gp_id != gp_id,
-            ]
-        ):
+        if not any([
+            not current_user.gp_id and not current_user.block_id and not current_user.district_id,
+            not current_user.gp_id and current_user.block_id == gp.block_id,
+            current_user.gp_id != gp_id,
+        ]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to view analytics for this GP",
@@ -285,8 +255,6 @@ async def get_active_financial_years(
     try:
         active_fy = await service.get_active_financial_years()
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
     return active_fy
