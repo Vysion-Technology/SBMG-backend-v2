@@ -166,7 +166,7 @@ async def get_district(
 
 
 @router.get("/grampanchayats/{village_id}/contractor", response_model=ContractorResponse)
-async def get_contractors_by_village(
+async def get_contractors_by_gp(
     village_id: int,
     db: AsyncSession = Depends(get_db),
 ) -> ContractorResponse:
@@ -188,7 +188,7 @@ async def get_contractors_by_village(
     agency: Agency = (
         await db.execute(
             select(Agency).where(
-                Agency.id == contractor.agency_i,
+                Agency.id == contractor.agency_id,
             )
         )
     ).scalar_one()
