@@ -110,6 +110,7 @@ class VillageDataRequest(BaseModel):
 class CreateAnnualSurveyRequest(BaseModel):
     """Request model for creating a new annual survey."""
 
+    fy_id: int = Field(..., description="Financial Year ID")
     gp_id: int = Field(..., description="ID of the Gram Panchayat")
     survey_date: Optional[date] = Field(
         None, description="Date of survey (defaults to today)"

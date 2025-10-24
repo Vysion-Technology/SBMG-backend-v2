@@ -4,7 +4,7 @@ Handles API endpoints for annual survey management
 """
 
 from datetime import date
-from typing import Optional
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,7 @@ from models.database.auth import User
 
 from models.requests.survey import CreateAnnualSurveyRequest
 from models.response.annual_survey import (
+    AnnualSurveyFYResponse,
     AnnualSurveyResponse,
 )
 
@@ -55,7 +56,7 @@ async def create_annual_survey(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Contractor users cannot fill surveys",
             )
-        survey = await service.create_survey(current_user, survey_request)
+        survey = await service.vdo_fills_the_survey(current_user, survey_request)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
@@ -178,7 +179,40 @@ async def get_annual_survey(
     return survey
 
 
-@router.get("analytics")
+@router.get("/latest-for-gp/{gp_id}", response_model=AnnualSurveyResponse)
+async def get_gp_latest_survey(
+    gp_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> AnnualSurveyResponse:
+    """
+    Get the latest annual survey for a specific GP.
+
+    Users can only view surveys within their jurisdiction.
+    """
+    service = AnnualSurveyService(db)
+
+    try:
+        if current_user.gp_id and gp_id != current_user.gp_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to view surveys for this GP",
+            )
+        survey = await service.get_latest_survey_by_gp(gp_id)
+        if not survey:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Survey not found",
+            )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
+
+    return survey
+
+
+@router.get("/analytics")
 async def get_annual_survey_analytics(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
@@ -235,3 +269,24 @@ async def get_annual_survey_analytics(
                 detail="You do not have permission to view analytics for this GP",
             )
     raise NotImplementedError("Analytics endpoint is not yet implemented.")
+
+
+@router.get("/fy/active", response_model=list[AnnualSurveyFYResponse])
+async def get_active_financial_years(
+    db: AsyncSession = Depends(get_db),
+) -> List[AnnualSurveyFYResponse]:
+    """
+    Get a list of active financial years.
+
+    Users can only view financial years within their jurisdiction.
+    """
+    service = AnnualSurveyService(db)
+
+    try:
+        active_fy = await service.get_active_financial_years()
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
+
+    return active_fy

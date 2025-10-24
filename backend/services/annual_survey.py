@@ -12,9 +12,10 @@ from sqlalchemy.orm import selectinload
 from services.auth import AuthService
 
 from models.response.auth import PositionHolderResponse
-from models.response.annual_survey import AnnualSurveyResponse
+from models.response.annual_survey import AnnualSurveyFYResponse, AnnualSurveyResponse
 from models.database.survey_master import (
     AnnualSurvey,
+    AnnualSurveyFY,
     WorkOrderDetails,
     FundSanctioned,
     DoorToDoorCollectionDetails,
@@ -40,6 +41,7 @@ def get_response_model_from_survey(
     """Convert AnnualSurvey model to AnnualSurveyResponse."""
     return AnnualSurveyResponse(
         id=survey.id,
+        fy_id=survey.fy_id,
         gp_id=survey.gp_id,
         survey_date=survey.survey_date,
         vdo_id=survey.vdo_id,
@@ -78,7 +80,7 @@ class AnnualSurveyService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create_survey(
+    async def vdo_fills_the_survey(
         self, user: User, request: CreateAnnualSurveyRequest
     ) -> AnnualSurveyResponse:
         """Create a new annual survey."""
@@ -240,6 +242,7 @@ class AnnualSurveyService:
 
         return AnnualSurveyResponse(
             id=survey.id,
+            fy_id=survey.fy_id,
             gp_id=survey.gp_id,
             survey_date=survey.survey_date,
             vdo_id=survey.vdo_id,
@@ -342,3 +345,45 @@ class AnnualSurveyService:
         await self.db.execute(delete(AnnualSurvey).where(AnnualSurvey.id == survey_id))
         await self.db.commit()
         return True
+
+    async def get_active_financial_years(self) -> List[AnnualSurveyFYResponse]:
+        """Get list of active financial years from surveys."""
+        result = await self.db.execute(
+            select(AnnualSurveyFY).where(AnnualSurveyFY.active.is_(True))
+        )
+        fys = result.scalars().all()
+        return [AnnualSurveyFYResponse.model_validate(fy) for fy in fys]
+
+    async def get_latest_survey_by_gp(
+            self, gp_id: int
+    ) -> Optional[AnnualSurveyResponse]:
+        """Get the latest survey for a given Gram Panchayat."""
+        result = await self.db.execute(
+            select(AnnualSurvey)
+            .options(
+                selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
+                selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
+                selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
+                selectinload(AnnualSurvey.work_order),
+                selectinload(AnnualSurvey.fund_sanctioned),
+                selectinload(AnnualSurvey.door_to_door_collection),
+                selectinload(AnnualSurvey.road_sweeping),
+                selectinload(AnnualSurvey.drain_cleaning),
+                selectinload(AnnualSurvey.csc_details),
+                selectinload(AnnualSurvey.swm_assets),
+                selectinload(AnnualSurvey.sbmg_targets),
+                selectinload(AnnualSurvey.village_data).selectinload(
+                    VillageData.sbmg_assets
+                ),
+                selectinload(AnnualSurvey.village_data).selectinload(
+                    VillageData.gwm_assets
+                ),
+            )
+            .where(AnnualSurvey.gp_id == gp_id)
+            .order_by(AnnualSurvey.survey_date.desc())
+            .limit(1)
+        )
+        survey = result.scalar_one_or_none()
+        if survey:
+            return get_response_model_from_survey(survey)
+        return None

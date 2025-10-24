@@ -159,10 +159,22 @@ class VillageDataResponse(BaseModel):
         from_attributes = True
 
 
+class AnnualSurveyFYResponse(BaseModel):
+    """Response model for annual survey financial year."""
+
+    id: int
+    fy: str
+    active: bool
+
+    class Config:
+        from_attributes = True
+
+
 class AnnualSurveyResponse(BaseModel):
     """Response model for annual survey details."""
 
     id: int
+    fy_id: int
     gp_id: int
     survey_date: date
 
