@@ -199,7 +199,7 @@ async def add_complaint_comment(
 ):
     """Add a comment to a complaint (Workers and VDOs only, within their village)."""
     # Check if user is a Worker or VDO
-    if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER.value, UserRole.VDO.value]):
+    if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER, UserRole.VDO]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only Workers and VDOs can comment on complaints",
@@ -276,7 +276,7 @@ async def upload_complaint_media(
 ):
     """Upload media to a complaint (Workers and VDOs only, within their village)."""
     # Check if user is a Worker or VDO
-    if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER.value, UserRole.VDO.value]):
+    if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER, UserRole.VDO]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only Workers and VDOs can upload media to complaints",
@@ -337,7 +337,7 @@ async def resolve_complaint(
 ):
     """Mark complaint as resolved (Workers only, within their village)."""
     # Check if user is a Worker
-    if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER.value]):
+    if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only Workers can resolve complaints",
