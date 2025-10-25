@@ -231,8 +231,24 @@ class StateInspectionAnalyticsResponse(BaseModel):
     coverage_percentage: float
 
 
+class InspectionAnalyticsByGeoTypeResponse(BaseModel):
+    """Response model for inspection analytics by geography type."""
+
+    geography_id: int
+    geography_name: str
+    district_id: int
+    total_blocks: int
+    inspected_blocks: int
+    total_gps: int
+    inspected_gps: int
+    average_score: float
+    coverage_percentage: float
+
+    class Config:
+        from_attributes = True
+
 class InspectionAnalyticsResponse(BaseModel):
     """Response model for inspection analytics aggregated by geography type."""
 
     geo_type: str
-    response: List[Dict[str, Any]]
+    response: List[InspectionAnalyticsByGeoTypeResponse]
