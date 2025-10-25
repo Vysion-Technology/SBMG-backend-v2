@@ -4,6 +4,7 @@ Handles API endpoints for inspection management
 """
 
 from datetime import date
+import json
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status

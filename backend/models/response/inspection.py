@@ -236,13 +236,13 @@ class InspectionAnalyticsByGeoTypeResponse(BaseModel):
 
     geography_id: int
     geography_name: str
-    district_id: int
-    total_blocks: int
-    inspected_blocks: int
-    total_gps: int
-    inspected_gps: int
     average_score: float
     coverage_percentage: float
+    district_id: Optional[int] = None
+    total_blocks: Optional[int] = None
+    inspected_blocks: Optional[int] = None
+    total_gps: Optional[int] = None
+    inspected_gps: Optional[int] = None
 
     class Config:
         from_attributes = True

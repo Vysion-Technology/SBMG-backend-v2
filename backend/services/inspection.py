@@ -531,7 +531,7 @@ class InspectionService:
         if level is None:
             level = GeoTypeEnum.DISTRICT
 
-        response_items = []
+        response_items: List[Dict[str, Any]] = []
 
         if level == GeoTypeEnum.DISTRICT:
             # Get analytics for all districts or specific district
@@ -629,6 +629,11 @@ class InspectionService:
                     }
                     response_items.append(item)
 
+        for item in response_items:
+            # Round float values to 2 decimal places
+            for key in ["average_score", "coverage_percentage", "latest_score"]:
+                if key in item and item[key] is not None:
+                    item[key] = float(f"{item[key]:.2f}")
         return {
             "geo_type": level.value,
             "response": response_items,
