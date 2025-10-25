@@ -372,7 +372,6 @@ async def get_inspections(
 
         officer_name = f"{position.first_name} {position.last_name}" if position else "Unknown"
         officer_role = position.role.name if position and position.role else "Unknown"
-        print("Inspection other item:   ", inspection.other_items)
 
         inspection_items.append(
             InspectionListItemResponse(
