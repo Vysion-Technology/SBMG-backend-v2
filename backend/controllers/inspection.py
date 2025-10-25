@@ -67,7 +67,7 @@ async def create_inspection(
     try:
         inspection = await service.create_inspection(current_user, request)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
     # Load the inspection with all details to return
     inspection_detail = await get_inspection_detail(inspection.id, db)
@@ -85,7 +85,7 @@ async def get_inspection_analytics(
     end_date: Optional[date] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
-):
+) -> InspectionAnalyticsResponse:
     """
     Get inspection analytics aggregated by geographic level.
     Returns inspection statistics for each geographic unit at the specified level.
