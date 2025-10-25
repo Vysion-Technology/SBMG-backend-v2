@@ -26,6 +26,7 @@ from models.internal import GeoTypeEnum
 from models.requests.inspection import CreateInspectionRequest
 from models.response.inspection import (
     CommunitySanitationResponse,
+    CriticalInspectionResponse,
     HouseHoldWasteCollectionResponse,
     InspectionAnalyticsResponse,
     InspectionListItemResponse,
@@ -460,4 +461,19 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
         road_and_drain=RoadAndDrainCleaningResponse.model_validate(road) if road else None,
         community_sanitation=CommunitySanitationResponse.model_validate(community) if community else None,
         other_items=OtherInspectionItemsResponse.model_validate(other) if other else None,
+    )
+
+
+@router.get("/criticals", response_model=CriticalInspectionResponse)
+async def get_critical_inspection(
+    db: AsyncSession,
+) -> CriticalInspectionResponse:
+    """Get critical inspection details."""
+    # Build critical inspection response
+    return CriticalInspectionResponse(
+        no_safety_equipment=0,
+        csc_wo_water_or_electricity=0,
+        firm_not_paid=0,
+        staff_not_paid=0,
+        visibly_unclean_village=0,
     )
