@@ -3,7 +3,7 @@
 from datetime import date
 from enum import Enum
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from models.internal import GeoTypeEnum
 
@@ -29,7 +29,7 @@ class GeographyComplaintCountByStatusResponse(BaseModel):
     status_id: int
     status: ComplaintStatusEnum
     count: int
-    average_resolution_time: Optional[float]
+    average_resolution_time: Optional[float] = Field(..., description="Average resolution time in seconds")
 
 
 class ComplaintGeoAnalyticsResponse(BaseModel):
