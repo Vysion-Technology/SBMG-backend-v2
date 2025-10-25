@@ -39,8 +39,6 @@ router = APIRouter()
 async def create_complaint_with_media(
     complaint_type_id: int = Form(...),
     gp_id: int = Form(..., description="Gram Panchayat (village) ID"),
-    block_id: int = Form(..., description="Block ID"),
-    district_id: int = Form(..., description="District ID"),
     description: str = Form(..., description="Complaint description"),
     files: List[UploadFile] = File(default=[]),
     lat: float = Form(..., description="Latitude"),
@@ -58,14 +56,14 @@ async def create_complaint_with_media(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Latitude and Longitude are required",
             )
-        village_result = await db.execute(
-            select(GramPanchayat)
+        gp = await db.execute(
+            select(GramPanchayat).join(GramPanchayat.block)
             .options(selectinload(GramPanchayat.block), selectinload(GramPanchayat.district))
             .where(GramPanchayat.id == gp_id)
         )
-        village = village_result.scalar_one_or_none()
-        if not village:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Village not found")
+        gp = gp.scalar_one_or_none()
+        if not gp:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gram Panchayat not found")
 
         auth_service = AuthService(db)
         user = await auth_service.get_public_user_by_token(token)
@@ -83,12 +81,13 @@ async def create_complaint_with_media(
             await db.commit()
             await db.refresh(complaint_status)
 
+
         # Create complaint
         complaint = Complaint(
             complaint_type_id=complaint_type_id,
-            gp_id=gp_id,
-            block_id=block_id,
-            district_id=district_id,
+            gp_id=gp.id,
+            block_id=gp.block_id,
+            district_id=gp.block.district_id,
             description=description,
             status_id=complaint_status.id,
             public_user_id=user.id,
@@ -186,9 +185,9 @@ async def create_complaint_with_media(
             description=complaint.description,
             mobile_number=complaint.mobile_number,
             status_name=complaint_status.name,
-            village_name=village.name,
-            block_name=village.block.name,
-            district_name=village.district.name,
+            village_name=gp.name,
+            block_name=gp.block.name,
+            district_name=gp.district.name,
             created_at=complaint.created_at,
             updated_at=complaint.updated_at,
             lat=complaint.lat,
@@ -200,6 +199,9 @@ async def create_complaint_with_media(
             verified_at=complaint.verified_at,
             closed_at=complaint.closed_at,
         )
+
+    except HTTPException:
+        raise
 
     except Exception as e:
         logging.error("Error creating complaint with media: %s", e)
