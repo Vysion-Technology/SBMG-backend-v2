@@ -189,9 +189,7 @@ class GPInspectionAnalyticsResponse(BaseModel):
     inspected_villages: int
     average_score: float
     coverage_percentage: float
-    villages: Optional[List[Dict[str, Any]]] = (
-        None  # Breakdown by villages (if applicable)
-    )
+    villages: Optional[List[Dict[str, Any]]] = None  # Breakdown by villages (if applicable)
 
 
 class BlockInspectionAnalyticsResponse(BaseModel):
@@ -249,8 +247,19 @@ class InspectionAnalyticsByGeoTypeResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class InspectionAnalyticsResponse(BaseModel):
     """Response model for inspection analytics aggregated by geography type."""
 
     geo_type: str
     response: List[InspectionAnalyticsByGeoTypeResponse]
+
+
+class CriticalInspectionResponse(BaseModel):
+    """Response model for critical inspection details."""
+
+    no_safety_equipment: int
+    csc_wo_water_or_electricity: int
+    firm_not_paid: int
+    staff_not_paid: int
+    visibly_unclean_village: int
