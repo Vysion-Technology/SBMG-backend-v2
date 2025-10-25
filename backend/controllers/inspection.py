@@ -40,6 +40,21 @@ from services.inspection import InspectionService
 router = APIRouter()
 
 
+@router.get("/criticals", response_model=CriticalInspectionResponse)
+async def get_critical_inspection(
+    db: AsyncSession = Depends(get_db),
+) -> CriticalInspectionResponse:
+    """Get critical inspection details."""
+    # Build critical inspection response
+    return CriticalInspectionResponse(
+        no_safety_equipment=0,
+        csc_wo_water_or_electricity=0,
+        firm_not_paid=0,
+        staff_not_paid=0,
+        visibly_unclean_village=0,
+    )
+
+
 @router.post("/", response_model=InspectionResponse, status_code=status.HTTP_201_CREATED)
 async def create_inspection(
     request: CreateInspectionRequest,
@@ -464,16 +479,3 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
     )
 
 
-@router.get("/criticals", response_model=CriticalInspectionResponse)
-async def get_critical_inspection(
-    db: AsyncSession,
-) -> CriticalInspectionResponse:
-    """Get critical inspection details."""
-    # Build critical inspection response
-    return CriticalInspectionResponse(
-        no_safety_equipment=0,
-        csc_wo_water_or_electricity=0,
-        firm_not_paid=0,
-        staff_not_paid=0,
-        visibly_unclean_village=0,
-    )
