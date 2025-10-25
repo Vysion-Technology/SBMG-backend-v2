@@ -192,6 +192,7 @@ class InspectionService:
         district_id: Optional[int] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
+        inspected_by_user_id: Optional[int] = None,
     ) -> List[Inspection]:
         """Get paginated list of all inspections (admin only)."""
         # Base query
@@ -216,6 +217,12 @@ class InspectionService:
             filters.append(Inspection.date >= start_date)
         if end_date:
             filters.append(Inspection.date <= end_date)
+        if inspected_by_user_id:
+            filters.append(
+                Inspection.position_holder_id.in_(
+                    select(PositionHolder.id).where(PositionHolder.user_id == inspected_by_user_id)
+                )
+            )
 
         if filters:
             query = query.where(and_(*filters))
@@ -519,7 +526,6 @@ class InspectionService:
         end_date: Optional[date] = None,
     ) -> Dict[str, Any]:
         """Get inspection analytics aggregated by geographic level."""
-        from models.internal import GeoTypeEnum
 
         # Default to current month if no dates provided
         if not start_date:
@@ -535,7 +541,6 @@ class InspectionService:
 
         if level == GeoTypeEnum.DISTRICT:
             # Get analytics for all districts or specific district
-
 
             if district_id:
                 analytics = await self.get_district_inspection_analytics(district_id, start_date, end_date)
@@ -553,10 +558,8 @@ class InspectionService:
                     response_items.append(item)
             else:
                 # Get all districts - use batch query
-                
-                districts_result = await self.db.execute(
-                    select(District.id, District.name)
-                )
+
+                districts_result = await self.db.execute(select(District.id, District.name))
                 districts = districts_result.fetchall()
 
                 # Get analytics for all districts in one batch query
@@ -578,7 +581,6 @@ class InspectionService:
         elif level == GeoTypeEnum.BLOCK:
             # Get analytics for blocks
 
-            
             query = select(Block.id, Block.name)
             if district_id:
                 query = query.where(Block.district_id == district_id)
@@ -602,8 +604,6 @@ class InspectionService:
 
         else:  # VILLAGE level
             # Get analytics for villages (gram panchayats)
-            
-
 
             query = select(GramPanchayat.id, GramPanchayat.name)
             if block_id:

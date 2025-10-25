@@ -4,7 +4,6 @@ Handles API endpoints for inspection management
 """
 
 from datetime import date
-import json
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -301,6 +300,7 @@ async def get_inspections(
     district_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
+    inspected_by_user_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
 ):
@@ -348,6 +348,7 @@ async def get_inspections(
         district_id=district_id,
         start_date=start_date,
         end_date=end_date,
+        inspected_by_user_id=inspected_by_user_id,
     )
     total = await service.get_total_count(
         village_id=village_id,
