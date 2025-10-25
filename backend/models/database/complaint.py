@@ -17,6 +17,7 @@ from sqlalchemy import (
 
 from database import Base
 from models.database.geography import District, Block, GramPanchayat
+from models.response.admin import User
 
 
 class ComplaintType(Base):  # type: ignore
@@ -221,5 +222,5 @@ class ComplaintComment(Base):  # type: ignore
     )
 
     # Relationships
-    complaint = relationship("Complaint", back_populates="comments")
-    user = relationship("User", back_populates="complaint_comments")
+    complaint: Mapped["Complaint"] = relationship("Complaint", back_populates="comments")
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="complaint_comments")

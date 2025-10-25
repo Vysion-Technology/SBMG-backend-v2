@@ -70,7 +70,8 @@ class ComplaintService:
             # selectinload(Complaint.media_urls),
             selectinload(Complaint.media),
             selectinload(Complaint.comments),
-        )
+            selectinload(Complaint.comments).selectinload(ComplaintComment.user),
+        ).join(ComplaintStatus, isouter=True).join(Village, isouter=True).join(Block, isouter=True).join(District, isouter=True).join(ComplaintType, isouter=True).join(ComplaintComment, isouter=True).join(Complaint.media, isouter=True)
         if district_id is not None:
             query = query.where(Complaint.district_id == district_id)  # type: ignore
         if block_id is not None:
@@ -138,7 +139,7 @@ class ComplaintService:
                         complaint_id=comment.complaint_id,
                         comment=comment.comment,
                         commented_at=comment.commented_at,
-                        user_name=comment.user.name if comment.user else "",
+                        user_name=comment.user.username if comment.user else "",
                     )
                     for comment in complaint.comments
                 ],
