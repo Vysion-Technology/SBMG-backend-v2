@@ -3,13 +3,15 @@ Inspection Service
 Handles business logic for inspection management
 """
 
-
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from sqlalchemy import and_, func, select, text
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from models.internal import GeoTypeEnum
+from models.response.inspection import InspectionListItemResponse, TopPerformerInspectionResponse, TopPerformerInspectorItemResponse
 
 if TYPE_CHECKING:
     from models.internal import GeoTypeEnum
@@ -638,3 +640,41 @@ class InspectionService:
             "geo_type": level.value,
             "response": response_items,
         }
+
+    async def top_performer_inspectors(
+        self,
+        level: GeoTypeEnum,
+        top_n: int = 5,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> List[TopPerformerInspectionResponse]:
+        """Get the inspectors with the highest number of inspections conducted at the specified geographic level."""
+
+        return [
+            TopPerformerInspectionResponse(
+                level=level,
+                inspectors=[
+                    TopPerformerInspectorItemResponse(
+                        geo_id=1,
+                        geo_name="Sample Geo",
+                        inspector_name="Inspector Name",
+                        inspections_count=100,
+                    ),
+                    TopPerformerInspectorItemResponse(
+                        geo_id=1,
+                        geo_name="Sample Geo",
+                        inspector_name="Inspector Name",
+                        inspections_count=80,
+                    ),
+                    TopPerformerInspectorItemResponse(
+                        geo_id=1,
+                        geo_name="Sample Geo",
+                        inspector_name="Inspector Name",
+                        inspections_count=70,
+                    )
+                ]
+            )
+        ]  # Implementation goes here

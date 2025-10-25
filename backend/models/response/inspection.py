@@ -11,6 +11,7 @@ from models.database.inspection import (
     DrainCleaningFrequency,
     CSCCleaningFrequency,
 )
+from models.internal import GeoTypeEnum
 
 
 class InspectionImageResponse(BaseModel):
@@ -263,3 +264,19 @@ class CriticalInspectionResponse(BaseModel):
     firm_not_paid: int
     staff_not_paid: int
     visibly_unclean_village: int
+
+
+class TopPerformerInspectorItemResponse(BaseModel):
+    """Response model for top performer inspector item."""
+
+    geo_id: int
+    geo_name: str
+    inspector_name: str
+    inspections_count: int
+
+class TopPerformerInspectionResponse(BaseModel):
+    """Response model for top performer inspections."""
+
+    level: GeoTypeEnum
+    inspectors: List[TopPerformerInspectorItemResponse]
+    

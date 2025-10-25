@@ -34,6 +34,7 @@ from models.response.inspection import (
     OtherInspectionItemsResponse,
     PaginatedInspectionResponse,
     RoadAndDrainCleaningResponse,
+    TopPerformerInspectionResponse,
 )
 from services.inspection import InspectionService
 
@@ -480,3 +481,43 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
     )
 
 
+@router.get("top-performers", response_model=List[TopPerformerInspectionResponse])
+async def top_performer_inspectors(
+    level: GeoTypeEnum,
+    district_id: Optional[int] = None,
+    block_id: Optional[int] = None,
+    gp_id: Optional[int] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> List[TopPerformerInspectionResponse]:
+    """
+    Get top performer inspectors based on inspection scores at the specified geographic level.
+    """
+    # Permission checks based on user's jurisdiction
+    if current_user.block_id is not None and level == GeoTypeEnum.DISTRICT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access district-level top performers",
+        )
+    if current_user.gp_id is not None and level in [
+        GeoTypeEnum.DISTRICT,
+        GeoTypeEnum.BLOCK,
+    ]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access district or block-level top performers",
+        )
+
+    inspection_service = InspectionService(db)
+    result = await inspection_service.top_performer_inspectors(
+        level=level,
+        district_id=district_id,
+        block_id=block_id,
+        gp_id=gp_id,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    return result
