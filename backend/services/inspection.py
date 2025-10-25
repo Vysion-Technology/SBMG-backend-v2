@@ -199,6 +199,7 @@ class InspectionService:
             selectinload(Inspection.gp).selectinload(GramPanchayat.block),
             selectinload(Inspection.gp).selectinload(GramPanchayat.district),
             selectinload(Inspection.media),
+            selectinload(Inspection.other_item),
         )
 
         # Apply additional filters
@@ -263,6 +264,71 @@ class InspectionService:
         total = total_result.scalar() or 0
 
         return total
+
+    async def get_my_inspections(
+        self,
+        position_ids: List[int],
+        page: int = 1,
+        page_size: int = 20,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> List[Inspection]:
+        """Get paginated list of inspections done by the current user."""
+        # Base query
+        query = select(Inspection).options(
+            selectinload(Inspection.gp).selectinload(GramPanchayat.block),
+            selectinload(Inspection.gp).selectinload(GramPanchayat.district),
+            selectinload(Inspection.media),
+            selectinload(Inspection.other_item),
+        )
+
+        # Filter by position holder IDs
+        filters: List[Any] = [Inspection.position_holder_id.in_(position_ids)]
+
+        # Apply additional filters
+        if start_date:
+            filters.append(Inspection.date >= start_date)
+        if end_date:
+            filters.append(Inspection.date <= end_date)
+
+        query = query.where(and_(*filters))
+
+        # Apply pagination
+        query = query.order_by(Inspection.date.desc(), Inspection.start_time.desc())
+        query = query.offset((page - 1) * page_size).limit(page_size)
+
+        # Execute query
+        result = await self.db.execute(query)
+        inspections = list(result.scalars().all())
+
+        return inspections
+
+    async def get_my_inspections_count(
+        self,
+        position_ids: List[int],
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> int:
+        """Get total count of inspections done by the current user."""
+        # Base count query
+        count_query = select(func.count()).select_from(Inspection)
+
+        # Filter by position holder IDs
+        filters: List[Any] = [Inspection.position_holder_id.in_(position_ids)]
+
+        # Apply additional filters
+        if start_date:
+            filters.append(Inspection.date >= start_date)
+        if end_date:
+            filters.append(Inspection.date <= end_date)
+
+        count_query = count_query.where(and_(*filters))
+
+        total_result = await self.db.execute(count_query)
+        total = total_result.scalar() or 0
+
+        return total
+
 
     async def get_district_inspection_analytics(
         self,

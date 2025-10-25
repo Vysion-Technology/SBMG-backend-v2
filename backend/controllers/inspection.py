@@ -39,9 +39,7 @@ from services.inspection import InspectionService
 router = APIRouter()
 
 
-@router.post(
-    "/", response_model=InspectionResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/", response_model=InspectionResponse, status_code=status.HTTP_201_CREATED)
 async def create_inspection(
     request: CreateInspectionRequest,
     db: AsyncSession = Depends(get_db),
@@ -137,6 +135,106 @@ async def get_inspection_analytics(
     return InspectionAnalyticsResponse(**result)
 
 
+@router.get("/my", response_model=PaginatedInspectionResponse)
+async def get_my_inspections(
+    page: int = 1,
+    page_size: int = 20,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+):
+    """
+    Get paginated list of inspections done by the current user.
+
+    Filters:
+    - start_date: Filter inspections from this date onwards
+    - end_date: Filter inspections up to this date
+    """
+    if page < 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Page must be greater than 0",
+        )
+
+    if page_size < 1 or page_size > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Page size must be between 1 and 100",
+        )
+
+    service = InspectionService(db)
+
+    # Get user's active position IDs
+    position_ids = [pos.id for pos in current_user.positions]
+
+    if not position_ids:
+        # User has no positions, return empty list
+        return PaginatedInspectionResponse(
+            items=[],
+            total=0,
+            page=page,
+            page_size=page_size,
+            total_pages=0,
+        )
+
+    inspections = await service.get_my_inspections(
+        position_ids=position_ids,
+        page=page,
+        page_size=page_size,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    total = await service.get_my_inspections_count(
+        position_ids=position_ids,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    # Load position holder details for each inspection
+    inspection_items: List[InspectionListItemResponse] = []
+    for inspection in inspections:
+        # Get position holder
+        pos_result = await db.execute(
+            select(PositionHolder)
+            .options(
+                selectinload(PositionHolder.role),
+                selectinload(PositionHolder.user),
+            )
+            .where(PositionHolder.id == inspection.position_holder_id)
+        )
+        position = pos_result.scalar_one_or_none()
+
+        officer_name = f"{position.first_name} {position.last_name}" if position else "Unknown"
+        officer_role = position.role.name if position and position.role else "Unknown"
+
+        inspection_items.append(
+            InspectionListItemResponse(
+                id=inspection.id,
+                village_id=inspection.gp_id,
+                village_name=inspection.gp.name if inspection.gp else "Unknown",
+                block_name=inspection.gp.block.name if inspection.gp and inspection.gp.block else "Unknown",
+                district_name=inspection.gp.district.name if inspection.gp and inspection.gp.district else "Unknown",
+                date=inspection.date,
+                officer_name=officer_name,
+                officer_role=officer_role,
+                remarks=inspection.remarks,
+                visibly_clean=inspection.other_item.village_visibly_clean if inspection.other_item else False,
+                # overall_score=inspection.overall_score,
+            )
+        )
+
+    total_pages = (total + page_size - 1) // page_size
+
+    return PaginatedInspectionResponse(
+        items=inspection_items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
+
+
 @router.get("/{inspection_id}", response_model=InspectionResponse)
 async def get_inspection(
     inspection_id: int,
@@ -151,9 +249,7 @@ async def get_inspection(
     inspection_detail = await get_inspection_detail(inspection_id, db)
 
     if not inspection_detail:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found")
 
     # Check if user has access to this inspection
     service = InspectionService(db)
@@ -162,20 +258,14 @@ async def get_inspection(
     user_roles = [pos.role.name for pos in current_user.positions if pos.role]
     if UserRole.ADMIN not in user_roles and UserRole.SUPERADMIN not in user_roles:
         # Verify the inspection is within jurisdiction
-        result = await db.execute(
-            select(Inspection).where(Inspection.id == inspection_id)
-        )
+        result = await db.execute(select(Inspection).where(Inspection.id == inspection_id))
         inspection = result.scalar_one_or_none()
 
         if not inspection:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found")
 
         # Check jurisdiction
-        can_access = await service.can_inspect_village(
-            current_user, inspection.gp_id
-        )
+        can_access = await service.can_inspect_village(current_user, inspection.gp_id)
         if not can_access:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -264,28 +354,22 @@ async def get_inspections(
         )
         position = pos_result.scalar_one_or_none()
 
-        officer_name = (
-            f"{position.first_name} {position.last_name}" if position else "Unknown"
-        )
+        officer_name = f"{position.first_name} {position.last_name}" if position else "Unknown"
         officer_role = position.role.name if position and position.role else "Unknown"
+        print("Inspection other item:   ", inspection.other_items)
 
         inspection_items.append(
             InspectionListItemResponse(
                 id=inspection.id,
                 village_id=inspection.gp_id,
-                village_name=inspection.gp.name
-                if inspection.gp
-                else "Unknown",
-                block_name=inspection.gp.block.name
-                if inspection.gp and inspection.gp.block
-                else "Unknown",
-                district_name=inspection.gp.district.name
-                if inspection.gp and inspection.gp.district
-                else "Unknown",
+                village_name=inspection.gp.name if inspection.gp else "Unknown",
+                block_name=inspection.gp.block.name if inspection.gp and inspection.gp.block else "Unknown",
+                district_name=inspection.gp.district.name if inspection.gp and inspection.gp.district else "Unknown",
                 date=inspection.date,
                 officer_name=officer_name,
                 officer_role=officer_role,
                 remarks=inspection.remarks,
+                visibly_clean=inspection.other_item.village_visibly_clean if inspection.other_item else False,
             )
         )
 
@@ -300,11 +384,8 @@ async def get_inspections(
     )
 
 
-
 # Helper function to get inspection details
-async def get_inspection_detail(
-    inspection_id: int, db: AsyncSession
-) -> Optional[InspectionResponse]:
+async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optional[InspectionResponse]:
     """Get full inspection details with all related data."""
     # Get inspection with relationships
     result = await db.execute(
@@ -332,9 +413,7 @@ async def get_inspection_detail(
     )
     position = pos_result.scalar_one_or_none()
 
-    officer_name = (
-        f"{position.first_name} {position.last_name}" if position else "Unknown"
-    )
+    officer_name = f"{position.first_name} {position.last_name}" if position else "Unknown"
     officer_role = position.role.name if position and position.role else "Unknown"
 
     # Get household waste items
@@ -347,24 +426,18 @@ async def get_inspection_detail(
 
     # Get road and drain items
     road_result = await db.execute(
-        select(RoadAndDrainCleaningInspectionItem).where(
-            RoadAndDrainCleaningInspectionItem.id == inspection.id
-        )
+        select(RoadAndDrainCleaningInspectionItem).where(RoadAndDrainCleaningInspectionItem.id == inspection.id)
     )
     road = road_result.scalar_one_or_none()
 
     # Get community sanitation items
     community_result = await db.execute(
-        select(CommunitySanitationInspectionItem).where(
-            CommunitySanitationInspectionItem.id == inspection.id
-        )
+        select(CommunitySanitationInspectionItem).where(CommunitySanitationInspectionItem.id == inspection.id)
     )
     community = community_result.scalar_one_or_none()
 
     # Get other items
-    other_result = await db.execute(
-        select(OtherInspectionItem).where(OtherInspectionItem.id == inspection.id)
-    )
+    other_result = await db.execute(select(OtherInspectionItem).where(OtherInspectionItem.id == inspection.id))
     other = other_result.scalar_one_or_none()
 
     # Build response
@@ -381,22 +454,10 @@ async def get_inspection_detail(
         officer_name=officer_name,
         officer_role=officer_role,
         village_name=inspection.gp.name if inspection.gp else "Unknown",
-        block_name=inspection.gp.block.name
-        if inspection.gp and inspection.gp.block
-        else "Unknown",
-        district_name=inspection.gp.district.name
-        if inspection.gp and inspection.gp.district
-        else "Unknown",
-        household_waste=HouseHoldWasteCollectionResponse.model_validate(household)
-        if household
-        else None,
-        road_and_drain=RoadAndDrainCleaningResponse.model_validate(road)
-        if road
-        else None,
-        community_sanitation=CommunitySanitationResponse.model_validate(community)
-        if community
-        else None,
-        other_items=OtherInspectionItemsResponse.model_validate(other)
-        if other
-        else None,
+        block_name=inspection.gp.block.name if inspection.gp and inspection.gp.block else "Unknown",
+        district_name=inspection.gp.district.name if inspection.gp and inspection.gp.district else "Unknown",
+        household_waste=HouseHoldWasteCollectionResponse.model_validate(household) if household else None,
+        road_and_drain=RoadAndDrainCleaningResponse.model_validate(road) if road else None,
+        community_sanitation=CommunitySanitationResponse.model_validate(community) if community else None,
+        other_items=OtherInspectionItemsResponse.model_validate(other) if other else None,
     )

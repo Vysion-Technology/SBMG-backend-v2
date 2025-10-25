@@ -129,6 +129,8 @@ class InspectionListItemResponse(BaseModel):
     officer_name: str
     officer_role: str
     remarks: Optional[str]
+    visibly_clean: Optional[bool] = False
+    overall_score: Optional[float] = 0.0
 
     class Config:
         from_attributes = True
