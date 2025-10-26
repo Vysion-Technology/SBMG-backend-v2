@@ -1,3 +1,6 @@
+"""Models for authentication and user management."""
+
+from uuid import uuid4
 from typing import List, Optional
 from datetime import date, datetime
 
@@ -29,9 +32,7 @@ class User(Base):  # type: ignore
     __tablename__ = "authority_users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
-    username: Mapped[str] = mapped_column(
-        String, unique=True, nullable=False, index=True
-    )  # type: ignore
+    username: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)  # type: ignore
     email: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)  # type: ignore
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)  # type: ignore
@@ -55,20 +56,81 @@ class User(Base):  # type: ignore
     )
 
     # Relationships
-    positions: Mapped[List["PositionHolder"]] = relationship(
-        "PositionHolder", back_populates="user"
-    )
+    positions: Mapped[List["PositionHolder"]] = relationship("PositionHolder", back_populates="user")
     complaint_assignments = relationship("ComplaintAssignment", back_populates="user")
     complaint_comments = relationship("ComplaintComment", back_populates="user")
+    district: Mapped[Optional[District]] = relationship("District")
+    block: Mapped[Optional[Block]] = relationship("Block")
+    gp: Mapped[Optional[GramPanchayat]] = relationship("GramPanchayat")
 
     __table_args__ = (
         # Ensures no two position holders have the same role in the same geographical area
         # i.e., only one VDO per village, one BDO per block, etc.
         # Note: This does not prevent a user from holding multiple roles or positions in different areas
         # but prevents role duplication in the same area.
-        UniqueConstraint(
-            "gp_id", "block_id", "district_id", "username", name="uix_user_geo"
-        ),
+        UniqueConstraint("gp_id", "block_id", "district_id", "username", name="uix_user_geo"),
+    )
+
+    @property
+    def role(self) -> Optional[str]:
+        """Returns the primary role of the user based on their position holders."""
+        if (not self.district_id) and (not self.block_id) and (not self.gp_id):
+            return "ADMIN"
+        if self.district_id and (not self.block_id) and (not self.gp_id):
+            return "CEO"
+        if self.block_id and (not self.gp_id):
+            return "BDO"
+        if self.gp_id:
+            return "VDO"
+        return "WORKER"
+
+    @property
+    def geo_entity(self) -> str:
+        """Returns the geographical entity of the user."""
+        geo_entities: List[str] = []
+        if self.district:
+            geo_entities.append(self.district.name)
+        if self.block:
+            geo_entities.append(self.block.name)
+        if self.gp:
+            geo_entities.append(self.gp.name)
+        return ", ".join(geo_entities)
+
+    @property
+    def name(self) -> str:
+        """Returns the name of the user."""
+        name: str = f"{self.role}"
+        if self.geo_entity:
+            name += f" - {self.geo_entity}"
+        return name
+
+
+def generate_employee_id() -> str:
+    """Generates a unique employee ID."""
+    # This is a placeholder implementation. In a real system, this would generate
+    # a unique ID based on specific business rules.
+
+    return str(uuid4())[:8].upper()
+
+
+class Employee(Base):  # type: ignore
+    """
+    Describes an employee entity
+    """
+
+    __tablename__ = "employees"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
+    employee_id: Mapped[str] = mapped_column(String, unique=True, nullable=False, default=generate_employee_id)  # type: ignore
+    first_name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
+    middle_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
+    last_name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
+    email: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)  # type: ignore
+    mobile_number: Mapped[Optional[str]] = mapped_column(
+        String,
+        unique=True,
+        nullable=False,
+        index=True,
     )
 
 
@@ -105,6 +167,7 @@ class PositionHolder(Base):  # type: ignore
         ForeignKey("authority_users.id"),
         nullable=False,
     )
+
     first_name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     middle_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     last_name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore

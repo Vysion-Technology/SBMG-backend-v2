@@ -139,7 +139,7 @@ class ComplaintService:
                         complaint_id=comment.complaint_id,
                         comment=comment.comment,
                         commented_at=comment.commented_at,
-                        user_name=comment.user.username if comment.user else "",
+                        user_name=comment.user.name if comment.user else "",
                     )
                     for comment in complaint.comments
                 ],

@@ -17,7 +17,7 @@ from sqlalchemy import (
 
 from database import Base
 from models.database.geography import District, Block, GramPanchayat
-from models.response.admin import User
+from models.database.auth import User
 
 
 class ComplaintType(Base):  # type: ignore

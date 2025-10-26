@@ -254,7 +254,12 @@ async def add_complaint_comment(
                 media_url = f"/media/complaints/{complaint_id}/comments/{comment.id}/{photo.filename}"
 
             # Create media record
-            media = ComplaintMedia(complaint_id=complaint_id, media_url=media_url)
+            media = ComplaintMedia(
+                complaint_id=complaint_id,
+                media_url=media_url,
+                uploaded_by_user_id=current_user.id,
+                uploaded_by_public_mobile=None,
+            )
             db.add(media)
             await db.commit()
         except HTTPException:
@@ -323,7 +328,12 @@ async def upload_complaint_media(
             media_url = f"/media/complaints/{complaint_id}/media/{file.filename}"
 
         # Create media record
-        media = ComplaintMedia(complaint_id=complaint_id, media_url=media_url)
+        media = ComplaintMedia(
+            complaint_id=complaint_id,
+            media_url=media_url,
+            uploaded_by_user_id=current_user.id,
+            uploaded_by_public_mobile=None,
+        )
         db.add(media)
         await db.commit()
         await db.refresh(media)
