@@ -108,6 +108,7 @@ class AnnualSurveyService:
             await self.db.execute(
                 insert(AnnualSurvey)
                 .values(
+                    fy_id=request.fy_id,
                     gp_id=request.gp_id,
                     survey_date=date.today(),
                     vdo_id=position.id,
@@ -210,6 +211,7 @@ class AnnualSurveyService:
                 village = VillageData(
                     survey_id=survey.id,
                     village_id=village_req.village_id,
+                    village_name=village_req.village_name,
                     population=village_req.population,
                     num_households=village_req.num_households,
                 )
