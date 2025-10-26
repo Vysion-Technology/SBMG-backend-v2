@@ -439,7 +439,6 @@ class ComplaintService:
             query = query.where(Complaint.block_id == block_id)  # type: ignore
         if gp_id is not None:
             query = query.where(Complaint.gp_id == gp_id)  # type: ignore
-        query = query.limit(n)
         results = await self.db.execute(query)
         res = results.fetchall()
 
@@ -491,4 +490,6 @@ class ComplaintService:
             )
             for geo_id in nested_rows
         ]
-        return sorted(res, key=lambda x: x.score, reverse=True)
+        res =  sorted(res, key=lambda x: (x.score), reverse=True)
+        res = sorted(res, key=lambda x: (x.geo_name))
+        return res[:n]
