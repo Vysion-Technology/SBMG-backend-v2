@@ -229,4 +229,7 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
         comments=comments,  # type: ignore
         assigned_worker=assigned_worker,
         assignment_date=assignment_date,
+        resolved_at=complaint.resolved_at,
+        verified_at=complaint.verified_at,
+        closed_at=complaint.closed_at,
     )

@@ -143,6 +143,9 @@ class ComplaintService:
                     )
                     for comment in complaint.comments
                 ],
+                resolved_at=complaint.resolved_at,
+                verified_at=complaint.verified_at,
+                closed_at=complaint.closed_at,
             )
             for complaint in complaints
         ]
