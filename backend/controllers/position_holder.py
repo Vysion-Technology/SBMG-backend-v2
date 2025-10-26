@@ -190,8 +190,7 @@ async def create_position_holder(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
-    
+        ) from e   
     # Refresh to load relationships
     position = await position_service.get_position_holder_by_id(position.id)
     
