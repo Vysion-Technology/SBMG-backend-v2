@@ -92,9 +92,18 @@ class InspectionService:
     async def create_inspection(self, user: User, request: CreateInspectionRequest) -> Inspection:
         """Create a new inspection."""
         # Get active position
-        position = await self.get_user_active_position(user)
-        if not position:
+        positions = await self.db.execute(
+            select(PositionHolder).where(
+                PositionHolder.user_id == user.id,
+                PositionHolder.end_date.is_(None)
+            )
+        )
+        positions = positions.scalars().all()
+        if not positions:
             raise ValueError("User does not have an active position or is a VDO")
+        if len(positions) > 1:
+            raise ValueError("User has multiple active positions; cannot determine which to use")
+        position = positions[0]
 
         # Check if user can inspect this village
         if not await self.can_inspect_village(user, request.village_id):
@@ -171,14 +180,6 @@ class InspectionService:
             )
             self.db.add(other_item)
 
-        # Create images if provided
-        if request.images:
-            for img in request.images:
-                image = InspectionImage(
-                    inspection_id=inspection.id,
-                    image_url=img.image_url,
-                )
-                self.db.add(image)
 
         await self.db.commit()
         await self.db.refresh(inspection)
