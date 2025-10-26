@@ -1,3 +1,4 @@
+""""Service for managing notices."""
 from typing import Optional, List
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
