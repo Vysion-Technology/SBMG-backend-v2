@@ -71,10 +71,10 @@ async def create_inspection(
     """
     # Check if user is VDO (not allowed to inspect)
     user_roles = [pos.role.name for pos in current_user.positions if pos.role]
-    if UserRole.VDO in user_roles and len(user_roles) == 1:
+    if UserRole.WORKER in user_roles and len(user_roles) == 1:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="VDO cannot create inspections",
+            detail="WORKERS cannot create inspections",
         )
 
     service = InspectionService(db)

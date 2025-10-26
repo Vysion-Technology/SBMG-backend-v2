@@ -121,8 +121,8 @@ class Employee(Base):  # type: ignore
     __tablename__ = "employees"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
-    employee_id: Mapped[str] = mapped_column(String, unique=True, nullable=False, default=generate_employee_id)  # type: ignore
-    first_name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
+    employee_id: Mapped[str] = mapped_column(String, unique=True, nullable=False, default=generate_employee_id, index=True)  # type: ignore
+    first_name: Mapped[str] = mapped_column(String, nullable=False, index=True)  # type: ignore
     middle_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     last_name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     email: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)  # type: ignore
