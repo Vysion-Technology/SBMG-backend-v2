@@ -37,12 +37,12 @@ class NoticeService:
         return notice
 
     async def get_notices_sent_by_user(
-        self, sender_id: int, skip: int = 0, limit: int = 100
+        self, sender_ids: List[int], skip: int = 0, limit: int = 100
     ) -> List[Notice]:
         """Get notices sent by a specific user."""
         result = await self.db.execute(
             select(Notice)
-            .where(Notice.sender_id == sender_id)
+            .where(Notice.sender_id.in_(sender_ids))
             .offset(skip)
             .limit(limit)
         )
@@ -50,12 +50,12 @@ class NoticeService:
         return list(notices)
 
     async def get_notices_received_by_user(
-        self, receiver_id: int, skip: int = 0, limit: int = 100
+        self, receiver_ids: List[int], skip: int = 0, limit: int = 100
     ) -> List[Notice]:
         """Get notices received by a specific user."""
         result = await self.db.execute(
             select(Notice)
-            .where(Notice.receiver_id == receiver_id)
+            .where(Notice.receiver_id.in_(receiver_ids))
             .offset(skip)
             .limit(limit)
         )

@@ -194,3 +194,9 @@ class PositionHolderService:
         result = await self.db.execute(select(Role).where(Role.name == role_name))
         return result.scalar_one_or_none()
 
+    async def get_position_holder_ids_by_user(self, user_id: int) -> List[int]:
+        """Get position holder IDs associated with a user."""
+        result = await self.db.execute(
+            select(PositionHolder.id).where(PositionHolder.user_id == user_id)
+        )
+        return [row[0] for row in result.all()]

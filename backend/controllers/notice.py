@@ -16,6 +16,7 @@ from models.response.notice import (
 from auth_utils import require_staff_role
 
 from services.permission import PermissionService
+from services.position_holder import PositionHolderService
 from services.user import UserService
 from services.notice import NoticeService
 
@@ -88,8 +89,12 @@ async def get_sent_notices(
     current_user: User = Depends(require_staff_role),
 ):
     """Get all notices sent by the current user."""
+    current_user_position_ids = await PositionHolderService(db).get_position_holder_ids_by_user(
+        user_id=current_user.id
+    )
+
     notices = await NoticeService(db).get_notices_sent_by_user(
-        sender_id=current_user.id, skip=skip, limit=limit
+        sender_ids=current_user_position_ids, skip=skip, limit=limit
     )
     return [
         NoticeDetailResponse(
@@ -112,8 +117,13 @@ async def get_received_notices(
     current_user: User = Depends(require_staff_role),
 ):
     """Get all notices received by the current user."""
+    # Position Holder IDs of the current user
+    current_user_position_ids = await PositionHolderService(db).get_position_holder_ids_by_user(
+        user_id=current_user.id
+    )
+    print(current_user_position_ids)
     notices = await NoticeService(db).get_notices_received_by_user(
-        receiver_id=current_user.id, skip=skip, limit=limit
+        receiver_ids=current_user_position_ids, skip=skip, limit=limit
     )
     return [
         NoticeDetailResponse(
@@ -132,21 +142,12 @@ async def get_received_notices(
 async def get_notice_by_id(
     notice_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role),
 ):
     """Get a specific notice by ID."""
     notice = await NoticeService(db).get_notice_by_id(notice_id=notice_id)
     if not notice:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found"
-        )
-    if (
-        not notice.sender_id == current_user.id
-        and not notice.receiver_id == current_user.id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only view notices you have sent or received",
         )
     return NoticeDetailResponse(
         id=notice.id,
