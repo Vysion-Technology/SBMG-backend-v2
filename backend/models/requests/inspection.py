@@ -64,7 +64,8 @@ class InspectionImageRequest(BaseModel):
 class CreateInspectionRequest(BaseModel):
     """Request model for creating a new inspection."""
 
-    village_id: int = Field(..., description="ID of the village being inspected")
+    gp_id: int = Field(..., description="ID of the village being inspected")
+    village_name: str = Field(..., description="Name of the village being inspected")
     remarks: Optional[str] = Field(
         None, description="General remarks about the inspection"
     )

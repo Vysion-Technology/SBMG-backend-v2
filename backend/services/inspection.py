@@ -106,11 +106,11 @@ class InspectionService:
         position = positions[0]
 
         # Check if user can inspect this village
-        if not await self.can_inspect_village(user, request.village_id):
+        if not await self.can_inspect_village(user, request.gp_id):
             raise ValueError("User does not have jurisdiction to inspect this village")
 
         # Get village details to populate district and block
-        result = await self.db.execute(select(GramPanchayat).where(GramPanchayat.id == request.village_id))
+        result = await self.db.execute(select(GramPanchayat).where(GramPanchayat.id == request.gp_id))
         village = result.scalar_one_or_none()
         if not village:
             raise ValueError("Village not found")
@@ -119,7 +119,8 @@ class InspectionService:
         inspection = Inspection(
             remarks=request.remarks,
             position_holder_id=position.id,
-            village_id=request.village_id,
+            gp_id=request.gp_id,
+            village_name=request.village_name,
             date=request.inspection_date or date.today(),
             start_time=request.start_time or datetime.now(),
             lat=request.lat,

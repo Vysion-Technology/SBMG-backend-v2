@@ -29,6 +29,7 @@ class Inspection(Base):  # type: ignore
         nullable=False,
         index=True,
     )
+    village_name: Mapped[str] = mapped_column(String, nullable=False)
     date: Mapped[dt_date] = mapped_column(
         Date,
         nullable=False,

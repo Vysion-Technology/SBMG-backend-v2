@@ -43,7 +43,7 @@ router = APIRouter()
 
 @router.get("/criticals", response_model=CriticalInspectionResponse)
 async def get_critical_inspection(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db), # pylint: disable=unused-argument
 ) -> CriticalInspectionResponse:
     """Get critical inspection details."""
     # Build critical inspection response
@@ -229,7 +229,7 @@ async def get_my_inspections(
             InspectionListItemResponse(
                 id=inspection.id,
                 village_id=inspection.gp_id,
-                village_name=inspection.gp.name if inspection.gp else "Unknown",
+                village_name=inspection.village_name,
                 block_name=inspection.gp.block.name if inspection.gp and inspection.gp.block else "Unknown",
                 district_name=inspection.gp.district.name if inspection.gp and inspection.gp.district else "Unknown",
                 date=inspection.date,
@@ -380,7 +380,7 @@ async def get_inspections(
             InspectionListItemResponse(
                 id=inspection.id,
                 village_id=inspection.gp_id,
-                village_name=inspection.gp.name if inspection.gp else "Unknown",
+                village_name=inspection.village_name,
                 block_name=inspection.gp.block.name if inspection.gp and inspection.gp.block else "Unknown",
                 district_name=inspection.gp.district.name if inspection.gp and inspection.gp.district else "Unknown",
                 date=inspection.date,
@@ -471,7 +471,7 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
         register_maintenance=inspection.register_maintenance,
         officer_name=officer_name,
         officer_role=officer_role,
-        village_name=inspection.gp.name if inspection.gp else "Unknown",
+        village_name=inspection.village_name,
         block_name=inspection.gp.block.name if inspection.gp and inspection.gp.block else "Unknown",
         district_name=inspection.gp.district.name if inspection.gp and inspection.gp.district else "Unknown",
         household_waste=HouseHoldWasteCollectionResponse.model_validate(household) if household else None,
