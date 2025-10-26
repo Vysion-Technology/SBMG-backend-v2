@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_utils import require_admin
 from database import get_db
+from exceptions.position_holders import ActivePositionHolderExistsError
 from models.database.auth import User
 from models.requests.position_holder import (
     CreatePositionHolderRequest,
@@ -21,35 +22,12 @@ from controllers.auth import get_current_active_user
 router = APIRouter()
 
 
-def get_user_role(user: User) -> str:
+def get_user_role(user: User) -> UserRole:
     """Get the highest role of a user based on their positions."""
-    role_hierarchy: dict[str, int] = {
-        UserRole.SUPERADMIN: 6,
-        UserRole.ADMIN: 5,
-        UserRole.SMD: 4,
-        UserRole.CEO: 3,
-        UserRole.BDO: 2,
-        UserRole.VDO: 1,
-        UserRole.WORKER: 0,
-    }
-    
-    # Check for special admin roles based on geography
-    if not user.gp_id and not user.block_id and not user.district_id:
-        return UserRole.ADMIN
-    
-    # Get role from positions
-    highest_role = UserRole.WORKER
-    highest_priority = -1
-    
-    for position in user.positions:
-        if position.role and position.role.name in role_hierarchy:
-            priority = role_hierarchy.get(position.role.name, -1)
-            if priority > highest_priority:
-                highest_priority = priority
-                highest_role = position.role.name
-    
-    return highest_role
-
+    role = AuthService.get_role_by_user(user)
+    if not role:
+        return UserRole.WORKER  # Default to WORKER if no role found
+    return role
 
 def can_create_role(creator_role: str, target_role: str) -> bool:
     """Check if a user with creator_role can create a position with target_role.
@@ -104,6 +82,7 @@ def validate_geographical_hierarchy(creator: User, district_id: Optional[int],
     - VDO can only assign within their village (for lower roles)
     """
     creator_role = get_user_role(creator)
+
     
     # Admin and SMD can assign anywhere
     if creator_role in [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.SMD]:
@@ -193,7 +172,8 @@ async def create_position_holder(
         )
     
     # Create position holder
-    position = await position_service.create_position_holder(
+    try:
+        position = await position_service.create_position_holder(
         user_id=request.user_id,
         role_id=role.id,
         first_name=request.first_name,
@@ -206,6 +186,11 @@ async def create_position_holder(
         end_date=request.end_date,
         date_of_joining=request.date_of_joining,
     )
+    except ActivePositionHolderExistsError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     
     # Refresh to load relationships
     position = await position_service.get_position_holder_by_id(position.id)

@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from sqlalchemy.orm import selectinload
 
-from models.database.auth import PositionHolder, User, Role
+from exceptions.position_holders import ActivePositionHolderExistsError
+from models.database.auth import PositionHolder, Role
 
 
 class PositionHolderService:
@@ -15,6 +16,33 @@ class PositionHolderService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def get_active_position_holders_by_geo_ids(
+        self,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        village_id: Optional[int] = None,
+    ) -> List[PositionHolder]:
+        """Get active position holders filtered by geographic IDs."""
+        query = select(PositionHolder).options(
+            selectinload(PositionHolder.user),
+            selectinload(PositionHolder.role),
+            selectinload(PositionHolder.gp),
+            selectinload(PositionHolder.block),
+            selectinload(PositionHolder.district),
+        ).where(
+            PositionHolder.end_date.is_(None)
+        )
+
+        if district_id is not None:
+            query = query.where(PositionHolder.district_id == district_id)
+        if block_id is not None:
+            query = query.where(PositionHolder.block_id == block_id)
+        if village_id is not None:
+            query = query.where(PositionHolder.village_id == village_id)
+
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
 
     async def create_position_holder(
         self,
@@ -31,6 +59,13 @@ class PositionHolderService:
         date_of_joining: Optional[date] = None,
     ) -> PositionHolder:
         """Create a new position holder."""
+        pos_holders = await self.get_active_position_holders_by_geo_ids(
+            district_id=district_id,
+            block_id=block_id,
+            village_id=village_id,
+        )
+        if pos_holders:
+            raise ActivePositionHolderExistsError("An active position holder already exists for the given geographic assignment.")
         position = PositionHolder(
             user_id=user_id,
             role_id=role_id,
