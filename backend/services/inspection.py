@@ -64,28 +64,29 @@ class InspectionService:
 
             # VDO cannot inspect
             if role_name == UserRole.VDO:
-                continue
+                if position.user.gp_id == village_id:
+                    return True
 
             # Admin and SuperAdmin can inspect anywhere
             if role_name in [UserRole.ADMIN, UserRole.SUPERADMIN]:
                 return True
 
             # CEO can inspect in their district
-            if role_name == UserRole.CEO and position.district_id == village.district_id:
+            if role_name == UserRole.CEO and position.user.district_id == village.district_id:
                 return True
 
             # BDO can inspect in their block
-            if role_name == UserRole.BDO and position.block_id == village.block_id:
+            if role_name == UserRole.BDO and position.user.block_id == village.block_id:
                 return True
 
             # Worker can inspect in their assigned area
             if role_name == UserRole.WORKER:
-                if position.village_id == village_id:
-                    return True
-                if position.block_id == village.block_id:
-                    return True
-                if position.district_id == village.district_id:
-                    return True
+                if position.user.gp_id == village_id:
+                    return False
+                if position.user.block_id == village.block_id:
+                    return False
+                if position.user.district_id == village.district_id:
+                    return False
 
         return False
 
