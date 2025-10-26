@@ -11,7 +11,12 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.internal import GeoTypeEnum
-from models.response.inspection import InspectionListItemResponse, TopPerformerInspectionResponse, TopPerformerInspectorItemResponse
+from models.response.inspection import (
+    PerformanceReportLineItemResponse,
+    PerformanceReportResponse,
+    TopPerformerInspectionResponse,
+    TopPerformerInspectorItemResponse,
+)
 
 if TYPE_CHECKING:
     from models.internal import GeoTypeEnum
@@ -94,10 +99,7 @@ class InspectionService:
         """Create a new inspection."""
         # Get active position
         positions = await self.db.execute(
-            select(PositionHolder).where(
-                PositionHolder.user_id == user.id,
-                PositionHolder.end_date.is_(None)
-            )
+            select(PositionHolder).where(PositionHolder.user_id == user.id, PositionHolder.end_date.is_(None))
         )
         positions = positions.scalars().all()
         if not positions:
@@ -181,7 +183,6 @@ class InspectionService:
                 rate_chart_displayed=request.other_items.rate_chart_displayed,
             )
             self.db.add(other_item)
-
 
         await self.db.commit()
         await self.db.refresh(inspection)
@@ -340,7 +341,6 @@ class InspectionService:
         total = total_result.scalar() or 0
 
         return total
-
 
     async def get_district_inspection_analytics(
         self,
@@ -655,6 +655,7 @@ class InspectionService:
         end_date: Optional[date] = None,
     ) -> List[TopPerformerInspectionResponse]:
         """Get the inspectors with the highest number of inspections conducted at the specified geographic level."""
+        # TODO: Implement the logic to fetch top performer inspectors based on the level and filters
 
         return [
             TopPerformerInspectionResponse(
@@ -677,7 +678,40 @@ class InspectionService:
                         geo_name="Sample Geo",
                         inspector_name="Inspector Name",
                         inspections_count=70,
-                    )
-                ]
+                    ),
+                ],
             )
         ]  # Implementation goes here
+
+    async def get_performance_report(
+        self,
+        level: GeoTypeEnum,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> PerformanceReportResponse:
+        """Get performance report aggregated by geographic level."""
+
+        # Implement the logic to fetch performance report based on the level and filters
+
+        return PerformanceReportResponse(
+            level=level,
+            line_items=[
+                PerformanceReportLineItemResponse(
+                    geo_id=1,
+                    geo_name="Sample Geo",
+                    total_inspections=150,
+                    average_score=85.5,
+                    coverage_percentage=90.0,
+                ),
+                PerformanceReportLineItemResponse(
+                    geo_id=2,
+                    geo_name="Sample Geo 2",
+                    total_inspections=120,
+                    average_score=80.0,
+                    coverage_percentage=85.0,
+                ),
+            ],
+        )  # Implementation goes here

@@ -274,9 +274,26 @@ class TopPerformerInspectorItemResponse(BaseModel):
     inspector_name: str
     inspections_count: int
 
+
 class TopPerformerInspectionResponse(BaseModel):
     """Response model for top performer inspections."""
 
     level: GeoTypeEnum
     inspectors: List[TopPerformerInspectorItemResponse]
-    
+
+
+class PerformanceReportLineItemResponse(BaseModel):
+    """Line item for performance report."""
+
+    geo_id: int
+    geo_name: str
+    total_inspections: int
+    average_score: float
+    coverage_percentage: float
+
+
+class PerformanceReportResponse(BaseModel):
+    """Response model for performance report."""
+
+    level: GeoTypeEnum
+    line_items: List[PerformanceReportLineItemResponse]

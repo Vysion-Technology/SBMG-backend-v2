@@ -33,6 +33,7 @@ from models.response.inspection import (
     InspectionResponse,
     OtherInspectionItemsResponse,
     PaginatedInspectionResponse,
+    PerformanceReportResponse,
     RoadAndDrainCleaningResponse,
     TopPerformerInspectionResponse,
 )
@@ -41,9 +42,34 @@ from services.inspection import InspectionService
 router = APIRouter()
 
 
+@router.get("/performance-report", response_model=PerformanceReportResponse)
+async def get_performance_report(
+    db: AsyncSession = Depends(get_db),
+    level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
+    district_id: Optional[int] = None,
+    block_id: Optional[int] = None,
+    gp_id: Optional[int] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+) -> PerformanceReportResponse:
+    """
+    Get performance report for inspections.
+    """
+    inspection_service = InspectionService(db)
+    result = await inspection_service.get_performance_report(
+        level=level,
+        district_id=district_id,
+        block_id=block_id,
+        gp_id=gp_id,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    return result
+
 @router.get("/criticals", response_model=CriticalInspectionResponse)
 async def get_critical_inspection(
-    db: AsyncSession = Depends(get_db), # pylint: disable=unused-argument
+    db: AsyncSession = Depends(get_db),  # pylint: disable=unused-argument
 ) -> CriticalInspectionResponse:
     """Get critical inspection details."""
     # Build critical inspection response
@@ -481,7 +507,7 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
     )
 
 
-@router.get("top-performers", response_model=List[TopPerformerInspectionResponse])
+@router.get("/top-performers", response_model=List[TopPerformerInspectionResponse])
 async def top_performer_inspectors(
     level: GeoTypeEnum,
     district_id: Optional[int] = None,
@@ -521,3 +547,5 @@ async def top_performer_inspectors(
     )
 
     return result
+
+
