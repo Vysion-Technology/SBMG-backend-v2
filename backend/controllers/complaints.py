@@ -84,7 +84,7 @@ async def get_my_complaints(
             selectinload(Complaint.district),
             selectinload(Complaint.complaint_type),
             selectinload(Complaint.media),
-            selectinload(Complaint.comments),
+            selectinload(Complaint.comments).selectinload(ComplaintComment.user),
         )
         .where(Complaint.public_user_id == user.id)
     )
