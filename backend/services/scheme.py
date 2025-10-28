@@ -106,3 +106,7 @@ class SchemeService:
             .where(SchemeMedia.scheme_id == scheme_id)
         )
         await self.db.commit()
+
+    async def delete_scheme(self, scheme_id: int) -> None:
+        await self.db.execute(delete(Scheme).where(Scheme.id == scheme_id))
+        await self.db.commit()

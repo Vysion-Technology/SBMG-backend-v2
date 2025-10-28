@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 
+from models.response.deletion import DeletionResponse
 from services.s3_service import s3_service
 from database import get_db
 from models.response.scheme import SchemeResponse
@@ -197,3 +198,22 @@ async def update_scheme(
         active=active,
     )
     return updated_scheme
+
+
+@router.delete("/{scheme_id}", response_model=DeletionResponse)
+async def delete_scheme(
+    scheme_id: int,
+    is_admin: bool = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> DeletionResponse:
+    """Delete a scheme."""
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+
+    service = SchemeService(db)
+    scheme = await service.get_scheme_by_id(scheme_id)
+    if not scheme:
+        raise HTTPException(status_code=404, detail="Scheme not found")
+
+    await service.delete_scheme(scheme_id)
+    return DeletionResponse(message="Scheme deleted successfully")
