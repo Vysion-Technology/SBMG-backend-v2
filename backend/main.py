@@ -14,14 +14,14 @@ from controllers import fcm_device, inspection, notice, annual_survey
 from controllers import position_holder
 
 
-app = FastAPI(
+fastapi_app = FastAPI(
     title="SBM Gramin Rajasthan API",
     description="Swachh Bharat Mission (Gramin) - Rajasthan Complaint Management System",
     version="1.0.0",
 )
 
 # Add CORS middleware
-app.add_middleware(
+fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Configure this properly for production
     allow_credentials=True,
@@ -30,34 +30,34 @@ app.add_middleware(
 )
 
 
-@app.get("/")
+@fastapi_app.get("/")
 async def read_root():
     """Root endpoint."""
     return {"message": "SBM Gramin Rajasthan API", "status": "running"}
 
 
-@app.get("/health")
+@fastapi_app.get("/health")
 async def health_check():
     """Health check endpoint for Docker."""
     return {"status": "healthy"}
 
 
 # Include routers
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(citizen.router, prefix="/api/v1/citizen", tags=["Citizen"])
-app.include_router(geography.router, prefix="/api/v1/geography", tags=["Geography"])
-app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
-app.include_router(position_holder.router, prefix="/api/v1/position-holders", tags=["Position Holders"])
-app.include_router(complaints.router, prefix="/api/v1/complaints", tags=["Complaints"])
-app.include_router(event.router, prefix="/api/v1/events", tags=["Events"])
-app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
-app.include_router(attendance.router, prefix="/api/v1/attendance", tags=["DailyAttendance"])
-app.include_router(scheme.router, prefix="/api/v1/schemes", tags=["Schemes"])
-app.include_router(fcm_device.router, prefix="/api/v1/notifications", tags=["FCM Notifications"])
-app.include_router(inspection.router, prefix="/api/v1/inspections", tags=["Inspections"])
-app.include_router(annual_survey.router, prefix="/api/v1/annual-surveys", tags=["Annual Surveys"])
-app.include_router(notice.router, prefix="/api/v1/notices", tags=["Notices"])
-app.include_router(
+fastapi_app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+fastapi_app.include_router(citizen.router, prefix="/api/v1/citizen", tags=["Citizen"])
+fastapi_app.include_router(geography.router, prefix="/api/v1/geography", tags=["Geography"])
+fastapi_app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+fastapi_app.include_router(position_holder.router, prefix="/api/v1/position-holders", tags=["Position Holders"])
+fastapi_app.include_router(complaints.router, prefix="/api/v1/complaints", tags=["Complaints"])
+fastapi_app.include_router(event.router, prefix="/api/v1/events", tags=["Events"])
+fastapi_app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
+fastapi_app.include_router(attendance.router, prefix="/api/v1/attendance", tags=["DailyAttendance"])
+fastapi_app.include_router(scheme.router, prefix="/api/v1/schemes", tags=["Schemes"])
+fastapi_app.include_router(fcm_device.router, prefix="/api/v1/notifications", tags=["FCM Notifications"])
+fastapi_app.include_router(inspection.router, prefix="/api/v1/inspections", tags=["Inspections"])
+fastapi_app.include_router(annual_survey.router, prefix="/api/v1/annual-surveys", tags=["Annual Surveys"])
+fastapi_app.include_router(notice.router, prefix="/api/v1/notices", tags=["Notices"])
+fastapi_app.include_router(
     contractor.router,
     prefix="/api/v1/contractors",
     tags=["Agency and Contractor Management"],
@@ -65,7 +65,7 @@ app.include_router(
 # app.include_router(survey.router, prefix="/api/v1/surveys", tags=["Surveys"])
 
 
-@app.exception_handler(HTTPException)
+@fastapi_app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):  # pylint: disable=unused-argument
     """Handle HTTP exceptions."""
     return JSONResponse(
@@ -74,7 +74,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):  # pylin
     )
 
 
-@app.exception_handler(Exception)
+@fastapi_app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):  # pylint: disable=unused-argument
     """Handle general exceptions."""
     return JSONResponse(
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
 
     uvicorn.run(  # type: ignore
-        "main:app",
+        "main:fastapi_app",
         host=host,
         port=port,
         reload=os.getenv("DEBUG", "false").lower() == "true",
