@@ -1,3 +1,4 @@
+"""Service layer for managing events and their associated media."""
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -84,7 +85,11 @@ class EventService:
         self.db.add(event_media)
         await self.db.commit()
 
-    async def remove_event_media(self, event_id: int, event_media_id: int) -> None:
+    async def remove_event_media(self, event_media_id: int) -> None:
         # Remove the DB object for EventMedia
 
         await self.db.execute(delete(EventMedia).where(EventMedia.id == event_media_id))
+
+    async def delete_event(self, event_id: int) -> None:
+        await self.db.execute(delete(Event).where(Event.id == event_id))
+        await self.db.commit()

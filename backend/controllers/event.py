@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 
+from models.response.deletion import DeletionResponse
 from services.s3_service import s3_service
 from database import get_db
 from models.response.event import EventResponse
@@ -105,7 +106,7 @@ async def remove_event_media(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    await service.remove_event_media(event_id, event_media_id)
+    await service.remove_event_media(event_media_id)
     await db.refresh(event, ["media"])
     return event
 
@@ -171,3 +172,22 @@ async def update_event(
         active=active,
     )
     return updated_event
+
+
+@router.delete("/{event_id}", response_model=DeletionResponse, status_code=200)
+async def delete_event(
+    event_id: int,
+    is_admin: bool = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> DeletionResponse:
+    """Delete an event."""
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+
+    service = EventService(db)
+    event = await service.get_event_by_id(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    await service.delete_event(event_id)
+    return DeletionResponse(message="Event deleted successfully")
