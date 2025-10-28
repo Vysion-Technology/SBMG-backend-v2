@@ -23,6 +23,7 @@ from sqlalchemy.orm import selectinload
 
 from database import get_db
 from services.auth import AuthService
+from services.complaints import ComplaintService
 from services.fcm_notification_service import notify_workers_on_new_complaint
 from services.s3_service import s3_service
 
@@ -30,7 +31,7 @@ from models.database.complaint import Complaint, ComplaintStatus, ComplaintMedia
 from models.database.contractor import Contractor
 from models.database.geography import GramPanchayat
 from models.database.auth import PublicUser, PublicUserToken, User
-from models.response.complaint import ComplaintResponse, MediaResponse
+from models.response.complaint import ComplaintCommentResponse, ComplaintResponse, MediaResponse
 
 router = APIRouter()
 
@@ -337,8 +338,8 @@ async def close_complaint(
     user_token: str = Header(..., description="Public user token"),
 ):
     """Close a complaint (User who created the complaint only)."""
-    result = await db.execute(select(Complaint).where(Complaint.id == complaint_id))
-    complaint = result.scalar_one_or_none()
+    complaint = await ComplaintService(db).get_complaint_by_id(complaint_id)
+    # complaint = result.scalar_one_or_none()
 
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
@@ -352,14 +353,15 @@ async def close_complaint(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only close your own complaints",
         )
-    verified_status = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "VERIFIED"))
-    verified_status = verified_status.scalar_one_or_none()
-    if not verified_status:
-        verified_status = ComplaintStatus(name="VERIFIED", description="Complaint has been verified and resolved")
-        db.add(verified_status)
+    closed_status = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "CLOSED"))
+    closed_status = closed_status.scalar_one_or_none()
+    if not closed_status:
+        closed_status = ComplaintStatus(name="CLOSED", description="Complaint has been verified and resolved")
+        db.add(closed_status)
         await db.commit()
-        await db.refresh(verified_status)
-    complaint.status = verified_status.id  # type: ignore
+        await db.refresh(closed_status)
+    print(closed_status)
+    complaint.status_id = closed_status.id  # type: ignore
     complaint.closed_at = datetime.now(tz=timezone.utc)
     # Add a new comment indicating resolution
     if not public_user:
@@ -378,4 +380,31 @@ async def close_complaint(
     await db.commit()
     await db.refresh(complaint)
 
-    return complaint
+    return ComplaintResponse(
+        id=complaint.id,
+        description=complaint.description,
+        mobile_number=complaint.mobile_number,
+        status_name=closed_status.name,
+        village_name="",  # Could be fetched if needed
+        block_name="",
+        district_name="",
+        created_at=complaint.created_at,
+        updated_at=complaint.updated_at,
+        lat=complaint.lat,
+        long=complaint.long,
+        media_urls=[],  # Could be fetched if needed
+        media=[],
+        location=complaint.location,
+        resolved_at=complaint.resolved_at,
+        verified_at=complaint.verified_at,
+        closed_at=complaint.closed_at,
+        comments=[  # type: ignore
+            ComplaintCommentResponse(
+                id=comment.id,
+                complaint_id=comment.complaint_id,
+                comment=comment.comment,
+                commented_at=comment.commented_at,
+                user_name=comment.user.username if comment.user else "Public User",
+            ) for comment in complaint.comments
+        ],
+    )

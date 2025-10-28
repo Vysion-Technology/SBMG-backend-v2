@@ -44,6 +44,16 @@ class ComplaintService:
         result = await self.db.execute(
             select(Complaint).where(
                 Complaint.id == complaint_id,  # type: ignore
+            ).options(
+                selectinload(Complaint.status),
+                selectinload(Complaint.gp),
+                selectinload(Complaint.block),
+                selectinload(Complaint.district),
+                selectinload(Complaint.complaint_type),
+                selectinload(Complaint.media),
+                selectinload(Complaint.comments),
+                selectinload(Complaint.comments).selectinload(ComplaintComment.user),
+                
             )
         )
         complaint = result.scalar_one_or_none()

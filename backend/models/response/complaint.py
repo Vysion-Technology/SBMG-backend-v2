@@ -9,6 +9,13 @@ class MediaResponse(BaseModel):
     uploaded_at: datetime
 
 
+class ComplaintCommentResponse(BaseModel):
+    id: int
+    complaint_id: int
+    comment: str
+    commented_at: datetime
+    user_name: str
+
 class ComplaintResponse(BaseModel):
     id: int
     description: str
@@ -27,6 +34,7 @@ class ComplaintResponse(BaseModel):
     closed_at: Optional[datetime] = None
     media_urls: List[str] = []
     media: List[MediaResponse] = []
+    comments: List[ComplaintCommentResponse] = []
 
 
 class VerifyComplaintStatusResponse(BaseModel):
@@ -35,12 +43,7 @@ class VerifyComplaintStatusResponse(BaseModel):
     message: str
 
 
-class ComplaintCommentResponse(BaseModel):
-    id: int
-    complaint_id: int
-    comment: str
-    commented_at: datetime
-    user_name: str
+
 
 
 class ResolveComplaintResponse(BaseModel):
