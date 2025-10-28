@@ -17,7 +17,7 @@ from models.response.contractor import AgencyResponse, ContractorResponse
 router = APIRouter()
 
 
-@router.get("/", response_model=List[AgencyResponse])
+@router.get("/agencies", response_model=List[AgencyResponse])
 async def list_agencies(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
@@ -33,7 +33,7 @@ async def list_agencies(
     return [agency for agency in agencies]
 
 
-@router.post("/", response_model=AgencyResponse)
+@router.post("/agencies", response_model=AgencyResponse)
 async def create_agency(
     agency: CreateAgencyRequest,
     db: AsyncSession = Depends(get_db),
