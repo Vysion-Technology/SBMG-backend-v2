@@ -1,11 +1,13 @@
 """Contractor Service Module."""
 from typing import Optional
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from models.requests.contractor import CreateAgencyRequest
-from models.database.contractor import Agency
-from models.response.contractor import AgencyResponse
+from models.database.contractor import Agency, Contractor
+from models.database.geography import GramPanchayat, Block
+from models.requests.contractor import CreateAgencyRequest, CreateContractorRequest, UpdateContractorRequest
+from models.response.contractor import AgencyResponse, ContractorResponse
 
 
 def map_agency_to_response(agency: Agency) -> AgencyResponse:
@@ -19,6 +21,22 @@ def map_agency_to_response(agency: Agency) -> AgencyResponse:
     )
 
 
+def map_contractor_to_response(contractor: Contractor) -> ContractorResponse:
+    """Map Contractor database model to ContractorResponse model."""
+    return ContractorResponse(
+        id=contractor.id,
+        agency=map_agency_to_response(contractor.agency) if contractor.agency else None,
+        person_name=contractor.person_name,
+        person_phone=contractor.person_phone,
+        village_id=contractor.gp_id,
+        village_name=contractor.gp.name if contractor.gp else None,
+        block_name=contractor.gp.block.name if contractor.gp and contractor.gp.block else None,
+        district_name=contractor.gp.block.district.name if contractor.gp and contractor.gp.block and contractor.gp.block.district else None,
+        contract_start_date=contractor.contract_start_date,
+        contract_end_date=contractor.contract_end_date,
+    )
+
+
 class ContractorService:
     """Service class for managing contractors."""
     def __init__(self, db: AsyncSession) -> None:
@@ -27,6 +45,21 @@ class ContractorService:
     async def get_agency_by_id(self, agency_id: int) -> Agency:
         """Get agency by its ID."""
         result = await self.db.execute(select(Agency).where(Agency.id == agency_id))
+        return result.scalar_one()
+
+    async def get_contractor_by_id(self, contractor_id: int) -> Contractor:
+        """Get contractor by its ID with all relationships loaded."""
+        
+        result = await self.db.execute(
+            select(Contractor)
+            .options(
+                selectinload(Contractor.agency),
+                selectinload(Contractor.gp)
+                .selectinload(GramPanchayat.block)
+                .selectinload(Block.district)
+            )
+            .where(Contractor.id == contractor_id)
+        )
         return result.scalar_one()
 
     async def list_agencies(
@@ -69,3 +102,87 @@ class ContractorService:
         new_agency = result.scalar_one()
         await self.db.refresh(new_agency)
         return map_agency_to_response(new_agency)
+
+    async def create_contractor(
+        self,
+        contractor_req: CreateContractorRequest,
+    ) -> ContractorResponse:
+        """Create a new contractor."""
+        # Verify agency exists
+        agency_result = await self.db.execute(
+            select(Agency).where(Agency.id == contractor_req.agency_id)
+        )
+        agency = agency_result.scalar_one_or_none()
+        if not agency:
+            raise ValueError(f"Agency with id '{contractor_req.agency_id}' not found.")
+
+        # Create contractor
+        result = await self.db.execute(
+            insert(Contractor)
+            .values(
+                agency_id=contractor_req.agency_id,
+                person_name=contractor_req.person_name,
+                person_phone=contractor_req.person_phone,
+                gp_id=contractor_req.gp_id,
+                contract_start_date=contractor_req.contract_start_date,
+                contract_end_date=contractor_req.contract_end_date,
+            )
+            .returning(Contractor)
+        )
+        new_contractor = result.scalar_one()
+        await self.db.refresh(new_contractor)
+        
+        # Fetch with relationships for response
+        contractor_with_relations = await self.get_contractor_by_id(new_contractor.id)
+        return map_contractor_to_response(contractor_with_relations)
+
+    async def update_contractor(
+        self,
+        contractor_id: int,
+        contractor_req: UpdateContractorRequest,
+    ) -> ContractorResponse:
+        """Update an existing contractor."""
+        # Check if contractor exists
+        contractor_result = await self.db.execute(
+            select(Contractor).where(Contractor.id == contractor_id)
+        )
+        contractor = contractor_result.scalar_one_or_none()
+        if not contractor:
+            raise ValueError(f"Contractor with id '{contractor_id}' not found.")
+
+        # If agency_id is being updated, verify it exists
+        if contractor_req.agency_id is not None:
+            agency_result = await self.db.execute(
+                select(Agency).where(Agency.id == contractor_req.agency_id)
+            )
+            agency = agency_result.scalar_one_or_none()
+            if not agency:
+                raise ValueError(f"Agency with id '{contractor_req.agency_id}' not found.")
+
+        # Build update values (only include fields that are provided)
+        update_values = {}
+        if contractor_req.agency_id is not None:
+            update_values["agency_id"] = contractor_req.agency_id
+        if contractor_req.person_name is not None:
+            update_values["person_name"] = contractor_req.person_name
+        if contractor_req.person_phone is not None:
+            update_values["person_phone"] = contractor_req.person_phone
+        if contractor_req.gp_id is not None:
+            update_values["gp_id"] = contractor_req.gp_id
+        if contractor_req.contract_start_date is not None:
+            update_values["contract_start_date"] = contractor_req.contract_start_date
+        if contractor_req.contract_end_date is not None:
+            update_values["contract_end_date"] = contractor_req.contract_end_date
+
+        # Update contractor
+        if update_values:
+            await self.db.execute(
+                update(Contractor)
+                .where(Contractor.id == contractor_id)
+                .values(**update_values)
+            )
+            await self.db.commit()
+
+        # Fetch updated contractor with relationships
+        updated_contractor = await self.get_contractor_by_id(contractor_id)
+        return map_contractor_to_response(updated_contractor)
