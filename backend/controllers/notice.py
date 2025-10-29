@@ -1,4 +1,6 @@
 """Controller module for managing notices."""
+
+import asyncio
 import logging
 from typing import List
 
@@ -15,10 +17,10 @@ from models.response.notice import (
 
 from auth_utils import require_staff_role
 
-from services.permission import PermissionService
+from services.auth import AuthService
 from services.position_holder import PositionHolderService
-from services.user import UserService
 from services.notice import NoticeService
+from services.s3_service import S3Service
 
 
 logger = logging.getLogger(__name__)
@@ -26,9 +28,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post(
-    "/", response_model=NoticeDetailResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/", response_model=NoticeDetailResponse, status_code=status.HTTP_201_CREATED)
 async def create_notice(
     request: CreateNoticeRequest,
     db: AsyncSession = Depends(get_db),
@@ -40,45 +40,39 @@ async def create_notice(
     The system will find the appropriate position holder for that location.
     """
     notice_service = NoticeService(db)
-    user_service = UserService(db)
-    perm_service = PermissionService(db)
-
-    receivers = await user_service.get_users_by_geo(
-        district_id=request.district_id,
-        block_id=request.block_id,
-        village_id=request.village_id,
-    )
-    if not receivers:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No user found for the specified location",
-        )
-
-    assert perm_service.valid_sender_receiver_pair(current_user, receivers[0]), (
-        "Insufficient permissions to send notice to the selected location"
-    )
+    auth_service = AuthService(db)
 
     # Create the notice
-    notices = [
-        await notice_service.create_notice(
-            sender_id=current_user.id,
-            receiver_id=receiver_position.id,
-            title=request.title,
-            text=request.text,
-        )
-        for receiver_position in receivers
-    ]
-    return [
-        NoticeDetailResponse(
-            id=notice.id,
-            sender_id=notice.sender_id,
-            receiver_id=notice.receiver_id,
-            title=notice.title,
-            date=notice.date,  # type: ignore
-            text=notice.text,
-        )
-        for notice in notices
-    ]
+    sender_position, receiver_position = await asyncio.gather(
+        auth_service.get_current_position_holder(
+            current_user.district_id,
+            current_user.block_id,
+            current_user.gp_id,
+        ),
+        auth_service.get_current_position_holder(
+            district_id=request.district_id,
+            block_id=request.block_id,
+            gp_id=request.gp_id,
+        ),
+    )
+
+    assert sender_position, "Sender position holder not found"
+    assert receiver_position, "Receiver position holder not found"
+
+    notice = await notice_service.create_notice(
+        sender_id=sender_position.id,
+        receiver_id=receiver_position.id,
+        title=request.title,
+        text=request.text,
+    )
+    return NoticeDetailResponse(
+        id=notice.id,
+        sender_id=notice.sender_id,
+        receiver_id=notice.receiver_id,
+        title=notice.title,
+        date=notice.date,  # type: ignore
+        text=notice.text,
+    )
 
 
 @router.get("/sent", response_model=List[NoticeDetailResponse])
@@ -89,9 +83,7 @@ async def get_sent_notices(
     current_user: User = Depends(require_staff_role),
 ):
     """Get all notices sent by the current user."""
-    current_user_position_ids = await PositionHolderService(db).get_position_holder_ids_by_user(
-        user_id=current_user.id
-    )
+    current_user_position_ids = await PositionHolderService(db).get_position_holder_ids_by_user(user_id=current_user.id)
 
     notices = await NoticeService(db).get_notices_sent_by_user(
         sender_ids=current_user_position_ids, skip=skip, limit=limit
@@ -104,6 +96,8 @@ async def get_sent_notices(
             title=notice.title,
             date=notice.date,  # type: ignore
             text=notice.text,
+            sender=notice.sender,
+            receiver=notice.receiver,
         )
         for notice in notices
     ]
@@ -118,9 +112,7 @@ async def get_received_notices(
 ):
     """Get all notices received by the current user."""
     # Position Holder IDs of the current user
-    current_user_position_ids = await PositionHolderService(db).get_position_holder_ids_by_user(
-        user_id=current_user.id
-    )
+    current_user_position_ids = await PositionHolderService(db).get_position_holder_ids_by_user(user_id=current_user.id)
     print(current_user_position_ids)
     notices = await NoticeService(db).get_notices_received_by_user(
         receiver_ids=current_user_position_ids, skip=skip, limit=limit
@@ -146,9 +138,7 @@ async def get_notice_by_id(
     """Get a specific notice by ID."""
     notice = await NoticeService(db).get_notice_by_id(notice_id=notice_id)
     if not notice:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
     return NoticeDetailResponse(
         id=notice.id,
         sender_id=notice.sender_id,
@@ -169,9 +159,7 @@ async def delete_notice(
     svc = NoticeService(db)
     notice = await svc.get_notice_by_id(notice_id)
     if not notice:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
     if notice.sender_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -180,11 +168,27 @@ async def delete_notice(
     await svc.delete_notice(notice_id)
 
 
-@router.post("/media", status_code=status.HTTP_201_CREATED)
+@router.post("{notice_id}/media", status_code=status.HTTP_201_CREATED)
 async def upload_notice_media(
+    notice_id: int,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
-) -> None:
+) -> NoticeDetailResponse:
     """Upload media file for a notice and get the URL."""
-    raise NotImplementedError("This endpoint is not yet implemented.")  # type: ignore
+    assert current_user, "Authentication required"
+    s3_service = S3Service()
+    file_url = await s3_service.upload_file(file, folder="notices")
+    await NoticeService(db).upload_notice_media(notice_id=notice_id, media_url=file_url)
+    notice = await NoticeService(db).get_notice_by_id(notice_id)
+    if not notice:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
+    return NoticeDetailResponse(
+        id=notice.id,
+        sender_id=notice.sender_id,
+        receiver_id=notice.receiver_id,
+        title=notice.title,
+        date=notice.date,  # type: ignore
+        text=notice.text,
+        media=[media for media in notice.media],
+    )

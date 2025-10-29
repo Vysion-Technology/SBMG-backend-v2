@@ -1,11 +1,12 @@
-""""Service for managing notices."""
+""" "Service for managing notices."""
+
 from typing import Optional, List
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete, select, insert, and_
 from sqlalchemy.orm import selectinload
 
-from models.database.notice import Notice
+from models.database.notice import Notice, NoticeMedia
 from models.database.auth import PositionHolder
 
 
@@ -26,6 +27,7 @@ class NoticeService:
         notice = (
             await self.db.execute(
                 insert(Notice)
+                .options(selectinload(Notice.media))
                 .values(
                     sender_id=sender_id,
                     receiver_id=receiver_id,
@@ -38,20 +40,21 @@ class NoticeService:
         ).scalar_one()
         return notice
 
-    async def get_notices_sent_by_user(
-        self, sender_ids: List[int], skip: int = 0, limit: int = 100
-    ) -> List[Notice]:
+    async def get_notices_sent_by_user(self, sender_ids: List[int], skip: int = 0, limit: int = 100) -> List[Notice]:
         """
         Get notices sent by a user.
-        
+
         This includes notices sent from any of the user's position holder IDs.
         """
         result = await self.db.execute(
             select(Notice)
+            .options(
+                selectinload(Notice.media)
+            )
             .where(Notice.sender_id.in_(sender_ids))
             .offset(skip)
             .limit(limit)
-            .order_by(Notice.date.desc())
+            .order_by(Notice.date.desc())  # type: ignore
         )
         notices = result.scalars().all()
         return list(notices)
@@ -61,12 +64,12 @@ class NoticeService:
     ) -> List[Notice]:
         """
         Get notices received by a user.
-        
+
         This includes notices sent to:
         1. The user's current position holder IDs (direct match)
         2. Any previous position holders who had the same role and geographical assignment
            (role-based visibility for transferred positions)
-        
+
         Example: If a VDO at Village X was transferred and replaced by a new VDO,
         the new VDO will see all notices that were sent to the old VDO position.
         """
@@ -75,11 +78,11 @@ class NoticeService:
             select(PositionHolder).where(PositionHolder.id.in_(receiver_ids))
         )
         current_positions = list(current_positions_result.scalars().all())
-        
+
         # Build a list of position holder IDs that match the same role+geography
         all_relevant_position_ids = set(receiver_ids)  # Start with direct IDs
         print("All Relevant Position IDs Start:", all_relevant_position_ids)
-        
+
         for position in current_positions:
             # Find all position holders (past and present) with the same role and geography
             matching_positions_result = await self.db.execute(
@@ -94,29 +97,30 @@ class NoticeService:
             )
             matching_ids = [row[0] for row in matching_positions_result.all()]
             all_relevant_position_ids.update(matching_ids)
-        
+
         # Query notices sent to any of these position holders
         result = await self.db.execute(
             select(Notice)
             .where(Notice.receiver_id.in_(list(all_relevant_position_ids)))
             .offset(skip)
             .limit(limit)
-            .order_by(Notice.date.desc())
+            .order_by(Notice.date.desc())  # type: ignore
         )
         notices = result.scalars().all()
         return list(notices)
 
     async def get_notice_by_id(self, notice_id: int) -> Optional[Notice]:
         """Get a specific notice by ID."""
-        result = await self.db.execute(
-            select(Notice)
-            .where(Notice.id == notice_id)
-            .options(selectinload(Notice.media))
-        )
+        result = await self.db.execute(select(Notice).where(Notice.id == notice_id).options(selectinload(Notice.media)))
         notice = result.scalar_one_or_none()
         return notice
 
     async def delete_notice(self, notice_id: int) -> None:
         """Delete a specific notice by ID."""
         await self.db.execute(delete(Notice).where(Notice.id == notice_id))
+        await self.db.commit()
+
+    async def upload_notice_media(self, notice_id: int, media_url: str) -> None:
+        """Upload media for a specific notice."""
+        await self.db.execute(insert(NoticeMedia).values(notice_id=notice_id, media_url=media_url))
         await self.db.commit()
