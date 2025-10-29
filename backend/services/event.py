@@ -81,24 +81,31 @@ class EventService:
             update_data["active"] = active
 
         if update_data:
-            await self.db.execute(update(Event).where(Event.id == event_id).values(**update_data))
+            await self.db.execute(
+                update(Event).where(Event.id == event_id).values(**update_data),
+            )
             await self.db.commit()
 
         # Always return the updated event with media relationship loaded
         return await self.get_event_by_id(event_id)
 
     async def add_event_media(self, event_id: int, media_url: str) -> None:
-        # Create a new DB object for EventMedia
-
-        event_media = EventMedia(event_id=event_id, media_url=media_url)
-        self.db.add(event_media)
+        """Add media to an event."""
+        await self.db.execute(
+            insert(EventMedia).values(event_id=event_id, media_url=media_url),
+        )
         await self.db.commit()
 
     async def remove_event_media(self, event_media_id: int) -> None:
-        # Remove the DB object for EventMedia
-
-        await self.db.execute(delete(EventMedia).where(EventMedia.id == event_media_id))
+        """Remove event media by its ID."""
+        await self.db.execute(
+            delete(EventMedia).where(EventMedia.id == event_media_id),
+        )
+        await self.db.commit()
 
     async def delete_event(self, event_id: int) -> None:
-        await self.db.execute(delete(Event).where(Event.id == event_id))
+        """Delete an event by its ID."""
+        await self.db.execute(
+            delete(Event).where(Event.id == event_id),
+        )
         await self.db.commit()
