@@ -104,7 +104,7 @@ async def add_scheme_media(
     return scheme
 
 
-@router.delete("/{scheme_id}/media", response_model=Optional[SchemeResponse])
+@router.delete("/{scheme_id}/media/{scheme_media_id}", response_model=Optional[SchemeResponse])
 async def remove_scheme_media(
     scheme_id: int,
     scheme_media_id: int,
