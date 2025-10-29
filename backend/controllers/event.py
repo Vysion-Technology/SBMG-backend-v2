@@ -57,8 +57,10 @@ async def create_event(
 
 @router.get("/{event_id}", response_model=Optional[EventResponse])
 async def get_event(
-    event_id: int, db: AsyncSession = Depends(get_db)
+    event_id: int,
+    db: AsyncSession = Depends(get_db),
 ) -> Optional[EventResponse]:
+    """Get an event by ID."""
     service = EventService(db)
     event = await service.get_event_by_id(event_id)
     if not event:
@@ -73,6 +75,7 @@ async def add_event_media(
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[EventResponse]:
+    """Add media to an event."""
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
 
@@ -96,6 +99,7 @@ async def remove_event_media(
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[EventResponse]:
+    """Remove media from an event."""
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
 
