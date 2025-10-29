@@ -351,6 +351,23 @@ class AuthService:
         public_user = result.scalar_one_or_none()
         return public_user
 
+    async def get_current_position_holder(
+        self,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
+    ) -> Optional[PositionHolder]:
+        """Get the current position holder for the user."""
+        result = await self.db.execute(
+            select(PositionHolder).where(
+                PositionHolder.district_id == district_id,
+                PositionHolder.block_id == block_id,
+                PositionHolder.village_id == gp_id
+            )
+        )
+        position_holder = result.scalar_one_or_none()
+        return position_holder
+
 
 def send_otp(mobile_number: str, otp: int | str) -> bool:
     """Send OTP to the given phone number."""
