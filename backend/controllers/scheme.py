@@ -1,4 +1,5 @@
 """Controller for managing schemes and their associated media."""
+
 from datetime import timezone
 from typing import List, Optional
 
@@ -16,9 +17,6 @@ from models.response.scheme import SchemeResponse
 from models.response.deletion import DeletionResponse
 
 router = APIRouter()
-
-
-
 
 
 @router.post("/", response_model=SchemeResponse)
@@ -48,9 +46,7 @@ async def create_scheme(
     print(end_time)
     start_time = start_time.replace(tzinfo=timezone.utc)
     end_time = end_time.replace(tzinfo=timezone.utc)
-    scheme = await service.create_scheme(
-        name, description, eligibility, benefits, start_time, end_time
-    )
+    scheme = await service.create_scheme(name, description, eligibility, benefits, start_time, end_time)
     print("Created Scheme:")
     print(scheme)
 
@@ -61,9 +57,7 @@ async def create_scheme(
 
 
 @router.get("/{scheme_id}", response_model=Optional[SchemeResponse])
-async def get_scheme(
-    scheme_id: int, db: AsyncSession = Depends(get_db)
-) -> Optional[SchemeResponse]:
+async def get_scheme(scheme_id: int, db: AsyncSession = Depends(get_db)) -> Optional[SchemeResponse]:
     """Get scheme details by ID."""
     service = SchemeService(db)
     scheme = await service.get_scheme_by_id(scheme_id)
@@ -132,6 +126,8 @@ async def list_schemes(
     db: AsyncSession = Depends(get_db),
 ) -> List[SchemeResponse]:
     """List all schemes with optional filtering by active status."""
+    if limit > 100:
+        raise HTTPException(status_code=400, detail="Limit cannot exceed 100")
     service = SchemeService(db)
     schemes = await service.get_all_schemes(skip=skip, limit=limit, active=active)
     return [
@@ -148,9 +144,6 @@ async def list_schemes(
         )
         for scheme in schemes
     ]
-
-
-
 
 
 @router.put("/{scheme_id}", response_model=Optional[SchemeResponse])
