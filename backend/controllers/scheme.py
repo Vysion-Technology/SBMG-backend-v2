@@ -1,27 +1,24 @@
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
+"""Controller for managing schemes and their associated media."""
+from datetime import timezone
 from typing import List, Optional
 
-from models.response.deletion import DeletionResponse
-from services.s3_service import s3_service
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from database import get_db
-from models.response.scheme import SchemeResponse
 from auth_utils import require_admin
+
+from services.s3_service import s3_service
 from services.scheme import SchemeService
 
+from models.requests.scheme import CreateSchemeRequest, SchemeUpdateRequest
+from models.response.scheme import SchemeResponse
+from models.response.deletion import DeletionResponse
 
 router = APIRouter()
 
 
-class CreateSchemeRequest(BaseModel):
-    name: str
-    description: Optional[str] = None
-    eligibility: Optional[str] = None
-    benefits: Optional[str] = None
-    start_time: datetime
-    end_time: datetime
+
 
 
 @router.post("/", response_model=SchemeResponse)
@@ -67,6 +64,7 @@ async def create_scheme(
 async def get_scheme(
     scheme_id: int, db: AsyncSession = Depends(get_db)
 ) -> Optional[SchemeResponse]:
+    """Get scheme details by ID."""
     service = SchemeService(db)
     scheme = await service.get_scheme_by_id(scheme_id)
     if not scheme:
@@ -81,6 +79,7 @@ async def add_scheme_media(
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[SchemeResponse]:
+    """Add media to a scheme."""
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
 
@@ -108,6 +107,7 @@ async def remove_scheme_media(
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[SchemeResponse]:
+    """Remove media from a scheme."""
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
 
@@ -131,6 +131,7 @@ async def list_schemes(
     active: bool = True,
     db: AsyncSession = Depends(get_db),
 ) -> List[SchemeResponse]:
+    """List all schemes with optional filtering by active status."""
     service = SchemeService(db)
     schemes = await service.get_all_schemes(skip=skip, limit=limit, active=active)
     return [
@@ -149,14 +150,7 @@ async def list_schemes(
     ]
 
 
-class SchemeUpdateRequest(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    eligibility: Optional[str] = None
-    benefits: Optional[str] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    active: Optional[bool] = None
+
 
 
 @router.put("/{scheme_id}", response_model=Optional[SchemeResponse])
