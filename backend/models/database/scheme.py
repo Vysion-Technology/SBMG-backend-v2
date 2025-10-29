@@ -1,12 +1,14 @@
+"""Database models for schemes and their associated media."""
 from datetime import datetime
-from database import Base  # type: ignore
 
 from sqlalchemy import Integer, String, DateTime, ForeignKey, Boolean
-from sqlalchemy.orm import relationship, mapped_column
-from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import relationship, mapped_column, Mapped
 
+from database import Base  # type: ignore
 
 class Scheme(Base):  # type: ignore
+    """Database model for a scheme."""
+
     __tablename__ = "schemes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -25,10 +27,12 @@ class Scheme(Base):  # type: ignore
 
 
 class SchemeMedia(Base):  # type: ignore
+    """Database model for scheme media."""
+
     __tablename__ = "scheme_media"
 
-    id = mapped_column(Integer, primary_key=True, index=True)
-    scheme_id = mapped_column(Integer, ForeignKey("schemes.id"), nullable=False)
-    media_url = mapped_column(String, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    scheme_id: Mapped[int] = mapped_column(Integer, ForeignKey("schemes.id"), nullable=False)
+    media_url: Mapped[str] = mapped_column(String, nullable=False)
 
     scheme = relationship("Scheme", back_populates="media")
