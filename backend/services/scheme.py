@@ -1,17 +1,20 @@
+"""Service layer for managing schemes and their associated media."""
 from datetime import datetime
 from typing import Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from sqlalchemy import delete, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from models.database.scheme import Scheme, SchemeMedia
 
 class SchemeService:
+    """Service layer for managing schemes and their associated media."""
     def __init__(self, db: AsyncSession):
         self.db = db
 
     async def get_scheme_by_id(self, scheme_id: int) -> Optional[Scheme]:
+        """Retrieve a scheme by its ID."""
         result = await self.db.execute(select(Scheme).options(selectinload(Scheme.media)).where(Scheme.id == scheme_id))
         scheme = result.scalar_one_or_none()
         return scheme
@@ -22,6 +25,7 @@ class SchemeService:
         limit: int = 100,
         active: bool = True,
     ) -> list[Scheme]:
+        """Retrieve all schemes, with optional filtering by active status."""
         query = select(Scheme).options(selectinload(Scheme.media)).offset(skip).limit(limit)
         if active:
             query = query.where(Scheme.active)
@@ -38,6 +42,7 @@ class SchemeService:
         start_time: datetime,
         end_time: datetime,
     ) -> Scheme:
+        """Create a new scheme."""
         scheme = Scheme(
             name=name,
             description=description,
@@ -93,6 +98,7 @@ class SchemeService:
         return scheme
 
     async def add_scheme_media(self, scheme_id: int, media_url: str) -> SchemeMedia:
+        """Add media to a scheme."""
         media = SchemeMedia(scheme_id=scheme_id, media_url=media_url)
         self.db.add(media)
         await self.db.commit()
@@ -100,6 +106,7 @@ class SchemeService:
         return media
 
     async def remove_scheme_media(self, scheme_id: int, scheme_media_id: int) -> None:
+        """Remove media from a scheme."""
         await self.db.execute(
             delete(SchemeMedia)
             .where(SchemeMedia.id == scheme_media_id)
@@ -108,5 +115,6 @@ class SchemeService:
         await self.db.commit()
 
     async def delete_scheme(self, scheme_id: int) -> None:
+        """Delete a scheme by its ID."""
         await self.db.execute(delete(Scheme).where(Scheme.id == scheme_id))
         await self.db.commit()
