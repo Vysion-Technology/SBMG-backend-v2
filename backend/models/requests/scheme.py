@@ -17,7 +17,7 @@ class CreateSchemeRequest(BaseModel):
 
 class SchemeUpdateRequest(BaseModel):
     """Request model for updating an existing scheme."""
-    
+
     name: Optional[str] = None
     description: Optional[str] = None
     eligibility: Optional[str] = None

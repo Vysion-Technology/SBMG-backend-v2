@@ -46,7 +46,14 @@ async def create_scheme(
     print(end_time)
     start_time = start_time.replace(tzinfo=timezone.utc)
     end_time = end_time.replace(tzinfo=timezone.utc)
-    scheme = await service.create_scheme(name, description, eligibility, benefits, start_time, end_time)
+    scheme = await service.create_scheme(
+        name,
+        description,
+        eligibility,
+        benefits,
+        start_time,
+        end_time,
+    )
     print("Created Scheme:")
     print(scheme)
 
@@ -57,7 +64,10 @@ async def create_scheme(
 
 
 @router.get("/{scheme_id}", response_model=Optional[SchemeResponse])
-async def get_scheme(scheme_id: int, db: AsyncSession = Depends(get_db)) -> Optional[SchemeResponse]:
+async def get_scheme(
+    scheme_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> Optional[SchemeResponse]:
     """Get scheme details by ID."""
     service = SchemeService(db)
     scheme = await service.get_scheme_by_id(scheme_id)
@@ -154,13 +164,6 @@ async def update_scheme(
     db: AsyncSession = Depends(get_db),
 ) -> Optional[SchemeResponse]:
     """Update scheme details."""
-    name = scheme_update.name
-    description = scheme_update.description
-    eligibility = scheme_update.eligibility
-    benefits = scheme_update.benefits
-    start_time = scheme_update.start_time
-    end_time = scheme_update.end_time
-    active = scheme_update.active
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
 
@@ -169,20 +172,24 @@ async def update_scheme(
     if not scheme:
         raise HTTPException(status_code=404, detail="Scheme not found")
 
-    if start_time is not None:
-        start_time = start_time.replace(tzinfo=timezone.utc)
-    if end_time is not None:
-        end_time = end_time.replace(tzinfo=timezone.utc)
+    if scheme_update.start_time is not None:
+        scheme_update.start_time = scheme_update.start_time
+        if scheme_update.start_time.tzinfo is None:
+            scheme_update.start_time = scheme_update.start_time.replace(tzinfo=timezone.utc)
+    if scheme_update.end_time is not None:
+        scheme_update.end_time = scheme_update.end_time
+        if scheme_update.end_time.tzinfo is None:
+            scheme_update.end_time = scheme_update.end_time.replace(tzinfo=timezone.utc)
 
     updated_scheme = await service.update_scheme(
         scheme_id,
-        name=name,
-        description=description,
-        eligibility=eligibility,
-        benefits=benefits,
-        start_time=start_time,
-        end_time=end_time,
-        active=active,
+        name=scheme_update.name,
+        description=scheme_update.description,
+        eligibility=scheme_update.eligibility,
+        benefits=scheme_update.benefits,
+        start_time=scheme_update.start_time,
+        end_time=scheme_update.end_time,
+        active=scheme_update.active,
     )
     return updated_scheme
 

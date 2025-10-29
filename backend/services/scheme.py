@@ -19,11 +19,7 @@ class SchemeService:
     async def get_scheme_by_id(self, scheme_id: int) -> Optional[Scheme]:
         """Retrieve a scheme by its ID."""
         result = await self.db.execute(
-            select(Scheme)
-            .options(selectinload(Scheme.media))
-            .where(
-                Scheme.id == scheme_id
-            )
+            select(Scheme).options(selectinload(Scheme.media)).where(Scheme.id == scheme_id),
         )
         scheme = result.scalar_one_or_none()
         return scheme
@@ -97,7 +93,9 @@ class SchemeService:
         if not update_data:
             return await self.get_scheme_by_id(scheme_id)
 
-        await self.db.execute(update(Scheme).where(Scheme.id == scheme_id).values(**update_data))
+        await self.db.execute(
+            update(Scheme).where(Scheme.id == scheme_id).values(**update_data),
+        )
         await self.db.commit()
         scheme = await self.get_scheme_by_id(scheme_id)
         return scheme
@@ -113,7 +111,11 @@ class SchemeService:
     async def remove_scheme_media(self, scheme_id: int, scheme_media_id: int) -> None:
         """Remove media from a scheme."""
         await self.db.execute(
-            delete(SchemeMedia).where(SchemeMedia.id == scheme_media_id).where(SchemeMedia.scheme_id == scheme_id)
+            delete(SchemeMedia)
+            .where(SchemeMedia.id == scheme_media_id)
+            .where(
+                SchemeMedia.scheme_id == scheme_id,
+            )
         )
         await self.db.commit()
 
