@@ -1,19 +1,27 @@
 """Service layer for managing events and their associated media."""
+
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, insert, select, update
 
 from models.database.event import Event, EventMedia
 
+
 class EventService:
+    """Service class for managing events and their media."""
+
     def __init__(self, db: AsyncSession):
+        """Initialize EventService with a database session."""
         self.db = db
 
     async def get_event_by_id(self, event_id: int) -> Optional[Event]:
-        result = await self.db.execute(select(Event).options(selectinload(Event.media)).where(Event.id == event_id))
+        """Retrieve an event by its ID."""
+        result = await self.db.execute(
+            select(Event).options(selectinload(Event.media)).where(Event.id == event_id),
+        )
         event = result.scalar_one_or_none()
         return event
 
@@ -23,6 +31,7 @@ class EventService:
         limit: int = 100,
         active: bool = True,
     ) -> list[Event]:
+        """Retrieve all events with optional pagination and active filter."""
         query = select(Event).options(selectinload(Event.media)).offset(skip).limit(limit)
         if active:
             query = query.where(Event.active)
@@ -37,14 +46,14 @@ class EventService:
         start_time: datetime,
         end_time: datetime,
     ) -> Event:
-        event = Event(
+        """Create a new event."""
+        event = (await self.db.execute(insert(Event).values(
             name=name,
             description=description,
             start_time=start_time,
             end_time=end_time,
             active=True,
-        )
-        self.db.add(event)
+        ).returning(Event))).scalar_one()
         await self.db.commit()
         await self.db.refresh(event, ["media"])
         return event

@@ -1,53 +1,51 @@
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
+"""Event Controller"""
+
+from datetime import timezone
 from typing import List, Optional
 
-from models.response.deletion import DeletionResponse
-from services.s3_service import s3_service
-from database import get_db
-from models.response.event import EventResponse
-from auth_utils import require_admin
-from services.event import EventService
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from auth_utils import require_admin
+
+from database import get_db
+
+from models.requests.event import CreateEventRequest, EventUpdateRequest
+from models.response.event import EventResponse
+from models.response.deletion import DeletionResponse
+
+from services.event import EventService
+from services.s3_service import s3_service
 
 router = APIRouter()
 
 
-class CreateEventRequest(BaseModel):
-    name: str
-    description: Optional[str] = None
-    start_time: datetime
-    end_time: datetime
-
-
 @router.post("/", response_model=EventResponse)
 async def create_event(
-    event: CreateEventRequest,
+    event_create_req: CreateEventRequest,
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> EventResponse:
     """Create a new event."""
-    name = event.name
-    description = event.description
-    start_time = event.start_time
-    end_time = event.end_time
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
 
-    assert name is not None, "Name is required"
-    assert start_time is not None, "Start time is required"
-    assert end_time is not None, "End time is required"
+    assert event_create_req.name is not None, "Name is required"
+    assert event_create_req.start_time is not None, "Start time is required"
+    assert event_create_req.end_time is not None, "End time is required"
 
     service = EventService(db)
-    print("Start Time")
-    print(start_time)
-    print("End Time")
-    print(end_time)
-    start_time = start_time.replace(tzinfo=timezone.utc)
-    end_time = end_time.replace(tzinfo=timezone.utc)
-    event = await service.create_event(name, description, start_time, end_time)
+    if not event_create_req.start_time.tzinfo:
+        event_create_req.start_time = event_create_req.start_time.replace(tzinfo=timezone.utc)
+    if not event_create_req.end_time.tzinfo:
+        event_create_req.end_time = event_create_req.end_time.replace(tzinfo=timezone.utc)
+    event = await service.create_event(
+        event_create_req.name,
+        event_create_req.description,
+        event_create_req.start_time,
+        event_create_req.end_time,
+    )
     print("Created Event:")
     print(event)
 
