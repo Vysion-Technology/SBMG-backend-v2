@@ -92,7 +92,7 @@ async def add_event_media(
     return event
 
 
-@router.delete("/{event_id}/media", response_model=Optional[EventResponse])
+@router.delete("/{event_id}/media/{event_media_id}", response_model=Optional[EventResponse])
 async def remove_event_media(
     event_id: int,
     event_media_id: int,
@@ -120,6 +120,10 @@ async def list_events(
     active: bool = True,
     db: AsyncSession = Depends(get_db),
 ) -> List[EventResponse]:
+    """List all events with pagination."""
+    if limit > 1000:
+        raise HTTPException(status_code=400, detail="Limit exceeds maximum of 100.")
+    
     service = EventService(db)
     events = await service.get_all_events(skip=skip, limit=limit, active=active)
     return [
@@ -134,14 +138,6 @@ async def list_events(
         )
         for event in events
     ]
-
-
-class EventUpdateRequest(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    active: Optional[bool] = None
 
 
 @router.put("/{event_id}", response_model=Optional[EventResponse])
