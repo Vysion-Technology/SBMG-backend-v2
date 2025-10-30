@@ -1,6 +1,9 @@
 """SBMG Rajasthan Backend Main Application."""
 
 import os
+import logging
+import asyncio
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,12 +15,48 @@ from controllers import auth, complaints, admin, public
 from controllers import geography, attendance
 from controllers import fcm_device, inspection, notice, annual_survey
 from controllers import position_holder
+from controllers import gps_tracking
+from database import AsyncSessionLocal, get_db
+from services.gps_tracking import GPSTrackingService
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Actions to perform on application startup and shutdown."""
+    # Startup: Start periodic GPS data fetching
+    logger.info("Application starting up...")
+    logger.info("Starting GPS data periodic fetch task...")
+    
+    # Create background task for periodic GPS fetching
+    async for db in get_db():
+        gps_task = asyncio.create_task(GPSTrackingService(db).start_periodic_fetch())
+        
+        yield
+        
+        # Shutdown: Stop GPS fetching task
+        logger.info("Application shutting down...")
+        logger.info("Stopping GPS data periodic fetch task...")
+        GPSTrackingService(db).stop_periodic_fetch()
+    
+    # Wait for the task to complete (with timeout)
+    try:
+        await asyncio.wait_for(gps_task, timeout=5.0)
+    except asyncio.TimeoutError:
+        logger.warning("GPS fetch task did not stop within timeout, cancelling...")
+        gps_task.cancel()
+        try:
+            await gps_task
+        except asyncio.CancelledError:
+            pass
 
 
 fastapi_app = FastAPI(
     title="SBM Gramin Rajasthan API",
     description="Swachh Bharat Mission (Gramin) - Rajasthan Complaint Management System",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Add CORS middleware
@@ -61,6 +100,11 @@ fastapi_app.include_router(
     contractor.router,
     prefix="/api/v1/contractors",
     tags=["Agency and Contractor Management"],
+)
+fastapi_app.include_router(
+    gps_tracking.router,
+    prefix="/api/v1/gps",
+    tags=["GPS Tracking"],
 )
 # app.include_router(survey.router, prefix="/api/v1/surveys", tags=["Surveys"])
 

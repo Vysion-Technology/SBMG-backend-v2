@@ -58,6 +58,7 @@ from models.database.survey_master import (
     FundSanctioned,
     WorkOrderDetails,
 )
+from models.database.gps import GPSTracking
 
 __all__ = [
     # Auth models
@@ -122,4 +123,6 @@ __all__ = [
     "SWMAssets",
     "FundSanctioned",
     "WorkOrderDetails",
+    # GPS Tracking model
+    "GPSTracking",
 ]
