@@ -66,6 +66,7 @@ class NoticeService:
                 .returning(Notice)
             )
         ).scalar_one()
+        await self.db.commit()
         return notice
 
     async def get_notices_sent_by_user(self, sender_ids: List[int], skip: int = 0, limit: int = 100) -> List[Notice]:
