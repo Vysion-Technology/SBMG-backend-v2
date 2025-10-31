@@ -128,7 +128,7 @@ async def login(login_request: LoginRequest, db: AsyncSession = Depends(get_db))
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+    access_token_expires = timedelta(minutes=settings.jwt_access_token_expire_minutes)
     access_token = auth_service.create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )

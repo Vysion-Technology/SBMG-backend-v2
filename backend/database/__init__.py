@@ -1,4 +1,3 @@
-import os
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.declarative import declarative_base
