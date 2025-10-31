@@ -185,10 +185,9 @@ class PositionHolder(Base):  # type: ignore
         Integer,
         ForeignKey("employees.id"),
         nullable=False,
+        default=1,
+        server_default="1",
     )
-    first_name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
-    middle_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
-    last_name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     date_of_joining: Mapped[Optional[date]] = mapped_column(Date, nullable=True)  # type: ignore - Format: YYYY-MM-DD
     start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)  # type: ignore - Format: YYYY-MM-DD
     end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)  # type: ignore - Format: YYYY-MM-DD
@@ -202,12 +201,26 @@ class PositionHolder(Base):  # type: ignore
     employee: Mapped[Employee] = relationship("Employee", back_populates="positions")
 
     @property
+    def first_name(self) -> str:
+        """Returns the first name of the position holder."""
+        return self.employee.first_name
+
+    @property
+    def middle_name(self) -> Optional[str]:
+        """Returns the middle name of the position holder."""
+        return self.employee.middle_name
+
+    @property
+    def last_name(self) -> str:
+        """Returns the last name of the position holder."""
+        return self.employee.last_name
+
+    @property
     def full_name(self) -> str:
         """Returns the full name of the position holder."""
         if self.middle_name:
             return f"{self.first_name} {self.middle_name} {self.last_name}"
         return f"{self.first_name} {self.last_name}"
-
 
 
 #   ____ ___ _____ ___ __________ _   _
