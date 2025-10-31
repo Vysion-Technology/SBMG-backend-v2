@@ -29,7 +29,6 @@ from models.database.inspection import (
     CommunitySanitationInspectionItem,
     HouseHoldWasteCollectionAndDisposalInspectionItem,
     Inspection,
-    InspectionImage,
     OtherInspectionItem,
     RoadAndDrainCleaningInspectionItem,
 )

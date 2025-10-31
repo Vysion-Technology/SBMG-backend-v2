@@ -495,11 +495,9 @@ async def initialize_default_data(
 
     workflow_statuses = [
         "OPEN",
-        "IN_PROGRESS",
         "COMPLETED",
         "VERIFIED",
         "CLOSED",
-        "INVALID",
     ]
 
     for status_name in workflow_statuses:
