@@ -14,6 +14,7 @@ from models.requests.notice import CreateNoticeRequest, CreateNoticeTypeRequest
 from models.response.notice import (
     NoticeDetailResponse,
     NoticeTypeResponse,
+    PositionHolderBasicInfo,
 )
 
 from auth_utils import require_admin, require_staff_role
@@ -80,6 +81,7 @@ async def create_notice(
         logger.error("Database error while creating notice: %s", e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
+
 @router.post("/types")
 async def create_notice_type(
     notice_create: CreateNoticeTypeRequest,
@@ -120,8 +122,26 @@ async def get_sent_notices(
             title=notice.title,
             date=notice.date,  # type: ignore
             text=notice.text,
-            sender=notice.sender,
-            receiver=notice.receiver,
+            sender=PositionHolderBasicInfo(
+                id=notice.sender.id,
+                user_id=notice.sender.user_id,
+                first_name=notice.sender.first_name,
+                last_name=notice.sender.last_name,
+                role_id=notice.sender.role_id,
+                middle_name=notice.sender.middle_name,
+                start_date=notice.sender.start_date,
+                end_date=notice.sender.end_date,
+            ),
+            receiver=PositionHolderBasicInfo(
+                id=notice.receiver.id,
+                user_id=notice.receiver.user_id,
+                first_name=notice.receiver.first_name,
+                last_name=notice.receiver.last_name,
+                role_id=notice.receiver.role_id,
+                middle_name=notice.receiver.middle_name,
+                start_date=notice.receiver.start_date,
+                end_date=notice.receiver.end_date,
+            ),
         )
         for notice in notices
     ]

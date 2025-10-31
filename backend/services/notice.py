@@ -33,11 +33,7 @@ class NoticeService:
             )
 
         notice_type = (
-            await self.db.execute(
-                insert(NoticeType)
-                .values(name=name, description=description)
-                .returning(NoticeType)
-            )
+            await self.db.execute(insert(NoticeType).values(name=name, description=description).returning(NoticeType))
         ).scalar_one()
         await self.db.commit()
         return notice_type
@@ -77,9 +73,7 @@ class NoticeService:
         """
         result = await self.db.execute(
             select(Notice)
-            .options(
-                selectinload(Notice.media)
-            )
+            .options(selectinload(Notice.media), selectinload(Notice.sender), selectinload(Notice.receiver))
             .where(Notice.sender_id.in_(sender_ids))
             .offset(skip)
             .limit(limit)
@@ -130,6 +124,7 @@ class NoticeService:
         # Query notices sent to any of these position holders
         result = await self.db.execute(
             select(Notice)
+            .options(selectinload(Notice.media), selectinload(Notice.sender), selectinload(Notice.receiver))
             .where(Notice.receiver_id.in_(list(all_relevant_position_ids)))
             .offset(skip)
             .limit(limit)
@@ -140,7 +135,11 @@ class NoticeService:
 
     async def get_notice_by_id(self, notice_id: int) -> Optional[Notice]:
         """Get a specific notice by ID."""
-        result = await self.db.execute(select(Notice).where(Notice.id == notice_id).options(selectinload(Notice.media)))
+        result = await self.db.execute(
+            select(Notice)
+            .where(Notice.id == notice_id)
+            .options(selectinload(Notice.media), selectinload(Notice.sender), selectinload(Notice.receiver))
+        )
         notice = result.scalar_one_or_none()
         return notice
 

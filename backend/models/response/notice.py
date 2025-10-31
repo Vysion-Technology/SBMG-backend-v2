@@ -36,10 +36,10 @@ class PositionHolderBasicInfo(BaseModel):
     user_id: int
     first_name: str
     last_name: str
-    role_name: str
+    role_id: int
     middle_name: Optional[str] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
 
 
 class NoticeDetailResponse(BaseModel):
