@@ -39,6 +39,7 @@ black = "^25.1.0"
 types-firebase-admin = "^0.1.1"
 pandas = "^2.3.3"
 types-boto3 = "^1.40.61"
+faker = "^37.12.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
