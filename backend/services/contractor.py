@@ -192,3 +192,31 @@ class ContractorService:
             )
         )
         return result.scalars().one_or_none()
+
+    async def create_contractors_bulk(
+        self,
+        contractors_req: list[CreateContractorRequest],
+    ) -> list[ContractorResponse]:
+        """Create multiple contractors in bulk."""
+        contractors = await self.db.execute(
+            insert(Contractor)
+            .values([
+                {
+                    "agency_id": req.agency_id,
+                    "person_name": req.person_name,
+                    "person_phone": req.person_phone,
+                    "gp_id": req.gp_id,
+                    "contract_start_date": req.contract_start_date,
+                    "contract_end_date": req.contract_end_date,
+                }
+                for req in contractors_req
+            ])
+            .returning(Contractor)
+            .options(
+                selectinload(Contractor.agency),
+                selectinload(Contractor.gp).selectinload(GramPanchayat.block).selectinload(Block.district),
+            )
+        )
+        contractors = contractors.scalars().all()
+        await self.db.commit()
+        return [map_contractor_to_response(contractor) for contractor in contractors]
