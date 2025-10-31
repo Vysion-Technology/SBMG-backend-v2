@@ -6,6 +6,17 @@ from datetime import date
 from pydantic import BaseModel
 
 
+class NoticeTypeResponse(BaseModel):
+    """Response model for notice type."""
+
+    id: int
+    name: str
+    description: Optional[str] = None
+
+    class Config:
+        """Pydantic config for model serialization."""
+        from_attributes = True
+
 class NoticeMediaResponse(BaseModel):
     """Response model for notice media."""
 

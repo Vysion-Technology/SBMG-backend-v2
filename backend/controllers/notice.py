@@ -10,12 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 
 from models.database.auth import User
-from models.requests.notice import CreateNoticeRequest
+from models.requests.notice import CreateNoticeRequest, CreateNoticeTypeRequest
 from models.response.notice import (
     NoticeDetailResponse,
+    NoticeTypeResponse,
 )
 
-from auth_utils import require_staff_role
+from auth_utils import require_admin, require_staff_role
 
 from services.auth import AuthService
 from services.position_holder import PositionHolderService
@@ -39,39 +40,62 @@ async def create_notice(
     Select district (required), block (optional), and village (optional).
     The system will find the appropriate position holder for that location.
     """
-    notice_service = NoticeService(db)
-    auth_service = AuthService(db)
+    try:
+        notice_service = NoticeService(db)
+        auth_service = AuthService(db)
 
-    # Create the notice
-    sender_position, receiver_position = await asyncio.gather(
-        auth_service.get_current_position_holder(
-            current_user.district_id,
-            current_user.block_id,
-            current_user.gp_id,
-        ),
-        auth_service.get_current_position_holder(
-            district_id=request.district_id,
-            block_id=request.block_id,
-            gp_id=request.gp_id,
-        ),
+        # Create the notice
+        sender_position, receiver_position = await asyncio.gather(
+            auth_service.get_current_position_holder(
+                current_user.district_id,
+                current_user.block_id,
+                current_user.gp_id,
+            ),
+            auth_service.get_current_position_holder(
+                district_id=request.district_id,
+                block_id=request.block_id,
+                gp_id=request.gp_id,
+            ),
+        )
+
+        assert sender_position, "Sender position holder not found"
+        assert receiver_position, "Receiver position holder not found"
+
+        notice = await notice_service.create_notice(
+            notice_type_id=request.notice_type_id,
+            sender_id=sender_position.id,
+            receiver_id=receiver_position.id,
+            title=request.title,
+            text=request.text,
+        )
+        return NoticeDetailResponse(
+            id=notice.id,
+            sender_id=notice.sender_id,
+            receiver_id=notice.receiver_id,
+            title=notice.title,
+            date=notice.date,  # type: ignore
+            text=notice.text,
+        )
+    except HTTPException as e:
+        logger.error("Database error while creating notice: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
+
+@router.post("/types")
+async def create_notice_type(
+    notice_create: CreateNoticeTypeRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> NoticeTypeResponse:
+    """Create a new notice type."""
+    assert current_user, "Authentication required"
+    notice_type = await NoticeService(db).create_notice_type(
+        name=notice_create.name,
+        description=notice_create.description,
     )
-
-    assert sender_position, "Sender position holder not found"
-    assert receiver_position, "Receiver position holder not found"
-
-    notice = await notice_service.create_notice(
-        sender_id=sender_position.id,
-        receiver_id=receiver_position.id,
-        title=request.title,
-        text=request.text,
-    )
-    return NoticeDetailResponse(
-        id=notice.id,
-        sender_id=notice.sender_id,
-        receiver_id=notice.receiver_id,
-        title=notice.title,
-        date=notice.date,  # type: ignore
-        text=notice.text,
+    return NoticeTypeResponse(
+        id=notice_type.id,
+        name=notice_type.name,
+        description=notice_type.description,
     )
 
 

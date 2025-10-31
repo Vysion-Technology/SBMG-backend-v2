@@ -2,11 +2,12 @@
 
 from typing import Optional, List
 from datetime import date
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete, select, insert, and_
 from sqlalchemy.orm import selectinload
 
-from models.database.notice import Notice, NoticeMedia
+from models.database.notice import Notice, NoticeMedia, NoticeType
 from models.database.auth import PositionHolder
 
 
@@ -16,8 +17,34 @@ class NoticeService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def get_notice_type_by_name(self, name: str) -> Optional[NoticeType]:
+        """Get a notice type by its name."""
+        result = await self.db.execute(select(NoticeType).where(NoticeType.name == name))
+        notice_type = result.scalar_one_or_none()
+        return notice_type
+
+    async def create_notice_type(self, name: str, description: Optional[str] = None) -> NoticeType:
+        """Create a new notice type."""
+        existing_notice_type = await self.get_notice_type_by_name(name)
+        if existing_notice_type:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Notice type with name '{name}' already exists.",
+            )
+
+        notice_type = (
+            await self.db.execute(
+                insert(NoticeType)
+                .values(name=name, description=description)
+                .returning(NoticeType)
+            )
+        ).scalar_one()
+        await self.db.commit()
+        return notice_type
+
     async def create_notice(
         self,
+        notice_type_id: int,
         sender_id: int,
         receiver_id: int,
         title: str,
@@ -29,6 +56,7 @@ class NoticeService:
                 insert(Notice)
                 .options(selectinload(Notice.media))
                 .values(
+                    type_id=notice_type_id,
                     sender_id=sender_id,
                     receiver_id=receiver_id,
                     title=title,
