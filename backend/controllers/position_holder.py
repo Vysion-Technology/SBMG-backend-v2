@@ -131,16 +131,21 @@ async def create_position_holder(
     creator_role = get_user_role(current_user)
 
     # Check if creator can create this role
-    if not can_create_role(creator_role, request.role_name):
+    role_name = await auth_svc.get_role_name_by_id(request.role_id)
+
+    if not role_name:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Role with id {request.role_id} not found")
+
+    if not can_create_role(creator_role, role_name):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=f"{creator_role} cannot create {request.role_name} positions"
+            status_code=status.HTTP_403_FORBIDDEN, detail=f"{creator_role} cannot create {role_name} positions"
         )
 
     # Validate geographical assignment matches role
-    validate_geographical_assignment(request.role_name, request.district_id, request.block_id, request.village_id)
+    validate_geographical_assignment(role_name, request.district_id, request.block_id, request.gp_id)
 
     # Validate creator can assign to this geography
-    validate_geographical_hierarchy(current_user, request.district_id, request.block_id, request.village_id)
+    validate_geographical_hierarchy(current_user, request.district_id, request.block_id, request.gp_id)
 
     # Verify user exists
     user = await auth_svc.get_user_by_id(request.user_id)
@@ -148,9 +153,9 @@ async def create_position_holder(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User with id {request.user_id} not found")
 
     # Get role by name
-    role = await position_service.get_role_by_name(request.role_name)
+    role = await position_service.get_role_by_name(role_name)
     if not role:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Role '{request.role_name}' not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Role '{role_name}' not found")
 
     # Create position holder
     try:
@@ -158,7 +163,7 @@ async def create_position_holder(
             user_id=request.user_id,
             role_id=role.id,
             employee_id=request.employee_id,
-            village_id=request.village_id,
+            village_id=request.gp_id,
             block_id=request.block_id,
             district_id=request.district_id,
             start_date=request.start_date,

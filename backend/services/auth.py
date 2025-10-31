@@ -192,6 +192,14 @@ class AuthService:
         position_holders: List[PositionHolder] = list(result.scalars().all())
         return position_holders
 
+    async def get_role_name_by_id(self, role_id: int) -> Optional[str]:
+        """Get role name by ID."""
+        result = await self.db.execute(select(Role).where(Role.id == role_id))
+        role = result.scalar_one_or_none()
+        if role:
+            return role.name
+        return None
+
     async def get_role_by_name(self, role_name: str) -> Optional[Role]:
         """Get role by name."""
         result = await self.db.execute(select(Role).where(Role.name == role_name))
