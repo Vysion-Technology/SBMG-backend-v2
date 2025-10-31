@@ -379,6 +379,15 @@ class AuthService:
                     PositionHolder.end_date.is_(None),
                 )
             )
+        else:
+            result = await self.db.execute(
+                select(PositionHolder).where(
+                    PositionHolder.district_id.is_(None),
+                    PositionHolder.block_id.is_(None),
+                    PositionHolder.gp_id.is_(None),
+                    PositionHolder.end_date.is_(None),
+                )
+            )
         assert result is not None, "Database query failed in get_current_position_holder"
         position_holder = result.scalar_one_or_none()
         return position_holder
