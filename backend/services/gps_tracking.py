@@ -119,7 +119,7 @@ class GPSTrackingService:
             # Wait for the specified interval before next fetch
             await asyncio.sleep(GPSTrackingService.FETCH_INTERVAL_SECONDS)
 
-    def stop_periodic_fetch():
+    def stop_periodic_fetch(self):
         """Stop the periodic GPS data fetching."""
         logger.info("Stopping periodic GPS data fetch")
         GPSTrackingService._should_stop = True
