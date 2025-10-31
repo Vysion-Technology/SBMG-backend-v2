@@ -1,11 +1,16 @@
+"""Defines inspection related database models."""
+
 from enum import Enum as PyEnum
-from database import Base  # type: ignore
 from typing import Optional, List
 from datetime import date as dt_date, datetime
 
 
-from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy import Index, String, Integer, ForeignKey, Date, DateTime, Boolean, Enum
+from sqlalchemy.orm import relationship, Mapped, mapped_column
+
+from database import Base  # type: ignore
+
+from models.database.auth import PositionHolder
 from models.database.geography import District, Block, GramPanchayat
 
 
@@ -19,9 +24,7 @@ class Inspection(Base):  # type: ignore
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     remarks: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
-    position_holder_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("authority_holder_persons.id"), nullable=False
-    )
+    position_holder_id: Mapped[int] = mapped_column(Integer, ForeignKey("authority_holder_persons.id"), nullable=False)
 
     gp_id: Mapped[int] = mapped_column(
         Integer,
@@ -46,9 +49,8 @@ class Inspection(Base):  # type: ignore
         nullable=True,
     )
 
-    gp: Mapped[GramPanchayat] = relationship(
-        "GramPanchayat", foreign_keys=[gp_id]
-    )
+    gp: Mapped[GramPanchayat] = relationship("GramPanchayat", foreign_keys=[gp_id])
+    position_holder: Mapped["PositionHolder"] = relationship("PositionHolder", foreign_keys=[position_holder_id])
 
     # Create the index on date and village_id separately for faster queries
     # Create another index on village_id if needed
@@ -69,36 +71,28 @@ class Inspection(Base):  # type: ignore
         """Get block from village relationship."""
         return self.gp.block if self.gp else None
 
-    media: Mapped[List["InspectionImage"]] = relationship(
-        "InspectionImage", back_populates="inspection"
-    )
+    media: Mapped[List["InspectionImage"]] = relationship("InspectionImage", back_populates="inspection")
 
     # 1:1 relationships with inspection items
-    household_waste_item: Mapped[
-        Optional["HouseHoldWasteCollectionAndDisposalInspectionItem"]
-    ] = relationship(
+    household_waste_item: Mapped[Optional["HouseHoldWasteCollectionAndDisposalInspectionItem"]] = relationship(
         "HouseHoldWasteCollectionAndDisposalInspectionItem",
         back_populates="inspection",
         uselist=False,
         cascade="all, delete-orphan",
     )
 
-    road_and_drain_item: Mapped[Optional["RoadAndDrainCleaningInspectionItem"]] = (
-        relationship(
-            "RoadAndDrainCleaningInspectionItem",
-            back_populates="inspection",
-            uselist=False,
-            cascade="all, delete-orphan",
-        )
+    road_and_drain_item: Mapped[Optional["RoadAndDrainCleaningInspectionItem"]] = relationship(
+        "RoadAndDrainCleaningInspectionItem",
+        back_populates="inspection",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
 
-    community_sanitation_item: Mapped[Optional["CommunitySanitationInspectionItem"]] = (
-        relationship(
-            "CommunitySanitationInspectionItem",
-            back_populates="inspection",
-            uselist=False,
-            cascade="all, delete-orphan",
-        )
+    community_sanitation_item: Mapped[Optional["CommunitySanitationInspectionItem"]] = relationship(
+        "CommunitySanitationInspectionItem",
+        back_populates="inspection",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
 
     other_item: Mapped[Optional["OtherInspectionItem"]] = relationship(
@@ -139,35 +133,19 @@ class HouseHoldWasteCollectionAndDisposalInspectionItem(Base):  # type: ignore
 
     __tablename__ = "inspection_household_waste_collection_and_disposal_inspection_i"
 
-    id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("inspections.id"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("inspections.id"), primary_key=True)
 
-    waste_collection_frequency: Mapped[Optional[WasteCollectionFrequency]] = (
-        mapped_column(
-            Enum(WasteCollectionFrequency, name="waste_coll_freq"), nullable=True
-        )
+    waste_collection_frequency: Mapped[Optional[WasteCollectionFrequency]] = mapped_column(
+        Enum(WasteCollectionFrequency, name="waste_coll_freq"), nullable=True
     )
-    dry_wet_vehicle_segregation: Mapped[Optional[bool]] = mapped_column(
-        Boolean, nullable=True
-    )
-    covered_collection_in_vehicles: Mapped[Optional[bool]] = mapped_column(
-        Boolean, nullable=True
-    )
-    waste_disposed_at_rrc: Mapped[Optional[bool]] = mapped_column(
-        Boolean, nullable=True
-    )
-    rrc_waste_collection_and_disposal_arrangement: Mapped[Optional[bool]] = (
-        mapped_column(Boolean, nullable=True)
-    )
-    waste_collection_vehicle_functional: Mapped[Optional[bool]] = mapped_column(
-        Boolean, nullable=True
-    )
+    dry_wet_vehicle_segregation: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    covered_collection_in_vehicles: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    waste_disposed_at_rrc: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    rrc_waste_collection_and_disposal_arrangement: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    waste_collection_vehicle_functional: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
 
     # 1:1 relationship back to inspection
-    inspection: Mapped["Inspection"] = relationship(
-        "Inspection", back_populates="household_waste_item"
-    )
+    inspection: Mapped["Inspection"] = relationship("Inspection", back_populates="household_waste_item")
 
 
 class RoadCleaningFrequency(str, PyEnum):
@@ -191,9 +169,7 @@ class RoadAndDrainCleaningInspectionItem(Base):  # type: ignore
 
     __tablename__ = "inspection_road_cleaning_inspection_items"
 
-    id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("inspections.id"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("inspections.id"), primary_key=True)
 
     road_cleaning_frequency: Mapped[Optional[RoadCleaningFrequency]] = mapped_column(
         Enum(RoadCleaningFrequency, name="road_clean_freq"), nullable=True
@@ -201,17 +177,11 @@ class RoadAndDrainCleaningInspectionItem(Base):  # type: ignore
     drain_cleaning_frequency: Mapped[Optional[DrainCleaningFrequency]] = mapped_column(
         Enum(DrainCleaningFrequency, name="drain_clean_freq"), nullable=True
     )
-    disposal_of_sludge_from_drains: Mapped[Optional[bool]] = mapped_column(
-        Boolean, nullable=True
-    )
-    drain_waste_colllected_on_roadside: Mapped[Optional[bool]] = mapped_column(
-        Boolean, nullable=True
-    )
+    disposal_of_sludge_from_drains: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    drain_waste_colllected_on_roadside: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
 
     # 1:1 relationship back to inspection
-    inspection: Mapped["Inspection"] = relationship(
-        "Inspection", back_populates="road_and_drain_item"
-    )
+    inspection: Mapped["Inspection"] = relationship("Inspection", back_populates="road_and_drain_item")
 
 
 class CSCCleaningFrequency(str, PyEnum):
@@ -228,28 +198,18 @@ class CommunitySanitationInspectionItem(Base):  # type: ignore
 
     __tablename__ = "inspection_community_sanitation_inspection_items"
 
-    id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("inspections.id"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("inspections.id"), primary_key=True)
 
     csc_cleaning_frequency: Mapped[Optional[CSCCleaningFrequency]] = mapped_column(
         Enum(CSCCleaningFrequency, name="csc_clean_freq"), nullable=True
     )
-    electricity_and_water: Mapped[Optional[bool]] = mapped_column(
-        Boolean, nullable=True
-    )
-    csc_used_by_community: Mapped[Optional[bool]] = mapped_column(
-        Boolean, nullable=True
-    )
-    pink_toilets_cleaning: Mapped[Optional[bool]] = mapped_column(
-        Boolean, nullable=True
-    )
+    electricity_and_water: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    csc_used_by_community: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    pink_toilets_cleaning: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     pink_toilets_used: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
 
     # 1:1 relationship back to inspection
-    inspection: Mapped["Inspection"] = relationship(
-        "Inspection", back_populates="community_sanitation_item"
-    )
+    inspection: Mapped["Inspection"] = relationship("Inspection", back_populates="community_sanitation_item")
 
 
 class OtherInspectionItem(Base):  # type: ignore
@@ -259,29 +219,15 @@ class OtherInspectionItem(Base):  # type: ignore
 
     __tablename__ = "inspection_other_inspection_items"
 
-    id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("inspections.id"), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("inspections.id"), primary_key=True)
 
     firm_paid_regularly: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
-    cleaning_staff_paid_regularly: Mapped[Optional[bool]] = mapped_column(
-        Boolean, nullable=True
-    )
-    firm_provided_safety_equipment: Mapped[Optional[bool]] = mapped_column(
-        Boolean, nullable=True
-    )
-    regular_feedback_register_entry: Mapped[Optional[bool]] = mapped_column(
-        Boolean, nullable=True
-    )
-    chart_prepared_for_cleaning_work: Mapped[Optional[bool]] = mapped_column(
-        Boolean, nullable=True
-    )
-    village_visibly_clean: Mapped[Optional[bool]] = mapped_column(
-        Boolean, nullable=True
-    )
+    cleaning_staff_paid_regularly: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    firm_provided_safety_equipment: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    regular_feedback_register_entry: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    chart_prepared_for_cleaning_work: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    village_visibly_clean: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     rate_chart_displayed: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
 
     # 1:1 relationship back to inspection
-    inspection: Mapped["Inspection"] = relationship(
-        "Inspection", back_populates="other_item"
-    )
+    inspection: Mapped["Inspection"] = relationship("Inspection", back_populates="other_item")
