@@ -1,5 +1,6 @@
 """Models for authentication and user management."""
 
+# pylint: disable=W0105
 from uuid import uuid4
 from typing import List, Optional
 from datetime import date, datetime
@@ -22,6 +23,23 @@ class Role(Base):  # type: ignore
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)  # type: ignore
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
+
+    positions: Mapped[List["PositionHolder"]] = relationship("PositionHolder", back_populates="role")
+
+
+#    _   _   _ _____ _   _  ___  ____  ___ _______   __
+#   / \ | | | |_   _| | | |/ _ \|  _ \|_ _|_   _\ \ / /
+#  / _ \| | | | | | | |_| | | | | |_) || |  | |  \ V /
+# / ___ \ |_| | | | |  _  | |_| |  _ < | |  | |   | |
+#/_/   \_\___/  |_| |_| |_|\___/|_| \_\___| |_|   |_|
+
+
+def generate_employee_id() -> str:
+    """Generates a unique employee ID."""
+    # This is a placeholder implementation. In a real system, this would generate
+    # a unique ID based on specific business rules.
+
+    return str(uuid4())[:8].upper()
 
 
 class User(Base):  # type: ignore
@@ -105,14 +123,6 @@ class User(Base):  # type: ignore
         return name
 
 
-def generate_employee_id() -> str:
-    """Generates a unique employee ID."""
-    # This is a placeholder implementation. In a real system, this would generate
-    # a unique ID based on specific business rules.
-
-    return str(uuid4())[:8].upper()
-
-
 class Employee(Base):  # type: ignore
     """
     Describes an employee entity
@@ -121,7 +131,9 @@ class Employee(Base):  # type: ignore
     __tablename__ = "employees"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
-    employee_id: Mapped[str] = mapped_column(String, unique=True, nullable=False, default=generate_employee_id, index=True)  # type: ignore
+    employee_id: Mapped[str] = mapped_column(
+        String, unique=True, nullable=False, default=generate_employee_id, index=True
+    )  # type: ignore
     first_name: Mapped[str] = mapped_column(String, nullable=False, index=True)  # type: ignore
     middle_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     last_name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
@@ -132,6 +144,8 @@ class Employee(Base):  # type: ignore
         nullable=False,
         index=True,
     )
+
+    positions = relationship("PositionHolder", back_populates="employee")
 
 
 class PositionHolder(Base):  # type: ignore
@@ -167,7 +181,11 @@ class PositionHolder(Base):  # type: ignore
         ForeignKey("authority_users.id"),
         nullable=False,
     )
-
+    employee_id: Mapped[int] = mapped_column(  # type: ignore
+        Integer,
+        ForeignKey("employees.id"),
+        nullable=False,
+    )
     first_name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     middle_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     last_name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
@@ -177,10 +195,11 @@ class PositionHolder(Base):  # type: ignore
 
     # Relationships
     user: Mapped[User] = relationship("User", back_populates="positions")
-    role: Mapped[Role] = relationship("Role")
+    role: Mapped[Role] = relationship("Role", back_populates="positions")
     gp: Mapped["GramPanchayat"] = relationship("GramPanchayat")
     block: Mapped[Block] = relationship("Block")
     district: Mapped[District] = relationship("District")
+    employee: Mapped[Employee] = relationship("Employee", back_populates="positions")
 
     @property
     def full_name(self) -> str:
@@ -188,6 +207,14 @@ class PositionHolder(Base):  # type: ignore
         if self.middle_name:
             return f"{self.first_name} {self.middle_name} {self.last_name}"
         return f"{self.first_name} {self.last_name}"
+
+
+
+#   ____ ___ _____ ___ __________ _   _
+#  / ___|_ _|_   _|_ _|__  / ____| \ | |
+# | |    | |  | |  | |  / /|  _| |  \| |
+# | |___ | |  | |  | | / /_| |___| |\  |
+#  \____|___| |_| |___/____|_____|_| \_|
 
 
 class PublicUser(Base):  # type: ignore

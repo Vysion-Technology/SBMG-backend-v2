@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from exceptions.position_holders import ActivePositionHolderExistsError
 from models.database.auth import PositionHolder, Role, Employee
-from models.requests.position_holder import CreateEmployeeRequest
+from models.requests.position_holder import CreateEmployeeRequest, UpdateEmployeeRequest
 
 
 class PositionHolderService:
@@ -63,6 +63,25 @@ class PositionHolderService:
             query = query.where(Employee.email == email)
         result = await self.db.execute(query)
         return list(result.scalars().all())
+
+    async def update_employee(
+        self,
+        employee_id: int,
+        update_employee: UpdateEmployeeRequest,
+    ) -> Optional[Employee]:
+        """Update employee details."""
+        update_data = {}
+        if update_employee.email is not None:
+            update_data["email"] = update_employee.email
+        if update_employee.mobile_number is not None:
+            update_data["mobile_number"] = update_employee.mobile_number
+
+        if not update_data:
+            return await self.get_employee_by_id(employee_id)
+
+        await self.db.execute(update(Employee).where(Employee.id == employee_id).values(**update_data))
+        await self.db.commit()
+        return await self.get_employee_by_id(employee_id)
 
     async def get_active_position_holders_by_geo_ids(
         self,

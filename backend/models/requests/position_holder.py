@@ -16,6 +16,12 @@ class CreateEmployeeRequest(BaseModel):
     mobile_number: str = Field(..., max_length=15)
 
 
+class UpdateEmployeeRequest(BaseModel):
+    """Request model for updating an employee."""
+
+    email: Optional[str] = Field(None, max_length=255)
+    mobile_number: Optional[str] = Field(None, max_length=15)
+
 class CreatePositionHolderRequest(BaseModel):
     """Request model for creating a position holder."""
 

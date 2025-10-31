@@ -12,6 +12,7 @@ from models.database.auth import User
 from models.requests.position_holder import (
     CreateEmployeeRequest,
     CreatePositionHolderRequest,
+    UpdateEmployeeRequest,
     UpdatePositionHolderRequest,
 )
 from models.response.auth import EmployeeResponse, PositionHolderResponse
@@ -543,3 +544,32 @@ async def get_all_employees(
         )
         for employee in employees
     ]
+
+
+@router.put("/employee/{employee_id}", response_model=EmployeeResponse)
+async def update_employee(
+    employee_id: int,
+    employee_request: UpdateEmployeeRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Update an employee."""
+    assert current_user, "Current user must be provided"
+    position_service = PositionHolderService(db)
+
+    employee = await position_service.update_employee(
+        employee_id=employee_id,
+        update_employee=employee_request,
+    )
+    if not employee:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Employee with id {employee_id} not found")
+
+    return EmployeeResponse(
+        id=employee.id,
+        employee_id=employee.employee_id,
+        first_name=employee.first_name,
+        middle_name=employee.middle_name,
+        last_name=employee.last_name,
+        email=employee.email,
+        mobile_number=employee.mobile_number,
+    )
