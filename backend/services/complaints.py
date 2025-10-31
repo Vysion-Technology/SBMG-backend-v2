@@ -367,7 +367,7 @@ class ComplaintService:
         score2 = max(0, total_resolved_complaints / total_complaints * 50)
         return score1 + score2
 
-    async def get_top_n_complaint_types(
+    async def get_top_n_geographies(
         self,
         start_date: datetime,
         end_date: datetime,

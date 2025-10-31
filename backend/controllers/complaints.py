@@ -645,7 +645,7 @@ async def get_complaint_counts_by_date(
 
 
 @router.get("/analytics/top-n")
-async def get_top_n_complaint_types(
+async def top_n_geographies(
     start_date: date,
     end_date: date,
     db: AsyncSession = Depends(get_db),
@@ -657,6 +657,14 @@ async def get_top_n_complaint_types(
     gp_id: Optional[int] = None,
 ) -> List[TopNGeographiesInDateRangeResponse]:
     """Get top N complaint types for analytics (Staff only)."""
+    if current_user.district_id is not None:
+        if level == GeoTypeEnum.DISTRICT:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access top N complaint types analytics at district level",
+            )
+        if not district_id:
+            district_id = current_user.district_id
     if current_user.block_id is not None:
         if level in [GeoTypeEnum.DISTRICT, GeoTypeEnum.BLOCK]:
             raise HTTPException(
@@ -675,7 +683,7 @@ async def get_top_n_complaint_types(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Provide only one of district_id, block_id, or gp_id",
         )
-    return await ComplaintService(db).get_top_n_complaint_types(
+    return await ComplaintService(db).get_top_n_geographies(
         n=n,
         district_id=district_id,
         block_id=block_id,
