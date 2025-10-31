@@ -3,7 +3,7 @@ from datetime import date
 from typing import Optional
 
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy import String, Integer, ForeignKey, Date, Text
+from sqlalchemy import String, Integer, ForeignKey, Date, Text, UniqueConstraint
 
 from database import Base
 from models.database.auth import PositionHolder  # type: ignore
@@ -18,6 +18,10 @@ class NoticeType(Base):  # type: ignore
     id = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)  # type: ignore
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # type: ignore
+
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_notice_type_name"),
+    )
 
 class Notice(Base):  # type: ignore
     """

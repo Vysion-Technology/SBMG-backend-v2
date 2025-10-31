@@ -355,7 +355,7 @@ def upgrade() -> None:
         "authority_holder_persons",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("role_id", sa.Integer(), nullable=False),
-        sa.Column("village_id", sa.Integer(), nullable=True),
+        sa.Column("gp_id", sa.Integer(), nullable=True),
         sa.Column("block_id", sa.Integer(), nullable=True),
         sa.Column("district_id", sa.Integer(), nullable=True),
         sa.Column("user_id", sa.Integer(), nullable=False),

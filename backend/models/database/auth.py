@@ -147,7 +147,7 @@ class PositionHolder(Base):  # type: ignore
         ForeignKey("roles.id"),
         nullable=False,
     )
-    village_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
+    gp_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
         Integer,
         ForeignKey("gram_panchayats.id"),
         nullable=True,
