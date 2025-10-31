@@ -31,6 +31,16 @@ class TokenResponse(BaseModel):
     token_type: str
 
 
+class PasswordResetOTPRequest(BaseModel):
+    user_id: int
+
+
+class PasswordResetVerifyRequest(BaseModel):
+    user_id: int
+    otp: str
+    new_password: str
+
+
 class PositionInfo(BaseModel):
     role: str
     role_id: int
@@ -169,3 +179,35 @@ async def verify_otp(mobile_number: str, otp: str, db: AsyncSession = Depends(ge
     auth_service = AuthService(db)
     token = await auth_service.verify_otp(mobile_number, otp)
     return {"token": token}
+
+
+@router.post("/password-reset/send-otp")
+async def send_password_reset_otp(
+    request: PasswordResetOTPRequest, db: AsyncSession = Depends(get_db)
+):
+    """Send OTP to user for password reset."""
+    auth_service = AuthService(db)
+    try:
+        otp_sent = await auth_service.send_password_reset_otp(request.user_id)
+        if not otp_sent:
+            raise HTTPException(status_code=500, detail="Failed to send OTP")
+        return {"detail": "OTP sent successfully", "user_id": request.user_id}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.post("/password-reset/verify-otp")
+async def verify_password_reset_otp(
+    request: PasswordResetVerifyRequest, db: AsyncSession = Depends(get_db)
+):
+    """Verify OTP and update user's password."""
+    auth_service = AuthService(db)
+    try:
+        success = await auth_service.verify_password_reset_otp(
+            request.user_id, request.otp, request.new_password
+        )
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to reset password")
+        return {"detail": "Password reset successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e

@@ -6,7 +6,7 @@ from typing import List, Optional
 from datetime import date, datetime
 
 from sqlalchemy.orm import mapped_column, relationship, Mapped
-from sqlalchemy import String, Integer, Boolean, ForeignKey, Date, UniqueConstraint
+from sqlalchemy import String, Integer, Boolean, ForeignKey, Date, DateTime, UniqueConstraint
 
 from models.database.geography import District, Block, GramPanchayat
 from database import Base  # type: ignore
@@ -121,6 +121,28 @@ class User(Base):  # type: ignore
         if self.geo_entity:
             name += f" - {self.geo_entity}"
         return name
+
+
+class UserPasswordResetOTP(Base):  # type: ignore
+    """
+    Describes an OTP sent to a user for password reset
+    """
+
+    __tablename__ = "user_password_reset_otps"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
+    user_id: Mapped[int] = mapped_column(  # type: ignore
+        Integer,
+        ForeignKey("authority_users.id"),
+        nullable=False,
+        index=True,
+    )
+    otp: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)  # type: ignore
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)  # type: ignore
+
+    # Relationships
+    user = relationship("User")
 
 
 class Employee(Base):  # type: ignore

@@ -1,13 +1,11 @@
 """Authentication and user management service."""
 
 from enum import Enum
-import random  # pylint: disable=C0415,W0611
 
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta, date, timezone
 import uuid
 
-from fastapi import HTTPException
 import requests
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert, delete, update
@@ -23,6 +21,7 @@ from models.database.auth import (
     PublicUser,
     PublicUserOTP,
     PublicUserToken,
+    UserPasswordResetOTP,
 )
 from config import settings
 
@@ -361,7 +360,9 @@ class AuthService:
         """Get the current position holder for the user."""
         result: Optional[Any] = None
         if gp_id is not None:
-            result = await self.db.execute(select(PositionHolder).where(PositionHolder.gp_id == gp_id, PositionHolder.end_date.is_(None)))
+            result = await self.db.execute(
+                select(PositionHolder).where(PositionHolder.gp_id == gp_id, PositionHolder.end_date.is_(None))
+            )
         elif block_id is not None:
             result = await self.db.execute(
                 select(PositionHolder).where(
@@ -391,6 +392,72 @@ class AuthService:
         assert result is not None, "Database query failed in get_current_position_holder"
         position_holder = result.scalar_one_or_none()
         return position_holder
+
+    async def send_password_reset_otp(self, user_id: int) -> bool:
+        """Send OTP to user for password reset."""
+        # Check if user exists
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            raise ValueError("User not found")
+
+        # Default OTP for testing
+        otp = "123456"
+
+        # Delete any existing OTPs for this user
+        await self.db.execute(delete(UserPasswordResetOTP).where(UserPasswordResetOTP.user_id == user_id))
+
+        # Create new OTP entry
+        await self.db.execute(
+            insert(UserPasswordResetOTP).values(
+                user_id=user_id,
+                otp=otp,
+                is_verified=False,
+                expires_at=datetime.now(tz=timezone.utc) + timedelta(minutes=15),
+            )
+        )
+        await self.db.commit()
+
+        # In production, you would send the OTP via SMS/email here
+        print(f"Password reset OTP for user {user_id}: {otp}")
+
+        return True
+
+    async def verify_password_reset_otp(self, user_id: int, otp: str, new_password: str) -> bool:
+        """Verify OTP and update user's password."""
+        # Get the OTP from database
+        result = await self.db.execute(
+            select(UserPasswordResetOTP).where(
+                UserPasswordResetOTP.user_id == user_id,
+                UserPasswordResetOTP.is_verified.is_(False),
+            )
+        )
+        stored_otp = result.scalar_one_or_none()
+
+        if not stored_otp:
+            raise ValueError("No OTP found for this user or OTP already used")
+
+        # Check if OTP matches
+        if stored_otp.otp != otp:
+            raise ValueError("Invalid OTP")
+
+        # Check if OTP has expired
+        print("Expires at:", stored_otp.expires_at, "Current time:", datetime.now(tz=timezone.utc))
+
+        if stored_otp.expires_at < datetime.now(tz=timezone.utc):
+            raise ValueError("OTP has expired")
+
+        # Update user's password
+        hashed_password = self.get_password_hash(new_password)
+        await self.db.execute(update(User).where(User.id == user_id).values(hashed_password=hashed_password))
+
+        # Mark OTP as verified
+        await self.db.execute(
+            update(UserPasswordResetOTP).where(UserPasswordResetOTP.id == stored_otp.id).values(is_verified=True)
+        )
+
+        await self.db.commit()
+
+        return True
 
 
 def send_otp(mobile_number: str, otp: int | str) -> bool:
