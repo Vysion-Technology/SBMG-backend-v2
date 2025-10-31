@@ -157,9 +157,7 @@ async def create_position_holder(
         position = await position_service.create_position_holder(
             user_id=request.user_id,
             role_id=role.id,
-            first_name=request.first_name,
-            middle_name=request.middle_name,
-            last_name=request.last_name,
+            employee_id=request.employee_id,
             village_id=request.village_id,
             block_id=request.block_id,
             district_id=request.district_id,

@@ -18,6 +18,18 @@ class PositionHolderService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    @property
+    def position_holder_full_options(self):
+        """Common options for loading full position holder relationships."""
+        return [
+            selectinload(PositionHolder.user),
+            selectinload(PositionHolder.role),
+            selectinload(PositionHolder.gp),
+            selectinload(PositionHolder.block),
+            selectinload(PositionHolder.district),
+            selectinload(PositionHolder.employee),
+        ]
+
     async def add_employee(self, employee_request: CreateEmployeeRequest) -> Employee:
         """Placeholder method for adding an employee."""
         employee = await self.db.execute(
@@ -30,7 +42,9 @@ class PositionHolderService:
                 employee_id=employee_request.employee_id,
                 mobile_number=employee_request.mobile_number,
             )
-            .returning(Employee)
+            .returning(Employee).options(
+                selectinload(Employee.positions)
+            )
         )
         emp = employee.scalar_one()
         await self.db.commit()
@@ -116,9 +130,7 @@ class PositionHolderService:
         self,
         user_id: int,
         role_id: int,
-        first_name: str,
-        last_name: str,
-        middle_name: Optional[str] = None,
+        employee_id: str,
         village_id: Optional[int] = None,
         block_id: Optional[int] = None,
         district_id: Optional[int] = None,
@@ -136,20 +148,29 @@ class PositionHolderService:
             raise ActivePositionHolderExistsError(
                 "An active position holder already exists for the given geographic assignment."
             )
-        position = PositionHolder(
-            user_id=user_id,
-            role_id=role_id,
-            first_name=first_name,
-            middle_name=middle_name,
-            last_name=last_name,
-            village_id=village_id,
-            block_id=block_id,
-            district_id=district_id,
-            start_date=start_date,
-            end_date=end_date,
-            date_of_joining=date_of_joining,
+        position = await self.db.execute(
+            insert(PositionHolder)
+            .values(
+                user_id=user_id,
+                role_id=role_id,
+                employee_id=employee_id,
+                village_id=village_id,
+                block_id=block_id,
+                district_id=district_id,
+                start_date=start_date,
+                end_date=end_date,
+                date_of_joining=date_of_joining,
+            )
+            .returning(PositionHolder).options(
+                selectinload(PositionHolder.user),
+                selectinload(PositionHolder.role),
+                selectinload(PositionHolder.gp),
+                selectinload(PositionHolder.block),
+                selectinload(PositionHolder.district),
+                selectinload(PositionHolder.employee),
+            )
         )
-        self.db.add(position)
+        position = position.scalar_one()
         await self.db.commit()
         await self.db.refresh(position)
         return position
@@ -164,6 +185,7 @@ class PositionHolderService:
                 selectinload(PositionHolder.gp),
                 selectinload(PositionHolder.block),
                 selectinload(PositionHolder.district),
+                selectinload(PositionHolder.employee),
             )
             .where(PositionHolder.id == position_id)
         )
