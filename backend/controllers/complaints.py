@@ -658,10 +658,13 @@ async def get_top_n_complaint_types(
 ) -> List[TopNGeographiesInDateRangeResponse]:
     """Get top N complaint types for analytics (Staff only)."""
     if current_user.block_id is not None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to access top N complaint types analytics",
-        )
+        if level in [GeoTypeEnum.DISTRICT, GeoTypeEnum.BLOCK]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access top N complaint types analytics at district level",
+            )
+        if not block_id:
+            block_id = current_user.block_id
     if current_user.gp_id is not None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
