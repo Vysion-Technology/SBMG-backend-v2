@@ -8,6 +8,17 @@ from sqlalchemy import String, Integer, ForeignKey, Date, Text
 from database import Base
 from models.database.auth import PositionHolder  # type: ignore
 
+class NoticeType(Base):  # type: ignore
+    """
+    Describes a notice type entity
+    """
+
+    __tablename__ = "notice_types"
+
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)  # type: ignore
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # type: ignore
+
 class Notice(Base):  # type: ignore
     """
     Describes a notice entity
@@ -16,6 +27,7 @@ class Notice(Base):  # type: ignore
     __tablename__ = "notices"
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
+    type_id: Mapped[int] = mapped_column(Integer, ForeignKey("notice_types.id"), nullable=False)  # type: ignore
     sender_id: Mapped[int] = mapped_column(Integer, ForeignKey("authority_holder_persons.id"), nullable=False)  # type: ignore
     receiver_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
         Integer, ForeignKey("authority_holder_persons.id"), nullable=True
