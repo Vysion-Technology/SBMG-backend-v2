@@ -123,7 +123,7 @@ async def list_events(
     """List all events with pagination."""
     if limit > 1000:
         raise HTTPException(status_code=400, detail="Limit exceeds maximum of 100.")
-    
+
     service = EventService(db)
     events = await service.get_all_events(skip=skip, limit=limit, active=active)
     return [
