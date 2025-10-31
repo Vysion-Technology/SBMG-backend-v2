@@ -33,8 +33,8 @@ class Notice(Base):  # type: ignore
     id = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
     type_id: Mapped[int] = mapped_column(Integer, ForeignKey("notice_types.id"), nullable=False)  # type: ignore
     sender_id: Mapped[int] = mapped_column(Integer, ForeignKey("authority_holder_persons.id"), nullable=False)  # type: ignore
-    receiver_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
-        Integer, ForeignKey("authority_holder_persons.id"), nullable=True
+    receiver_id: Mapped[int] = mapped_column(  # type: ignore
+        Integer, ForeignKey("authority_holder_persons.id"), nullable=False
     )
     title: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     date: Mapped[date] = mapped_column(Date, nullable=False, default=date.today)  # type: ignore
@@ -47,7 +47,7 @@ class Notice(Base):  # type: ignore
     sender: Mapped["PositionHolder"] = relationship(
         PositionHolder, foreign_keys=[sender_id]
     )
-    receiver: Mapped[Optional["PositionHolder"]] = relationship(  # type: ignore
+    receiver: Mapped["PositionHolder"] = relationship(  # type: ignore
         PositionHolder, foreign_keys=[receiver_id]
     )
 
