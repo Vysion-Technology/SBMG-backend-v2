@@ -27,7 +27,7 @@ class CreatePositionHolderRequest(BaseModel):
 
     user_id: int = Field(..., description="ID of the user to assign position")
     role_name: str = Field(..., description="Role name (CEO/BDO/VDO)")
-    employee_id: str = Field(..., description="Employee ID of the position holder")
+    employee_id: int = Field(..., description="Employee ID of the position holder")
     village_id: Optional[int] = Field(None, description="Village ID (required for VDO)")
     block_id: Optional[int] = Field(None, description="Block ID (required for BDO/VDO)")
     district_id: Optional[int] = Field(None, description="District ID (required for CEO/BDO/VDO)")

@@ -116,12 +116,16 @@ class PositionHolderService:
             .where(PositionHolder.end_date.is_(None))
         )
 
-        if district_id is not None:
-            query = query.where(PositionHolder.district_id == district_id)
-        if block_id is not None:
-            query = query.where(PositionHolder.block_id == block_id)
         if village_id is not None:
             query = query.where(PositionHolder.gp_id == village_id)
+        elif block_id is not None:
+            query = query.where(PositionHolder.block_id == block_id)
+        elif district_id is not None:
+            query = query.where(PositionHolder.district_id == district_id)
+        else:
+            query = query.where(
+                PositionHolder.district_id.is_(None),
+            )
 
         result = await self.db.execute(query)
         return list(result.scalars().all())
@@ -130,7 +134,7 @@ class PositionHolderService:
         self,
         user_id: int,
         role_id: int,
-        employee_id: str,
+        employee_id: int,
         village_id: Optional[int] = None,
         block_id: Optional[int] = None,
         district_id: Optional[int] = None,
@@ -154,7 +158,7 @@ class PositionHolderService:
                 user_id=user_id,
                 role_id=role_id,
                 employee_id=employee_id,
-                village_id=village_id,
+                gp_id=village_id,
                 block_id=block_id,
                 district_id=district_id,
                 start_date=start_date,
@@ -207,6 +211,7 @@ class PositionHolderService:
             selectinload(PositionHolder.gp),
             selectinload(PositionHolder.block),
             selectinload(PositionHolder.district),
+            selectinload(PositionHolder.employee),
         )
 
         if role_id is not None:
