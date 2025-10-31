@@ -1,11 +1,15 @@
+"""Service layer for managing complaints."""
+
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import List, Optional
 from datetime import datetime, timezone
+
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import Date, func, select
 from sqlalchemy.sql.functions import coalesce
 from sqlalchemy.orm import selectinload
+
 from models.database.complaint import (
     Complaint,
     ComplaintType,
