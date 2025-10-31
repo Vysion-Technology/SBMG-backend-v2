@@ -654,33 +654,119 @@ class InspectionService:
         end_date: Optional[date] = None,
     ) -> List[TopPerformerInspectionResponse]:
         """Get the inspectors with the highest number of inspections conducted at the specified geographic level."""
-        # TODO: Implement the logic to fetch top performer inspectors based on the level and filters
+        # Build the query to get position_holder_id and count of inspections
+        query = (
+            select(Inspection.position_holder_id, func.count(Inspection.id))
+            .join(PositionHolder, Inspection.position_holder_id == PositionHolder.id)
+            .group_by(Inspection.position_holder_id)
+        )
+
+        # Apply date filters
+        if start_date:
+            query = query.where(Inspection.date >= start_date)
+        if end_date:
+            query = query.where(Inspection.date <= end_date)
+
+        # Apply geographic filters
+        if district_id:
+            query = query.where(
+                Inspection.gp_id.in_(select(GramPanchayat.id).where(GramPanchayat.district_id == district_id))
+            )
+        if block_id:
+            query = query.where(
+                Inspection.gp_id.in_(select(GramPanchayat.id).where(GramPanchayat.block_id == block_id))
+            )
+        if gp_id:
+            query = query.where(Inspection.gp_id == gp_id)
+
+        # Apply level filters
+        if level == GeoTypeEnum.DISTRICT:
+            query = query.where(
+                PositionHolder.district_id.isnot(None),
+                PositionHolder.block_id.is_(None),
+                PositionHolder.gp_id.is_(None),
+            )
+        elif level == GeoTypeEnum.BLOCK:
+            query = query.where(
+                PositionHolder.block_id.isnot(None),
+                PositionHolder.gp_id.is_(None),
+            )
+        else:  # VILLAGE level
+            query = query.where(
+                PositionHolder.gp_id.isnot(None),
+            )
+
+        # Order and limit
+        query = query.order_by(func.count(Inspection.id).desc()).limit(top_n)
+
+        # Execute the query
+        result = await self.db.execute(query)
+        position_data = result.fetchall()
+
+        # If no results, return empty list
+        if not position_data:
+            return [
+                TopPerformerInspectionResponse(
+                    level=level,
+                    inspectors=[],
+                )
+            ]
+
+        # Fetch the position holders with their relationships
+        position_holder_ids = [ph_id for ph_id, _ in position_data]
+        position_holders_query = (
+            select(PositionHolder)
+            .where(PositionHolder.id.in_(position_holder_ids))
+            .options(
+                selectinload(PositionHolder.user).selectinload(User.district),
+                selectinload(PositionHolder.user).selectinload(User.block),
+                selectinload(PositionHolder.user).selectinload(User.gp),
+                selectinload(PositionHolder.employee),
+            )
+        )
+
+        position_holders_result = await self.db.execute(position_holders_query)
+        position_holders = {ph.id: ph for ph in position_holders_result.scalars().all()}
+
+        # Build the response
+        inspectors: List[TopPerformerInspectorItemResponse] = []
+        for position_holder_id, count in position_data:
+            position_holder = position_holders.get(position_holder_id)
+            if not position_holder or not position_holder.user:
+                continue
+
+            # Determine geo_id and geo_name based on level
+            if level == GeoTypeEnum.DISTRICT:
+                geo_id = position_holder.district_id
+                geo_name = position_holder.user.district.name if position_holder.user.district else "Unknown"
+            elif level == GeoTypeEnum.BLOCK:
+                geo_id = position_holder.block_id
+                geo_name = position_holder.user.block.name if position_holder.user.block else "Unknown"
+            else:  # VILLAGE level
+                geo_id = position_holder.gp_id
+                geo_name = position_holder.user.gp.name if position_holder.user.gp else "Unknown"
+
+            # Skip if geo_id is None
+            if geo_id is None:
+                continue
+
+            inspector_name = f"{position_holder.employee.first_name or ''} {position_holder.employee.last_name or ''}".strip()
+
+            inspectors.append(
+                TopPerformerInspectorItemResponse(
+                    geo_id=geo_id,
+                    geo_name=geo_name,
+                    inspector_name=inspector_name,
+                    inspections_count=count,
+                )
+            )
 
         return [
             TopPerformerInspectionResponse(
                 level=level,
-                inspectors=[
-                    TopPerformerInspectorItemResponse(
-                        geo_id=1,
-                        geo_name="Sample Geo",
-                        inspector_name="Inspector Name",
-                        inspections_count=100,
-                    ),
-                    TopPerformerInspectorItemResponse(
-                        geo_id=1,
-                        geo_name="Sample Geo",
-                        inspector_name="Inspector Name",
-                        inspections_count=80,
-                    ),
-                    TopPerformerInspectorItemResponse(
-                        geo_id=1,
-                        geo_name="Sample Geo",
-                        inspector_name="Inspector Name",
-                        inspections_count=70,
-                    ),
-                ],
+                inspectors=inspectors,
             )
-        ]  # Implementation goes here
+        ]
 
     async def get_performance_report(
         self,

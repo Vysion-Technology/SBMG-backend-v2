@@ -67,6 +67,7 @@ async def get_performance_report(
 
     return result
 
+
 @router.get("/criticals", response_model=CriticalInspectionResponse)
 async def get_critical_inspection(
     db: AsyncSession = Depends(get_db),  # pylint: disable=unused-argument
@@ -276,46 +277,6 @@ async def get_my_inspections(
         page_size=page_size,
         total_pages=total_pages,
     )
-
-
-@router.get("/{inspection_id}", response_model=InspectionResponse)
-async def get_inspection(
-    inspection_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role),
-):
-    """
-    Get detailed information about a specific inspection.
-
-    Officers can only view inspections within their jurisdiction.
-    """
-    inspection_detail = await get_inspection_detail(inspection_id, db)
-
-    if not inspection_detail:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found")
-
-    # Check if user has access to this inspection
-    service = InspectionService(db)
-
-    # If not admin, check jurisdiction
-    user_roles = [pos.role.name for pos in current_user.positions if pos.role]
-    if UserRole.ADMIN not in user_roles and UserRole.SUPERADMIN not in user_roles:
-        # Verify the inspection is within jurisdiction
-        result = await db.execute(select(Inspection).where(Inspection.id == inspection_id))
-        inspection = result.scalar_one_or_none()
-
-        if not inspection:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found")
-
-        # Check jurisdiction
-        can_access = await service.can_inspect_village(current_user, inspection.gp_id)
-        if not can_access:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have access to this inspection",
-            )
-
-    return inspection_detail
 
 
 @router.get("/", response_model=PaginatedInspectionResponse)
@@ -549,3 +510,41 @@ async def top_performer_inspectors(
     return result
 
 
+@router.get("/{inspection_id}", response_model=InspectionResponse)
+async def get_inspection(
+    inspection_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+):
+    """
+    Get detailed information about a specific inspection.
+
+    Officers can only view inspections within their jurisdiction.
+    """
+    inspection_detail = await get_inspection_detail(inspection_id, db)
+
+    if not inspection_detail:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found")
+
+    # Check if user has access to this inspection
+    service = InspectionService(db)
+
+    # If not admin, check jurisdiction
+    user_roles = [pos.role.name for pos in current_user.positions if pos.role]
+    if UserRole.ADMIN not in user_roles and UserRole.SUPERADMIN not in user_roles:
+        # Verify the inspection is within jurisdiction
+        result = await db.execute(select(Inspection).where(Inspection.id == inspection_id))
+        inspection = result.scalar_one_or_none()
+
+        if not inspection:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found")
+
+        # Check jurisdiction
+        can_access = await service.can_inspect_village(current_user, inspection.gp_id)
+        if not can_access:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this inspection",
+            )
+
+    return inspection_detail
