@@ -91,7 +91,7 @@ class NoticeService:
                         PositionHolder.role_id == position.role_id,
                         PositionHolder.district_id == position.district_id,
                         PositionHolder.block_id == position.block_id,
-                        PositionHolder.village_id == position.village_id,
+                        PositionHolder.gp_id == position.gp_id,
                     )
                 )
             )

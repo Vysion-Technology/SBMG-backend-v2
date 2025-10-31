@@ -185,7 +185,7 @@ class AuthService:
         if block_id is not None:
             query = query.where(PositionHolder.block_id == block_id)
         if village_id is not None:
-            query = query.where(PositionHolder.village_id == village_id)
+            query = query.where(PositionHolder.gp_id == village_id)
 
         query = query.offset(skip).limit(limit)
         result = await self.db.execute(query)
@@ -358,13 +358,16 @@ class AuthService:
         gp_id: Optional[int] = None,
     ) -> Optional[PositionHolder]:
         """Get the current position holder for the user."""
-        result = await self.db.execute(
-            select(PositionHolder).where(
-                PositionHolder.district_id == district_id,
-                PositionHolder.block_id == block_id,
-                PositionHolder.village_id == gp_id
+        if gp_id is not None:
+            result = await self.db.execute(select(PositionHolder).where(PositionHolder.gp_id == gp_id))
+        else:
+            result = await self.db.execute(
+                select(PositionHolder).where(
+                    PositionHolder.district_id == district_id,
+                    PositionHolder.block_id == block_id,
+                    PositionHolder.gp_id == gp_id,
+                )
             )
-        )
         position_holder = result.scalar_one_or_none()
         return position_holder
 

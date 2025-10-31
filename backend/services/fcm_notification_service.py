@@ -37,7 +37,7 @@ async def notify_workers_on_new_complaint(
             .where(
                 and_(
                     Role.name == "WORKER",
-                    PositionHolder.village_id == complaint.gp_id,
+                    PositionHolder.gp_id == complaint.gp_id,
                     User.is_active.is_(True),
                 )
             )

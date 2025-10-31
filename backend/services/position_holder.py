@@ -39,7 +39,7 @@ class PositionHolderService:
         if block_id is not None:
             query = query.where(PositionHolder.block_id == block_id)
         if village_id is not None:
-            query = query.where(PositionHolder.village_id == village_id)
+            query = query.where(PositionHolder.gp_id == village_id)
 
         result = await self.db.execute(query)
         return list(result.scalars().all())
@@ -104,7 +104,7 @@ class PositionHolderService:
         role_id: Optional[int] = None,
         district_id: Optional[int] = None,
         block_id: Optional[int] = None,
-        village_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
         skip: int = 0,
         limit: int = 100,
     ) -> List[PositionHolder]:
@@ -123,8 +123,8 @@ class PositionHolderService:
             query = query.where(PositionHolder.district_id == district_id)
         if block_id is not None:
             query = query.where(PositionHolder.block_id == block_id)
-        if village_id is not None:
-            query = query.where(PositionHolder.village_id == village_id)
+        if gp_id is not None:
+            query = query.where(PositionHolder.gp_id == gp_id)
 
         query = query.offset(skip).limit(limit)
         result = await self.db.execute(query)
