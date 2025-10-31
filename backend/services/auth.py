@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta, date, timezone
 import uuid
 
+from fastapi import HTTPException
 import requests
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert, delete, update
@@ -358,16 +359,27 @@ class AuthService:
         gp_id: Optional[int] = None,
     ) -> Optional[PositionHolder]:
         """Get the current position holder for the user."""
+        result: Optional[Any] = None
         if gp_id is not None:
-            result = await self.db.execute(select(PositionHolder).where(PositionHolder.gp_id == gp_id))
-        else:
+            result = await self.db.execute(select(PositionHolder).where(PositionHolder.gp_id == gp_id, PositionHolder.end_date.is_(None)))
+        elif block_id is not None:
+            result = await self.db.execute(
+                select(PositionHolder).where(
+                    PositionHolder.block_id == block_id,
+                    PositionHolder.gp_id.is_(None),
+                    PositionHolder.end_date.is_(None),
+                )
+            )
+        elif district_id is not None:
             result = await self.db.execute(
                 select(PositionHolder).where(
                     PositionHolder.district_id == district_id,
-                    PositionHolder.block_id == block_id,
-                    PositionHolder.gp_id == gp_id,
+                    PositionHolder.block_id.is_(None),
+                    PositionHolder.gp_id.is_(None),
+                    PositionHolder.end_date.is_(None),
                 )
             )
+        assert result is not None, "Database query failed in get_current_position_holder"
         position_holder = result.scalar_one_or_none()
         return position_holder
 
