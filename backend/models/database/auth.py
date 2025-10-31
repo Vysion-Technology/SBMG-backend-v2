@@ -125,8 +125,8 @@ class Employee(Base):  # type: ignore
     first_name: Mapped[str] = mapped_column(String, nullable=False, index=True)  # type: ignore
     middle_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     last_name: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
-    email: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)  # type: ignore
-    mobile_number: Mapped[Optional[str]] = mapped_column(
+    email: Mapped[str] = mapped_column(String, unique=True, nullable=False)  # type: ignore
+    mobile_number: Mapped[str] = mapped_column(
         String,
         unique=True,
         nullable=False,

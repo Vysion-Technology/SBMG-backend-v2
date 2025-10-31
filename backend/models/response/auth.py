@@ -26,3 +26,15 @@ class PositionHolderResponse(BaseModel):
     block_name: Optional[str] = None
     village_id: Optional[int] = None
     village_name: Optional[str] = None
+
+
+class EmployeeResponse(BaseModel):
+    """Response model for employee."""
+
+    id: int
+    employee_id: str
+    first_name: str
+    last_name: str
+    middle_name: Optional[str] = None
+    email: Optional[str] = None
+    mobile_number: Optional[str] = None

@@ -2,18 +2,19 @@
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_utils import require_admin
+from auth_utils import require_admin, require_staff_role
 from database import get_db
 from exceptions.position_holders import ActivePositionHolderExistsError
 from models.database.auth import User
 from models.requests.position_holder import (
+    CreateEmployeeRequest,
     CreatePositionHolderRequest,
     UpdatePositionHolderRequest,
 )
-from models.response.auth import PositionHolderResponse
+from models.response.auth import EmployeeResponse, PositionHolderResponse
 from services.position_holder import PositionHolderService
 from services.auth import AuthService, UserRole
 from controllers.auth import get_current_active_user
@@ -459,3 +460,86 @@ async def delete_position_holder(
         )
 
     return None
+
+
+@router.post("/employee")
+async def create_employee(
+    employee_request: CreateEmployeeRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> EmployeeResponse:
+    """Create employee placeholder endpoint."""
+    assert current_user, "Current user must be provided"
+    position_service = PositionHolderService(db)
+    employee = await position_service.add_employee(employee_request=employee_request)
+    return EmployeeResponse(
+        id=employee.id,
+        employee_id=employee.employee_id,
+        first_name=employee.first_name,
+        middle_name=employee.middle_name,
+        last_name=employee.last_name,
+        email=employee.email,
+        mobile_number=employee.mobile_number,
+    )
+
+
+@router.get("/employee/{employee_id}", response_model=EmployeeResponse)
+async def get_employee(
+    employee_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+):
+    """Get an employee by ID."""
+    assert current_user, "Current user must be provided"
+    position_service = PositionHolderService(db)
+
+    employee = await position_service.get_employee_by_id(employee_id)
+    if not employee:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Employee with id {employee_id} not found")
+
+    return EmployeeResponse(
+        id=employee.id,
+        employee_id=employee.employee_id,
+        first_name=employee.first_name,
+        middle_name=employee.middle_name,
+        last_name=employee.last_name,
+        email=employee.email,
+        mobile_number=employee.mobile_number,
+    )
+
+
+@router.get("/employees", response_model=List[EmployeeResponse])
+async def get_all_employees(
+    skip: int = 0,
+    limit: int = Query(100, le=500),
+    name: Optional[str] = None,
+    mobile_number: Optional[str] = None,
+    email: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+):
+    """Get all employees."""
+    assert current_user, "Current user must be provided"
+
+    position_service = PositionHolderService(db)
+
+    employees = await position_service.get_all_employees(
+        skip=skip,
+        limit=limit,
+        name=name,
+        mobile_number=mobile_number,
+        email=email,
+    )
+
+    return [
+        EmployeeResponse(
+            id=employee.id,
+            employee_id=employee.employee_id,
+            first_name=employee.first_name,
+            middle_name=employee.middle_name,
+            last_name=employee.last_name,
+            email=employee.email,
+            mobile_number=employee.mobile_number,
+        )
+        for employee in employees
+    ]

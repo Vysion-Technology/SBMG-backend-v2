@@ -4,11 +4,12 @@ from typing import List, Optional
 from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
+from sqlalchemy import insert, select, update, delete
 from sqlalchemy.orm import selectinload
 
 from exceptions.position_holders import ActivePositionHolderExistsError
-from models.database.auth import PositionHolder, Role
+from models.database.auth import PositionHolder, Role, Employee
+from models.requests.position_holder import CreateEmployeeRequest
 
 
 class PositionHolderService:
@@ -17,6 +18,52 @@ class PositionHolderService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def add_employee(self, employee_request: CreateEmployeeRequest) -> Employee:
+        """Placeholder method for adding an employee."""
+        employee = await self.db.execute(
+            insert(Employee)
+            .values(
+                first_name=employee_request.first_name,
+                middle_name=employee_request.middle_name,
+                last_name=employee_request.last_name,
+                email=employee_request.email,
+                employee_id=employee_request.employee_id,
+                mobile_number=employee_request.mobile_number,
+            )
+            .returning(Employee)
+        )
+        emp = employee.scalar_one()
+        await self.db.commit()
+        return emp
+
+    async def get_employee_by_id(self, employee_id: int) -> Optional[Employee]:
+        """Get employee by ID."""
+        result = await self.db.execute(select(Employee).where(Employee.id == employee_id))
+        return result.scalar_one_or_none()
+
+    async def get_all_employees(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        name: Optional[str] = None,
+        mobile_number: Optional[str] = None,
+        email: Optional[str] = None,
+    ) -> List[Employee]:
+        """Get all employees with optional filters."""
+        query = select(Employee).offset(skip).limit(limit)
+        if name:
+            query = query.where(
+                (Employee.first_name.ilike(f"%{name}%"))
+                | (Employee.middle_name.ilike(f"%{name}%"))
+                | (Employee.last_name.ilike(f"%{name}%"))
+            )
+        if mobile_number:
+            query = query.where(Employee.mobile_number == mobile_number)
+        if email:
+            query = query.where(Employee.email == email)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
     async def get_active_position_holders_by_geo_ids(
         self,
         district_id: Optional[int] = None,
@@ -24,14 +71,16 @@ class PositionHolderService:
         village_id: Optional[int] = None,
     ) -> List[PositionHolder]:
         """Get active position holders filtered by geographic IDs."""
-        query = select(PositionHolder).options(
-            selectinload(PositionHolder.user),
-            selectinload(PositionHolder.role),
-            selectinload(PositionHolder.gp),
-            selectinload(PositionHolder.block),
-            selectinload(PositionHolder.district),
-        ).where(
-            PositionHolder.end_date.is_(None)
+        query = (
+            select(PositionHolder)
+            .options(
+                selectinload(PositionHolder.user),
+                selectinload(PositionHolder.role),
+                selectinload(PositionHolder.gp),
+                selectinload(PositionHolder.block),
+                selectinload(PositionHolder.district),
+            )
+            .where(PositionHolder.end_date.is_(None))
         )
 
         if district_id is not None:
@@ -65,7 +114,9 @@ class PositionHolderService:
             village_id=village_id,
         )
         if pos_holders:
-            raise ActivePositionHolderExistsError("An active position holder already exists for the given geographic assignment.")
+            raise ActivePositionHolderExistsError(
+                "An active position holder already exists for the given geographic assignment."
+            )
         position = PositionHolder(
             user_id=user_id,
             role_id=role_id,
@@ -172,20 +223,14 @@ class PositionHolderService:
             # No updates provided, just return existing
             return await self.get_position_holder_by_id(position_id)
 
-        await self.db.execute(
-            update(PositionHolder)
-            .where(PositionHolder.id == position_id)
-            .values(**update_data)
-        )
+        await self.db.execute(update(PositionHolder).where(PositionHolder.id == position_id).values(**update_data))
         await self.db.commit()
 
         return await self.get_position_holder_by_id(position_id)
 
     async def delete_position_holder(self, position_id: int) -> bool:
         """Delete a position holder."""
-        result = await self.db.execute(
-            delete(PositionHolder).where(PositionHolder.id == position_id)
-        )
+        result = await self.db.execute(delete(PositionHolder).where(PositionHolder.id == position_id))
         await self.db.commit()
         return result.rowcount > 0  # type: ignore
 
@@ -196,7 +241,5 @@ class PositionHolderService:
 
     async def get_position_holder_ids_by_user(self, user_id: int) -> List[int]:
         """Get position holder IDs associated with a user."""
-        result = await self.db.execute(
-            select(PositionHolder.id).where(PositionHolder.user_id == user_id)
-        )
+        result = await self.db.execute(select(PositionHolder.id).where(PositionHolder.user_id == user_id))
         return [row[0] for row in result.all()]

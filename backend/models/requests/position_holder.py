@@ -5,6 +5,17 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+class CreateEmployeeRequest(BaseModel):
+    """Request model for creating an employee."""
+
+    first_name: str = Field(..., min_length=1, max_length=100)
+    middle_name: Optional[str] = Field(None, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    email: Optional[str] = Field(None, max_length=255)
+    employee_id: str = Field(..., max_length=50)
+    mobile_number: str = Field(..., max_length=15)
+
+
 class CreatePositionHolderRequest(BaseModel):
     """Request model for creating a position holder."""
 
