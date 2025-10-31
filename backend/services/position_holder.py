@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from exceptions.position_holders import ActivePositionHolderExistsError
 from models.database.auth import PositionHolder, Role, Employee
+from models.requests.position_holder import CreatePositionHolderRequest
 from models.requests.position_holder import CreateEmployeeRequest, UpdateEmployeeRequest
 
 
@@ -42,9 +43,8 @@ class PositionHolderService:
                 employee_id=employee_request.employee_id,
                 mobile_number=employee_request.mobile_number,
             )
-            .returning(Employee).options(
-                selectinload(Employee.positions)
-            )
+            .returning(Employee)
+            .options(selectinload(Employee.positions))
         )
         emp = employee.scalar_one()
         await self.db.commit()
@@ -165,7 +165,8 @@ class PositionHolderService:
                 end_date=end_date,
                 date_of_joining=date_of_joining,
             )
-            .returning(PositionHolder).options(
+            .returning(PositionHolder)
+            .options(
                 selectinload(PositionHolder.user),
                 selectinload(PositionHolder.role),
                 selectinload(PositionHolder.gp),
@@ -289,3 +290,54 @@ class PositionHolderService:
         """Get position holder IDs associated with a user."""
         result = await self.db.execute(select(PositionHolder.id).where(PositionHolder.user_id == user_id))
         return [row[0] for row in result.all()]
+
+    async def create_employees_bulk(
+        self,
+        employee_requests: List[CreateEmployeeRequest],
+    ) -> List[Employee]:
+        """Create multiple employees in bulk."""
+        employees = await self.db.execute(
+            insert(Employee)
+            .values([
+                dict(
+                    first_name=req.first_name,
+                    middle_name=req.middle_name,
+                    last_name=req.last_name,
+                    email=req.email,
+                    employee_id=req.employee_id,
+                    mobile_number=req.mobile_number,
+                )
+                for req in employee_requests
+            ])
+            .returning(Employee)
+        )
+        await self.db.commit()
+        employees = employees.scalars().all()
+        return list(employees)
+
+    async def create_position_holders_bulk(
+        self,
+        position_holder_requests: List[CreatePositionHolderRequest],
+    ) -> List[PositionHolder]:
+        """Create multiple position holders in bulk."""
+        position_holders = await self.db.execute(
+            insert(PositionHolder)
+            .values([
+                dict(
+                    role_id=req.role_id,
+                    user_id=req.user_id,
+                    employee_id=req.employee_id,
+                    gp_id=req.gp_id,
+                    block_id=req.block_id,
+                    district_id=req.district_id,
+                    start_date=req.start_date,
+                    end_date=req.end_date,
+                )
+                for req in position_holder_requests
+            ])
+            .returning(PositionHolder)
+            .options(*self.position_holder_full_options)
+        )
+        await self.db.commit()
+        position_holders = position_holders.scalars().all()
+        return list(position_holders)
