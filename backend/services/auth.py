@@ -459,6 +459,42 @@ class AuthService:
 
         return True
 
+    async def get_ceo_users(self) -> List[User]:
+        """Get all users with CEO role."""
+        result = await self.db.execute(
+            select(User)
+            .where(
+                User.district_id.is_not(None),
+                User.block_id.is_(None),
+                User.gp_id.is_(None),
+            )
+        )
+        users = result.scalars().all()
+        return list(users)
+
+    async def get_bdo_users(self) -> List[User]:
+        """Get all users with BDO role."""
+        result = await self.db.execute(
+            select(User)
+            .where(
+                User.block_id.is_not(None),
+                User.gp_id.is_(None),
+            )
+        )
+        users = result.scalars().all()
+        return list(users)
+
+    async def get_vdo_users(self) -> List[User]:
+        """Get all users with VDO role."""
+        result = await self.db.execute(
+            select(User)
+            .where(
+                User.gp_id.is_not(None),
+                User.username.notilike("%contractor%"),
+            )
+        )
+        users = result.scalars().all()
+        return list(users)
 
 def send_otp(mobile_number: str, otp: int | str) -> bool:
     """Send OTP to the given phone number."""
