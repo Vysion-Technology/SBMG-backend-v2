@@ -1,6 +1,6 @@
 """Attendance service for managing worker attendance records."""
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from datetime import date, datetime, timedelta
 from fastapi import HTTPException, status
@@ -24,8 +24,10 @@ from models.response.attendance import (
     GeographyAttendanceCountResponse,
     DayAttendanceSummaryResponse,
     DaySummaryAttendanceResponse,
+    MonthlyAggregation,
     MonthlyAttendanceTrendResponse,
     TopNGeoAttendanceResponse,
+    AnnualGeoPerformanceResponse,
 )
 
 
@@ -826,4 +828,141 @@ class AttendanceService:
                     attendance_rate=attendance_rate,
                 )
             )
+        return responses
+
+    async def get_annual_geo_performance(
+        self,
+        level: GeoTypeEnum,
+        year: int,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
+    ) -> List[AnnualGeoPerformanceResponse]:
+        """
+        Get annual attendance performance for geographical units.
+        Returns attendance statistics for the specified year.
+        """
+        start_date = date(year, 1, 1)
+        end_date = min(date(year, 12, 31), date.today())
+
+        # Build base query
+        if level == GeoTypeEnum.GP:
+            geo_model = GramPanchayat
+        elif level == GeoTypeEnum.BLOCK:
+            geo_model = Block
+        elif level == GeoTypeEnum.DISTRICT:
+            geo_model = District
+
+        query = (
+            select(
+                geo_model.id.label("geo_id"),
+                geo_model.name.label("geo_name"),
+                func.count(func.distinct(DailyAttendance.id)).label("present_count"),
+                func.count(func.distinct(Contractor.id)).label("total_contractors"),
+            )
+            .select_from(DailyAttendance)
+            .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
+            .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
+            .join(Block, GramPanchayat.block_id == Block.id)
+            .join(District, Block.district_id == District.id)
+            .where(DailyAttendance.date >= start_date, DailyAttendance.date <= end_date)
+            .group_by(geo_model.id, geo_model.name)
+        )
+
+        if district_id:
+            query = query.where(Block.district_id == district_id)
+        if block_id:
+            query = query.where(GramPanchayat.block_id == block_id)
+        if gp_id:
+            query = query.where(Contractor.gp_id == gp_id)
+
+        query = query.order_by(geo_model.id.asc())
+        result = await self.db.execute(query)
+        rows = result.fetchall()
+
+        responses: List[AnnualGeoPerformanceResponse] = []
+        # Calculate total working days in the year (exclude Sundays)
+        total_days = (end_date - start_date).days + 1
+        print("Total Days:", total_days)
+        working_days = sum(1 for i in range(total_days) if (start_date + timedelta(days=i)).weekday() < 6)
+
+        for row in rows:
+            geo_id = row.geo_id
+            geo_name = row.geo_name
+            present_count = row.present_count
+            total_contractors = row.total_contractors
+            denom = total_contractors * working_days
+            attendance_rate = (present_count / denom * 100) if denom > 0 else 0.0
+            responses.append(
+                AnnualGeoPerformanceResponse(
+                    geo_type=level,
+                    geo_id=geo_id,
+                    year=year,
+                    geo_name=geo_name,
+                    attendance_rate=attendance_rate,
+                    working_days=working_days,
+                    present_days=present_count,
+                )
+            )
+        return responses
+
+    async def get_monthly_aggregated_geo_performance(
+        self,
+        year: int,
+    ) -> List[MonthlyAggregation]:
+        """
+        Get monthly aggregated attendance performance across all geographical levels.
+        Returns attendance statistics for the specified year.
+        """
+        start_date = date(year, 1, 1)
+        end_date = min(date(year, 12, 31), date.today())
+
+        # Build base query
+        query = (
+            select(
+                func.date_trunc(literal_column("'month'"), DailyAttendance.date).label("month"),
+                func.count(func.distinct(DailyAttendance.id)).label("present_count"),
+                func.count(func.distinct(Contractor.id)).label("total_contractors"),
+            )
+            .select_from(DailyAttendance)
+            .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
+            .where(DailyAttendance.date >= start_date, DailyAttendance.date <= end_date)
+            .group_by(func.date_trunc(literal_column("'month'"), DailyAttendance.date))
+            .order_by(func.date_trunc(literal_column("'month'"), DailyAttendance.date).asc())
+        )
+
+        result = await self.db.execute(query)
+        rows = result.fetchall()
+
+        # Get the number of contractors
+        total_contractors_query = select(func.count(func.distinct(Contractor.id)))  # pylint: disable=E1102
+        total_contractors_result = await self.db.execute(total_contractors_query)
+        total_contractors = total_contractors_result.scalar() or 0
+
+        responses: List[MonthlyAggregation] = []
+        for row in rows:
+            month = row.month
+            present_count = row.present_count or 0
+
+            # Calculate working days in the month (exclude Sundays)
+            month_start = month.date()
+            if month_start < start_date:
+                month_start = start_date
+            month_end = date(month.year, month.month + 1, 1) - timedelta(days=1)
+            if month_end > end_date:
+                month_end = end_date
+            total_days = (month_end - month_start).days + 1
+            working_days = sum(1 for i in range(total_days) if (month_start + timedelta(days=i)).weekday() < 6)
+
+            denom = total_contractors * working_days
+            attendance_rate = (present_count / denom * 100) if denom > 0 else 0.0
+
+            item = MonthlyAggregation(
+                month=month.month,
+                year=month.year,
+                # working_days=working_days,
+                # present_count=present_count,
+                attendance_rate=attendance_rate,
+            )
+            responses.append(item)
         return responses

@@ -22,11 +22,13 @@ from models.requests.attendance import (
 )
 from models.response.contractor import AgencyResponse
 from models.response.attendance import (
+    AnnualGeoPerformanceResponse,
     AttendanceOverviewResponse,
     AttendanceResponse,
     AttendanceListResponse,
     DayAttendanceSummaryResponse,
     AttendanceAnalyticsResponse,
+    MonthlyAggregation,
     MonthlyAttendanceTrendResponse,
     TopNGeoAttendanceResponse,
 )
@@ -593,4 +595,68 @@ async def get_monthly_attendance_performance(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while fetching monthly attendance performance",
+        ) from e
+
+
+@router.get("/performance/annual", response_model=List[AnnualGeoPerformanceResponse])
+async def get_annual_geo_performance(
+    level: GeoTypeEnum,
+    year: int,
+    district_id: Optional[int] = None,
+    block_id: Optional[int] = None,
+    gp_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> List[AnnualGeoPerformanceResponse]:
+    """
+    Get annual geographical performance by attendance rate.
+    """
+    assert current_user is not None, "User must be authenticated"
+    try:
+        attendance_service = AttendanceService(db)
+        annual_performance = await attendance_service.get_annual_geo_performance(
+            level=level,
+            year=year,
+            district_id=district_id,
+            block_id=block_id,
+            gp_id=gp_id,
+        )
+        return annual_performance
+
+    except HTTPException as e:
+        raise e
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching annual geographical performance",
+        ) from e
+
+
+@router.get("/aggregated/monthly", response_model=List[MonthlyAggregation])
+async def get_monthly_aggregated_geo_performance(
+    year: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> List[MonthlyAggregation]:
+    """
+    Get monthly aggregated geographical performance by attendance rate.
+    """
+    assert current_user is not None, "User must be authenticated"
+    try:
+        attendance_service = AttendanceService(db)
+        monthly_aggregated_performance = await attendance_service.get_monthly_aggregated_geo_performance(
+            year=year,
+        )
+        return monthly_aggregated_performance
+
+    except HTTPException as e:
+        raise e
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching monthly aggregated geographical performance",
         ) from e

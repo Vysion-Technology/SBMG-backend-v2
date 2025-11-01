@@ -138,3 +138,24 @@ class MonthlyAttendanceTrendResponse(BaseModel):
     month: int
     year: int
     attendance_rate: float
+
+
+class MonthlyAggregation(BaseModel):
+    """Response model for monthly geographical performance."""
+
+    month: int
+    year: int
+    # working_days: int
+    # present_days: int
+    attendance_rate: float
+
+class AnnualGeoPerformanceResponse(BaseModel):
+    """Response model for annual geographical performance."""
+
+    geo_type: GeoTypeEnum
+    geo_id: int
+    geo_name: str
+    year: int
+    working_days: int
+    present_days: int
+    attendance_rate: float
