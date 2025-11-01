@@ -1,8 +1,9 @@
 """Attendance service for managing worker attendance records."""
 
-from typing import Dict, List, Optional
+from typing import Optional
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import insert, select, func, and_
 from sqlalchemy.orm import joinedload
@@ -16,6 +17,7 @@ from models.requests.attendance import (
     AttendanceEndRequest,
 )
 from models.response.attendance import (
+    AttendanceOverviewResponse,
     AttendanceResponse,
     AttendanceListResponse,
     AttendanceAnalyticsResponse,
@@ -30,9 +32,7 @@ def get_attendance_response_from_db(attendance: DailyAttendance) -> AttendanceRe
     return AttendanceResponse(
         id=attendance.id,
         contractor_id=attendance.contractor_id,
-        contractor_name=attendance.contractor.person_name
-        if attendance.contractor
-        else None,
+        contractor_name=attendance.contractor.person_name if attendance.contractor else None,
         village_id=None,
         village_name=None,
         block_name=None,
@@ -55,9 +55,7 @@ class AttendanceService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def log_attendance(
-        self, contractor_id: int, request: AttendanceLogRequest
-    ) -> DailyAttendance:
+    async def log_attendance(self, contractor_id: int, request: AttendanceLogRequest) -> DailyAttendance:
         """Log worker attendance (start of work day)"""
         # Check if attendance already exists for this contractor and date
         date_field = date.today()
@@ -104,9 +102,7 @@ class AttendanceService:
             )
         ).scalar_one()
 
-    async def end_attendance(
-        self, contractor_id: int, request: AttendanceEndRequest
-    ) -> DailyAttendance:
+    async def end_attendance(self, contractor_id: int, request: AttendanceEndRequest) -> DailyAttendance:
         """End worker attendance (end of work day)"""
         # Get attendance record
         result = await self.db.execute(
@@ -130,24 +126,18 @@ class AttendanceService:
         attendance.end_lat = request.end_lat
         attendance.end_long = request.end_long
         if request.remarks:
-            attendance.remarks = (
-                f"{attendance.remarks or ''}\nEnd: {request.remarks}".strip()
-            )
+            attendance.remarks = f"{attendance.remarks or ''}\nEnd: {request.remarks}".strip()
 
         await self.db.commit()
         await self.db.refresh(attendance)
 
         return attendance
 
-    async def get_attendance_by_id(
-        self, attendance_id: int
-    ) -> Optional[DailyAttendance]:
+    async def get_attendance_by_id(self, attendance_id: int) -> Optional[DailyAttendance]:
         """Get attendance record by ID with all relations loaded"""
         stmt = (
             select(DailyAttendance)
-            .options(
-                joinedload(DailyAttendance.contractor).joinedload(Contractor.agency)
-            )
+            .options(joinedload(DailyAttendance.contractor).joinedload(Contractor.agency))
             .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
             .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
             .join(Block, GramPanchayat.block_id == Block.id)
@@ -184,7 +174,7 @@ class AttendanceService:
             total_contractors_subq = (
                 select(
                     District.id.label("dist_id"),
-                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                    func.count(func.distinct(Contractor.id)).label("total_contractors"),  # pylint: disable=E1102
                 )
                 .select_from(District)
                 .join(Block, Block.district_id == District.id)
@@ -199,10 +189,10 @@ class AttendanceService:
                     District.id,
                     District.name,
                     total_contractors_subq.c.total_contractors,
-                    func.count(func.distinct(DailyAttendance.contractor_id)).label("present_count"),  # type: ignore
+                    func.count(func.distinct(DailyAttendance.contractor_id)).label("present_count"),  # pylint: disable=E1102  # type: ignore
                     DailyAttendance.date.label("attendance_date"),
                     (
-                        select(func.count(func.distinct(GramPanchayat.id)))
+                        select(func.count(func.distinct(GramPanchayat.id)))  # pylint: disable=E1102
                         .select_from(GramPanchayat)
                         .join(Block, GramPanchayat.block_id == Block.id)
                         .where(Block.district_id == District.id)
@@ -223,12 +213,7 @@ class AttendanceService:
                         DailyAttendance.date <= end_date,
                     ),
                 )
-                .group_by(
-                    District.id, 
-                    District.name, 
-                    total_contractors_subq.c.total_contractors,
-                    DailyAttendance.date
-                )
+                .group_by(District.id, District.name, total_contractors_subq.c.total_contractors, DailyAttendance.date)
             )
 
             if district_id:
@@ -239,7 +224,7 @@ class AttendanceService:
             total_contractors_subq = (
                 select(
                     Block.id.label("block_id"),
-                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                    func.count(func.distinct(Contractor.id)).label("total_contractors"),  # pylint: disable=E1102
                 )
                 .select_from(Block)
                 .join(GramPanchayat, GramPanchayat.block_id == Block.id)
@@ -253,10 +238,10 @@ class AttendanceService:
                     Block.id,
                     Block.name,
                     total_contractors_subq.c.total_contractors,
-                    func.count(func.distinct(DailyAttendance.contractor_id)).label("present_count"),
+                    func.count(func.distinct(DailyAttendance.contractor_id)).label("present_count"),  # pylint: disable=E1102
                     DailyAttendance.date.label("attendance_date"),
                     (
-                        select(func.count(func.distinct(GramPanchayat.id)))
+                        select(func.count(func.distinct(GramPanchayat.id)))  # pylint: disable=E1102
                         .select_from(GramPanchayat)
                         .where(GramPanchayat.block_id == Block.id)
                         .correlate(Block)
@@ -275,12 +260,7 @@ class AttendanceService:
                         DailyAttendance.date <= end_date,
                     ),
                 )
-                .group_by(
-                    Block.id,
-                    Block.name,
-                    total_contractors_subq.c.total_contractors,
-                    DailyAttendance.date
-                )
+                .group_by(Block.id, Block.name, total_contractors_subq.c.total_contractors, DailyAttendance.date)
             )
 
             if district_id:
@@ -293,7 +273,7 @@ class AttendanceService:
             total_contractors_subq = (
                 select(
                     GramPanchayat.id.label("gp_id"),
-                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                    func.count(func.distinct(Contractor.id)).label("total_contractors"),  # pylint: disable=E1102
                 )
                 .select_from(GramPanchayat)
                 .join(Contractor, Contractor.gp_id == GramPanchayat.id)
@@ -305,16 +285,10 @@ class AttendanceService:
                 select(
                     GramPanchayat.id,
                     GramPanchayat.name,
-                    (
-                        select(1)
-                        .scalar_subquery()
-                    ).label("total_contractors"),
-                    func.count(func.distinct(DailyAttendance.contractor_id)).label("present_count"),
+                    (select(1).scalar_subquery()).label("total_contractors"),
+                    func.count(func.distinct(DailyAttendance.contractor_id)).label("present_count"),  # pylint: disable=E1102
                     DailyAttendance.date.label("attendance_date"),
-                    (
-                        select(1)
-                        .scalar_subquery()
-                    ).label("gp_count"),
+                    (select(1).scalar_subquery()).label("gp_count"),
                 )
                 .select_from(GramPanchayat)
                 .join(Contractor, Contractor.gp_id == GramPanchayat.id)
@@ -347,17 +321,13 @@ class AttendanceService:
             present_count = row[3]
             __date = row[4]
             gp_count = row[5]
-            
+
             # Skip rows where date is None (no attendance records for this geography)
             if __date is None:
                 continue
-                
+
             absent_count = total_contractors - present_count
-            attendance_rate = (
-                (present_count / gp_count * 100)
-                if total_contractors > 0
-                else 0.0
-            )
+            attendance_rate = (present_count / gp_count * 100) if total_contractors > 0 else 0.0
             print("GP Count:", gp_count)
             print("Attendance Rate:", attendance_rate)
 
@@ -413,7 +383,7 @@ class AttendanceService:
 
         # Get total count for attendance rate calculation
         count_query = (
-            select(func.count(func.distinct(Contractor.id)))  # type: ignore
+            select(func.count(func.distinct(Contractor.id)))  # pylint: disable=E1102
             .select_from(Contractor)
             .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
             .join(Block, GramPanchayat.block_id == Block.id)
@@ -473,9 +443,7 @@ class AttendanceService:
 
         present_count = len(attendances)
         absent_count = total_contractors - present_count
-        attendance_rate = (
-            (present_count / total_contractors * 100) if total_contractors > 0 else 0.0
-        )
+        attendance_rate = (present_count / total_contractors * 100) if total_contractors > 0 else 0.0
 
         return DayAttendanceSummaryResponse(
             date=attendance_date,
@@ -501,9 +469,7 @@ class AttendanceService:
         """Get all attendance records with optional filters"""
         stmt = (
             select(DailyAttendance)
-            .options(
-                joinedload(DailyAttendance.contractor).joinedload(Contractor.agency)
-            )
+            .options(joinedload(DailyAttendance.contractor).joinedload(Contractor.agency))
             .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
             .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
             .join(Block, GramPanchayat.block_id == Block.id)
@@ -525,9 +491,7 @@ class AttendanceService:
             stmt = stmt.offset(skip)
         if limit:
             stmt = stmt.limit(limit)
-        stmt = stmt.order_by(
-            DailyAttendance.date.desc(), DailyAttendance.start_time.desc()
-        )
+        stmt = stmt.order_by(DailyAttendance.date.desc(), DailyAttendance.start_time.desc())
         result = await self.db.execute(stmt)
         attendances = result.scalars().all()
         return AttendanceListResponse(
@@ -538,26 +502,92 @@ class AttendanceService:
             total_pages=1,
         )
 
-    async def create_bulk_attendances(
-        self, contractor_id: int, attendance_logs: list[AttendanceLogRequest]
-    ) -> None:
-        """Create bulk attendance records in the database."""
-        attendance_inserts: List[Dict[str, Optional[object]]] = []
-        for log in attendance_logs:
-            attendance_inserts.append(
-                {
-                    "contractor_id": contractor_id,
-                    "date": log.date,
-                    "start_time": log.start_time,
-                    "start_lat": log.start_lat,
-                    "start_long": log.start_long,
-                    "end_time": log.end_time,
-                    "end_lat": log.end_lat,
-                    "end_long": log.end_long,
-                    "remarks": log.remarks,
-                }
+    async def get_attendance_overview(
+        self,
+        start_date: date,
+        end_date: date,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
+    ) -> AttendanceOverviewResponse:
+        """Get attendance overview including total contractors, attendance rate, present and absent counts."""
+        if end_date < start_date:
+            raise HTTPException(detail="end_date must be greater than or equal to start_date", status_code=400)
+        if end_date - start_date > timedelta(days=370):
+            raise HTTPException(detail="Date range should not exceed 1 year", status_code=400)
+        present_count: Optional[int] = None
+        absent_count: Optional[int] = None
+        total_contractors: int = 0
+        attendance_rate: float = 0.0
+
+        # Count the number of Contractors in the given geo filters
+        contractors_count_query = select(func.count(func.distinct(Contractor.id)))  # pylint: disable=E1102
+        if gp_id:
+            contractors_count_query = contractors_count_query.where(Contractor.gp_id == gp_id)
+        elif block_id:
+            contractors_count_query = contractors_count_query.join(
+                GramPanchayat, Contractor.gp_id == GramPanchayat.id
+            ).where(GramPanchayat.block_id == block_id)
+        elif district_id:
+            contractors_count_query = (
+                contractors_count_query.join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
+                .join(Block, GramPanchayat.block_id == Block.id)
+                .where(Block.district_id == district_id)
+            )
+        contractors_count_result = await self.db.execute(contractors_count_query)
+        total_contractors = contractors_count_result.scalar() or 0
+        if start_date == end_date:
+            present_count_query = select(func.count(func.distinct(DailyAttendance.contractor_id))) # pylint: disable=E1102
+            present_count_query = (
+                present_count_query.select_from(DailyAttendance)
+                .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
+                .where(
+                    DailyAttendance.date == start_date,
+                )
+            )
+            if gp_id:
+                present_count_query = present_count_query.where(Contractor.gp_id == gp_id)
+            present_count_result = await self.db.execute(present_count_query)
+            present_count = present_count_result.scalar() or 0
+            absent_count = total_contractors - present_count
+            attendance_rate = (present_count / total_contractors * 100) if total_contractors > 0 else 0.0
+        else:
+            # Count of non Sundays in the date range
+            total_days = (end_date - start_date).days + 1
+            total_non_sundays = sum(1 for i in range(total_days) if (start_date + timedelta(days=i)).weekday() < 6)
+            # Count the number of unique attendance records in the date range in the given geo filters
+            present_count_query = select(func.count(func.distinct(DailyAttendance.id)))  # pylint: disable=E1102
+            present_count_query = (
+                present_count_query.select_from(DailyAttendance)
+                .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
+                .where(
+                    DailyAttendance.date >= start_date,
+                    DailyAttendance.date <= end_date,
+                )
+            )
+            if gp_id:
+                present_count_query = present_count_query.where(Contractor.gp_id == gp_id)
+            elif block_id:
+                present_count_query = present_count_query.join(
+                    GramPanchayat, Contractor.gp_id == GramPanchayat.id
+                ).where(GramPanchayat.block_id == block_id)
+            elif district_id:
+                present_count_query = (
+                    present_count_query.join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
+                    .join(Block, GramPanchayat.block_id == Block.id)
+                    .where(Block.district_id == district_id)
+                )
+            present_count_result = await self.db.execute(present_count_query)
+            total_attendance_records = present_count_result.scalar() or 0
+            attendance_rate = (
+                total_attendance_records / (total_contractors * total_non_sundays) * 100
+                if total_contractors > 0 and total_non_sundays > 0
+                else 0.0
             )
 
-        if attendance_inserts:
-            await self.db.execute(insert(DailyAttendance), attendance_inserts)
-            await self.db.commit()
+        return AttendanceOverviewResponse(
+            total_contractors=total_contractors,
+            attendance_rate=attendance_rate,
+            present=present_count,
+            absent=absent_count,
+        )

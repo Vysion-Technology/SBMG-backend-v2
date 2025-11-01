@@ -9,6 +9,7 @@ from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from auth_utils import require_staff_role
 from controllers.auth import get_current_user
 from database import get_db
 
@@ -21,6 +22,7 @@ from models.requests.attendance import (
 )
 from models.response.contractor import AgencyResponse
 from models.response.attendance import (
+    AttendanceOverviewResponse,
     AttendanceResponse,
     AttendanceListResponse,
     DayAttendanceSummaryResponse,
@@ -44,23 +46,17 @@ security = HTTPBearer()
 router = APIRouter()
 
 
-
-
 async def get_contractor_from_user(user: User, db: AsyncSession) -> Contractor:
     """Get contractor record for the authenticated user (for workers)."""
     # For workers, we need to find their contractor record
     # This assumes workers have a username that matches their contractor phone or ID
     # You might need to adjust this logic based on your authentication setup
 
-    result = await db.execute(
-        select(Contractor).where(Contractor.gp_id == user.gp_id)
-    )
+    result = await db.execute(select(Contractor).where(Contractor.gp_id == user.gp_id))
     contractor = result.scalar_one_or_none()
 
     if not contractor:
-        raise NoContractorForVillageError(
-            "There is no contractor associated with the village."
-        )
+        raise NoContractorForVillageError("There is no contractor associated with the village.")
 
     return contractor
 
@@ -78,9 +74,7 @@ async def log_attendance(
     try:
         # Get contractor record for this user
         if not request.village_id == current_user.gp_id:
-            raise AttemptingToLogAttendanceForAnotherUserError(
-                "You can only log attendance for your own village."
-            )
+            raise AttemptingToLogAttendanceForAnotherUserError("You can only log attendance for your own village.")
         contractor = await get_contractor_from_user(current_user, db)
 
         # Log attendance
@@ -105,19 +99,12 @@ async def log_attendance(
         return AttendanceResponse(
             id=full_attendance.id,
             contractor_id=full_attendance.contractor_id,
-            contractor_name=contractor.person_name
-            if full_attendance.contractor
-            else None,
+            contractor_name=contractor.person_name if full_attendance.contractor else None,
             village_id=gp.id,
             village_name=gp.name,
-            block_name=gp.block.name
-            if full_attendance.contractor and gp and gp.block
-            else None,
+            block_name=gp.block.name if full_attendance.contractor and gp and gp.block else None,
             district_name=gp.block.district.name
-            if full_attendance.contractor
-            and gp
-            and gp.block
-            and gp.block.district
+            if full_attendance.contractor and gp and gp.block and gp.block.district
             else None,
             date=full_attendance.date,
             start_time=full_attendance.start_time,
@@ -130,13 +117,9 @@ async def log_attendance(
         )
 
     except AttemptingToLogAttendanceForAnotherUserError as e:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except AssertionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except NoContractorForVillageError as e:
@@ -185,15 +168,11 @@ async def end_attendance(
         return AttendanceResponse(
             id=full_attendance.id,
             contractor_id=full_attendance.contractor_id,
-            contractor_name=contractor.person_name
-            if full_attendance.contractor
-            else None,
+            contractor_name=contractor.person_name if full_attendance.contractor else None,
             village_id=gp.id,
             village_name=gp.name,
             block_name=gp.block.name if gp.block else None,
-            district_name=gp.block.district.name
-            if gp.block and gp.block.district
-            else None,
+            district_name=gp.block.district.name if gp.block and gp.block.district else None,
             date=full_attendance.date,
             start_time=full_attendance.start_time,
             start_lat=full_attendance.start_lat or "",
@@ -205,9 +184,7 @@ async def end_attendance(
         )
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except AssertionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except NoContractorForVillageError as e:
@@ -252,9 +229,7 @@ async def get_my_attendance(
     except HTTPException as e:
         raise e
     except NoContractorForVillageError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(e)
-        ) from e
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(
@@ -286,12 +261,10 @@ async def view_attendance(
         if user_role == UserRole.WORKER:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=" ".join(
-                    [
-                        "Workers cannot view attendance records of others. ",
-                        "Use the other API to get your attendance records.",
-                    ]
-                ),
+                detail=" ".join([
+                    "Workers cannot view attendance records of others. ",
+                    "Use the other API to get your attendance records.",
+                ]),
             )
 
         if not any(role in ["VDO", "BDO", "CEO", "ADMIN"] for role in [user_role]):
@@ -361,11 +334,7 @@ async def get_attendance_analytics(
             )
 
         # Validate query parameters
-        if (
-            (district_id and block_id)
-            or (district_id and gp_id)
-            or (block_id and gp_id)
-        ):
+        if (district_id and block_id) or (district_id and gp_id) or (block_id and gp_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Provide only one of district_id, block_id, or gp_id",
@@ -451,6 +420,42 @@ async def get_attendance_for_day(
     )
 
 
+@router.get("/overview", response_model=AttendanceOverviewResponse)
+async def attendance_overview(
+    start_date: date,
+    end_date: date,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+    district_id: Optional[int] = None,
+    block_id: Optional[int] = None,
+    gp_id: Optional[int] = None,
+) -> AttendanceOverviewResponse:
+    """
+    Get attendance overview including total contractors, attendance rate, present and absent counts.
+    """
+    assert current_user is not None, "User must be authenticated"
+    try:
+        attendance_service = AttendanceService(db)
+        overview = await attendance_service.get_attendance_overview(
+            start_date=start_date,
+            end_date=end_date,
+            district_id=district_id,
+            block_id=block_id,
+            gp_id=gp_id,
+        )
+        return overview
+
+    except HTTPException as e:
+        raise e
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching attendance overview",
+        ) from e
+
+
 @router.get("/{attendance_id}", response_model=AttendanceResponse)
 async def get_attendance_by_id(
     attendance_id: int,
@@ -476,16 +481,12 @@ async def get_attendance_by_id(
 
         geo_svc = GeographyService(db)
 
-        gp: GramPanchayat = await geo_svc.get_village(
-            village_id=contractor.gp_id
-        )
+        gp: GramPanchayat = await geo_svc.get_village(village_id=contractor.gp_id)
 
         return AttendanceResponse(
             id=attendance.id,
             contractor_id=attendance.contractor_id,
-            contractor_name=attendance.contractor.person_name
-            if attendance.contractor
-            else None,
+            contractor_name=attendance.contractor.person_name if attendance.contractor else None,
             village_id=gp.id,
             village_name=gp.name,
             block_name=gp.block.name,

@@ -109,3 +109,12 @@ class DayAttendanceSummaryResponse(BaseModel):
     absent_count: int
     attendance_rate: float
     attendances: List[DaySummaryAttendanceResponse]
+
+
+class AttendanceOverviewResponse(BaseModel):
+    """Response model for attendance overview."""
+
+    total_contractors: int
+    attendance_rate: float
+    present: Optional[int] = None
+    absent: Optional[int] = None
