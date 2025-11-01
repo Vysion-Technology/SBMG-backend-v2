@@ -102,6 +102,22 @@ async def create_notice_type(
     )
 
 
+@router.get("/types", response_model=List[NoticeTypeResponse])
+async def get_notice_types(
+    db: AsyncSession = Depends(get_db),
+) -> List[NoticeTypeResponse]:
+    """Get all notice types."""
+    notice_types = await NoticeService(db).get_all_notice_types()
+    return [
+        NoticeTypeResponse(
+            id=notice_type.id,
+            name=notice_type.name,
+            description=notice_type.description,
+        )
+        for notice_type in notice_types
+    ]
+
+
 @router.get("/sent", response_model=List[NoticeDetailResponse])
 async def get_sent_notices(
     skip: int = 0,

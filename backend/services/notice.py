@@ -23,6 +23,12 @@ class NoticeService:
         notice_type = result.scalar_one_or_none()
         return notice_type
 
+    async def get_all_notice_types(self) -> List[NoticeType]:
+        """Get all notice types."""
+        result = await self.db.execute(select(NoticeType))
+        notice_types = result.scalars().all()
+        return list(notice_types)
+
     async def create_notice_type(self, name: str, description: Optional[str] = None) -> NoticeType:
         """Create a new notice type."""
         existing_notice_type = await self.get_notice_type_by_name(name)
