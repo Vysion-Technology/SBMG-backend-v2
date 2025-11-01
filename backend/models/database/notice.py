@@ -53,6 +53,10 @@ class Notice(Base):  # type: ignore
         "NoticeReply", back_populates="notice", cascade="all, delete-orphan"
     )
 
+    type: Mapped["NoticeType"] = relationship(  # type: ignore
+        "NoticeType", foreign_keys=[type_id]
+    )
+
 
 class NoticeMedia(Base):  # type: ignore
     """

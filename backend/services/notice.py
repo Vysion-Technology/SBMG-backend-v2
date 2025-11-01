@@ -57,6 +57,7 @@ class NoticeService:
             await self.db.execute(
                 insert(Notice)
                 .options(selectinload(Notice.media))
+                .options(selectinload(Notice.type))
                 .values(
                     type_id=notice_type_id,
                     sender_id=sender_id,
@@ -81,6 +82,7 @@ class NoticeService:
             select(Notice)
             .options(
                 selectinload(Notice.media),
+                selectinload(Notice.type),
                 selectinload(Notice.sender).selectinload(PositionHolder.employee),
                 selectinload(Notice.receiver).selectinload(PositionHolder.employee),
                 selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.employee),
@@ -137,6 +139,7 @@ class NoticeService:
             select(Notice)
             .options(
                 selectinload(Notice.media),
+                selectinload(Notice.type),
                 selectinload(Notice.sender).selectinload(PositionHolder.employee),
                 selectinload(Notice.receiver).selectinload(PositionHolder.employee),
                 selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.employee),
@@ -156,6 +159,7 @@ class NoticeService:
             .where(Notice.id == notice_id)
             .options(
                 selectinload(Notice.media),
+                selectinload(Notice.type),
                 selectinload(Notice.sender).selectinload(PositionHolder.employee),
                 selectinload(Notice.receiver).selectinload(PositionHolder.employee),
                 selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.employee),

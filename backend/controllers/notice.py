@@ -179,6 +179,11 @@ async def get_sent_notices(
                 )
                 for reply in notice.replies
             ],
+            type=NoticeTypeResponse(
+                id=notice.type_id,
+                name=notice.type.name,
+                description=notice.type.description,
+            )
         )
         for notice in notices
     ]
@@ -215,7 +220,9 @@ async def get_received_notices(
                 middle_name=notice.sender.middle_name,
                 start_date=notice.sender.start_date,
                 end_date=notice.sender.end_date,
-            ) if notice.sender else None,
+            )
+            if notice.sender
+            else None,
             receiver=PositionHolderBasicInfo(
                 id=notice.receiver.id,
                 user_id=notice.receiver.user_id,
@@ -225,7 +232,9 @@ async def get_received_notices(
                 middle_name=notice.receiver.middle_name,
                 start_date=notice.receiver.start_date,
                 end_date=notice.receiver.end_date,
-            ) if notice.receiver else None,
+            )
+            if notice.receiver
+            else None,
             replies=[
                 NoticeReplyResponse(
                     id=reply.id,
@@ -246,6 +255,13 @@ async def get_received_notices(
                 )
                 for reply in notice.replies
             ],
+            type=NoticeTypeResponse(
+                id=notice.type_id,
+                name=notice.type.name,
+                description=notice.type.description,
+            )
+            if notice.noti
+            else None,
         )
         for notice in notices
     ]
@@ -276,7 +292,9 @@ async def get_notice_by_id(
             middle_name=notice.sender.middle_name,
             start_date=notice.sender.start_date,
             end_date=notice.sender.end_date,
-        ) if notice.sender else None,
+        )
+        if notice.sender
+        else None,
         receiver=PositionHolderBasicInfo(
             id=notice.receiver.id,
             user_id=notice.receiver.user_id,
@@ -286,7 +304,9 @@ async def get_notice_by_id(
             middle_name=notice.receiver.middle_name,
             start_date=notice.receiver.start_date,
             end_date=notice.receiver.end_date,
-        ) if notice.receiver else None,
+        )
+        if notice.receiver
+        else None,
         replies=[
             NoticeReplyResponse(
                 id=reply.id,
@@ -307,6 +327,13 @@ async def get_notice_by_id(
             )
             for reply in notice.replies
         ],
+        type=NoticeTypeResponse(
+            id=notice.type_id,
+            name=notice.type.name,
+            description=notice.type.description,
+        )
+        if notice.type
+        else None,
     )
 
 
@@ -322,47 +349,47 @@ async def reply_to_notice(
     """
     notice_service = NoticeService(db)
     position_holder_service = PositionHolderService(db)
-    
+
     # Get the notice
     notice = await notice_service.get_notice_by_id(notice_id)
     if not notice:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
-    
+
     # Get current user's position holder IDs
     current_user_position_ids = await position_holder_service.get_position_holder_ids_by_user(user_id=current_user.id)
-    
+
     # Check if the current user is the receiver of this notice
     if notice.receiver_id not in current_user_position_ids:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only reply to notices sent to you",
         )
-    
+
     # Get the current position holder for the replier
     replier_position = await AuthService(db).get_current_position_holder(
         current_user.district_id,
         current_user.block_id,
         current_user.gp_id,
     )
-    
+
     if not replier_position:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Current position holder not found",
         )
-    
+
     # Create the reply
     reply = await notice_service.create_notice_reply(
         notice_id=notice_id,
         replier_id=replier_position.id,
         reply_text=request.reply_text,
     )
-    
+
     # Fetch the reply with replier info
     reply_with_info = await notice_service.get_notice_reply_by_id(reply.id)
     if not reply_with_info:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reply not found")
-    
+
     return NoticeReplyResponse(
         id=reply_with_info.id,
         notice_id=reply_with_info.notice_id,

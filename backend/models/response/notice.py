@@ -70,6 +70,7 @@ class NoticeDetailResponse(BaseModel):
     sender: Optional[PositionHolderBasicInfo] = None
     receiver: Optional[PositionHolderBasicInfo] = None
     replies: List[NoticeReplyResponse] = []
+    type: Optional[NoticeTypeResponse] = None
 
     class Config:
         """Pydantic config for model serialization."""
