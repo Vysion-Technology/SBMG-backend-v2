@@ -27,6 +27,7 @@ from models.response.attendance import (
     AttendanceListResponse,
     DayAttendanceSummaryResponse,
     AttendanceAnalyticsResponse,
+    MonthlyAttendanceTrendResponse,
     TopNGeoAttendanceResponse,
 )
 from models.internal import GeoTypeEnum
@@ -460,8 +461,8 @@ async def attendance_overview(
 @router.get("/top-n-geo", response_model=List[TopNGeoAttendanceResponse])  # noqa: F821
 async def get_top_n_geo_attendance(
     level: GeoTypeEnum,
-    year: int,
-    month: int,
+    start_date: date,
+    end_date: date,
     n: int = 3,
     district_id: Optional[int] = None,
     block_id: Optional[int] = None,
@@ -477,8 +478,8 @@ async def get_top_n_geo_attendance(
         top_n_geo = await attendance_service.get_top_n_geo_attendance(
             n=n,
             level=level,
-            year=year,
-            month=month,
+            start_date=start_date,
+            end_date=end_date,
             district_id=district_id,
             block_id=block_id,
         )
@@ -554,4 +555,42 @@ async def get_attendance_by_id(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while fetching attendance record",
+        ) from e
+
+
+@router.get("/performance/months", response_model=List[MonthlyAttendanceTrendResponse])
+async def get_monthly_attendance_performance(
+    level: GeoTypeEnum,
+    start_date: date,
+    end_date: date,
+    district_id: Optional[int] = None,
+    block_id: Optional[int] = None,
+    gp_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> List[MonthlyAttendanceTrendResponse]:
+    """
+    Get top N geographic units by attendance performance for a specific month.
+    """
+    assert current_user is not None, "User must be authenticated"
+    try:
+        attendance_service = AttendanceService(db)
+        top_n_geo = await attendance_service.get_monthly_attendance_performance(
+            level=level,
+            start_date=start_date,
+            end_date=end_date,
+            district_id=district_id,
+            block_id=block_id,
+            gp_id=gp_id,
+        )
+        return top_n_geo
+
+    except HTTPException as e:
+        raise e
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching monthly attendance performance",
         ) from e

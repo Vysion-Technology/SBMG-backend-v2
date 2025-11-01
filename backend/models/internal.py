@@ -4,6 +4,7 @@ from enum import Enum
 
 class GeoTypeEnum(str, Enum):
     """Enumeration for geographical types."""
+    STATE = "STATE"
     DISTRICT = "DISTRICT"
     BLOCK = "BLOCK"
     GP = "VILLAGE"

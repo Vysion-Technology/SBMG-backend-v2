@@ -128,3 +128,13 @@ class TopNGeoAttendanceResponse(BaseModel):
     geo_id: int
     geo_name: str
     attendance_rate: float
+
+
+class MonthlyAttendanceTrendResponse(BaseModel):
+    """Response model for monthly attendance trend."""
+
+    geo_id: int
+    geo_name: str
+    month: int
+    year: int
+    attendance_rate: float

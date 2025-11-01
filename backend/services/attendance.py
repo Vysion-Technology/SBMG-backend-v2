@@ -1,11 +1,11 @@
 """Attendance service for managing worker attendance records."""
 
-from typing import Optional
+from typing import List, Optional
 
 from datetime import date, datetime, timedelta
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import distinct, insert, select, func, and_
+from sqlalchemy import distinct, insert, select, func, and_, literal_column
 from sqlalchemy.orm import joinedload
 
 from models.database.attendance import DailyAttendance
@@ -24,6 +24,7 @@ from models.response.attendance import (
     GeographyAttendanceCountResponse,
     DayAttendanceSummaryResponse,
     DaySummaryAttendanceResponse,
+    MonthlyAttendanceTrendResponse,
     TopNGeoAttendanceResponse,
 )
 
@@ -598,19 +599,14 @@ class AttendanceService:
     async def get_top_n_geo_attendance(
         self,
         level: GeoTypeEnum,
-        year: int,
-        month: int,
+        start_date: date,
+        end_date: date,
         n: int = 3,
         district_id: Optional[int] = None,
         block_id: Optional[int] = None,
     ) -> list[TopNGeoAttendanceResponse]:
         """Get top N geographical attendance records."""
         # Calculate start and end dates for the month
-        start_date = date(year, month, 1)
-        if month == 12:
-            end_date = date(year + 1, 1, 1) - timedelta(days=1)
-        else:
-            end_date = date(year, month + 1, 1) - timedelta(days=1)
         # working days in the month (exclude Sundays)
         total_days = (end_date - start_date).days + 1
         working_days = sum(1 for i in range(total_days) if (start_date + timedelta(days=i)).weekday() < 6)
@@ -737,4 +733,97 @@ class AttendanceService:
                 )
             )
 
+        return responses
+
+    async def get_monthly_attendance_performance(
+        self,
+        level: GeoTypeEnum,
+        start_date: date,
+        end_date: date,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
+    ) -> List[MonthlyAttendanceTrendResponse]:
+        """
+        Get monthly attendance performance.
+        Returns attendance statistics for the specified month.
+        """
+        if (district_id and block_id) or (district_id and gp_id) or (block_id and gp_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Provide only one of district_id, block_id, or gp_id",
+            )
+        if start_date > end_date:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="start_date must be less than or equal to end_date",
+            )
+        if start_date.day != 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="start_date must be the first day of the month",
+            )
+        # Build base query
+        if level == GeoTypeEnum.GP:
+            geo_model = GramPanchayat
+        elif level == GeoTypeEnum.BLOCK:
+            geo_model = Block
+        elif level == GeoTypeEnum.DISTRICT:
+            geo_model = District
+        query = (
+            select(
+                geo_model.id.label("geo_id"),
+                geo_model.name.label("geo_name"),
+                func.date_trunc(literal_column("'month'"), DailyAttendance.date).label("month"),
+                func.count(func.distinct(DailyAttendance.id)).label("present_count"),
+                func.count(func.distinct(Contractor.id)).label("total_contractors"),
+            )
+            .select_from(DailyAttendance)
+            .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
+            .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
+            .join(Block, GramPanchayat.block_id == Block.id)
+            .join(District, Block.district_id == District.id)
+            .where(DailyAttendance.date >= start_date, DailyAttendance.date <= end_date)
+            .group_by(geo_model.id, geo_model.name, func.date_trunc(literal_column("'month'"), DailyAttendance.date))
+            .order_by(func.date_trunc(literal_column("'month'"), DailyAttendance.date).asc())
+        )
+        if district_id:
+            query = query.where(Block.district_id == district_id)
+        if block_id:
+            query = query.where(GramPanchayat.block_id == block_id)
+        if gp_id:
+            query = query.where(Contractor.gp_id == gp_id)
+        result = await self.db.execute(query)
+        rows = result.fetchall()
+        responses: List[MonthlyAttendanceTrendResponse] = []
+        for row in rows:
+            geo_id = row.geo_id
+            geo_name = row.geo_name
+            month = row.month
+            present_count = row.present_count or 0
+            total_contractors = row.total_contractors or 0
+
+            # Calculate working days in the month (exclude Sundays)
+            month_start = month.date()
+            if month_start < start_date:
+                month_start = start_date
+            month_end = date(month.year, month.month + 1, 1) - timedelta(days=1)
+            if month_end > end_date:
+                month_end = end_date
+            total_days = (month_end - month_start).days + 1
+            working_days = sum(1 for i in range(total_days) if (month_start + timedelta(days=i)).weekday() < 6)
+
+            denom = total_contractors * working_days
+            attendance_rate = (present_count / denom * 100) if denom > 0 else 0.0
+
+            responses.append(
+                MonthlyAttendanceTrendResponse(
+                    geo_type=level,
+                    geo_id=geo_id,
+                    geo_name=geo_name,
+                    month=month.month,
+                    year=month.year,
+                    attendance_rate=attendance_rate,
+                )
+            )
         return responses
