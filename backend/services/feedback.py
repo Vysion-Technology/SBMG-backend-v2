@@ -18,17 +18,21 @@ class FeedbackService:
         self.db = db
 
     async def save_feedback(
-        self, auth_user_id: int, public_user_id: int | None, rating: int, comment: str | None
+        self, auth_user_id: int | None, public_user_id: int | None, rating: int, comment: str | None
     ) -> Feedback:
         """Save feedback to the database."""
         if not auth_user_id and not public_user_id:
             raise ValueError("Either auth_user_id or public_user_id must be provided.")
-        feedback = Feedback(auth_user_id=auth_user_id, public_user_id=public_user_id, rating=rating, comment=comment)
-        await self.db.execute(
-            insert(Feedback).values(
-                auth_user_id=auth_user_id, public_user_id=public_user_id, rating=rating, comment=comment
+        feedback = (await self.db.execute(
+            insert(Feedback)
+            .values(
+                auth_user_id=auth_user_id,
+                public_user_id=public_user_id,
+                rating=rating,
+                comment=comment,
             )
-        )
+            .returning(Feedback)
+        )).scalar_one()
         await self.db.commit()
         await self.db.refresh(feedback)
         return feedback

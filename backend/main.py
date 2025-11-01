@@ -16,6 +16,7 @@ from controllers import geography, attendance
 from controllers import fcm_device, inspection, notice, annual_survey
 from controllers import position_holder
 from controllers import gps_tracking
+from controllers import feedback
 from database import AsyncSessionLocal, get_db
 from services.gps_tracking import GPSTrackingService
 
@@ -105,6 +106,11 @@ fastapi_app.include_router(
     gps_tracking.router,
     prefix="/api/v1/gps",
     tags=["GPS Tracking"],
+)
+fastapi_app.include_router(
+    feedback.router,
+    prefix="/api/v1/feedback",
+    tags=["Feedback"],
 )
 # app.include_router(survey.router, prefix="/api/v1/surveys", tags=["Surveys"])
 
