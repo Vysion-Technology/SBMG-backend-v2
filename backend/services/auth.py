@@ -504,6 +504,22 @@ class AuthService:
         users = result.scalars().all()
         return list(users)
 
+    async def get_all_active_vdo_position_holders(self) -> List[PositionHolder]:
+        """Get all position holders with VDO role."""
+        result = await self.db.execute(
+            select(PositionHolder).options(
+                selectinload(PositionHolder.user),
+                selectinload(PositionHolder.role)
+            )
+            .where(
+                PositionHolder.gp_id.is_not(None),
+                PositionHolder.end_date.is_(None),
+                PositionHolder.role.has(Role.name == UserRole.VDO.value),
+            )
+        )
+        position_holders = result.scalars().all()
+        return list(position_holders)
+
 def send_otp(mobile_number: str, otp: int | str) -> bool:
     """Send OTP to the given phone number."""
 

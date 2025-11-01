@@ -29,5 +29,5 @@ class VillageBase(BaseModel):
     """Base village model (for villages table)."""
 
     name: str
-    description: Optional[str] = None
     gp_id: int
+    description: Optional[str] = None

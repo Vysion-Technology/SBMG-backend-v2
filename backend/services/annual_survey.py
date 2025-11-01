@@ -5,6 +5,8 @@ Handles business logic for annual survey management
 
 from typing import List, Optional
 from datetime import date
+import random
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import insert, select, delete
 from sqlalchemy.orm import selectinload
@@ -16,6 +18,7 @@ from models.response.annual_survey import AnnualSurveyFYResponse, AnnualSurveyRe
 from models.database.survey_master import (
     AnnualSurvey,
     AnnualSurveyFY,
+    FundHead,
     WorkOrderDetails,
     FundSanctioned,
     DoorToDoorCollectionDetails,
@@ -27,6 +30,8 @@ from models.database.survey_master import (
     VillageData,
     VillageSBMGAssets,
     VillageGWMAssets,
+    CollectionFrequency,
+    CleaningFrequency,
 )
 from models.database.auth import PositionHolder, User
 from models.database.geography import Block, District, GramPanchayat
@@ -80,9 +85,7 @@ class AnnualSurveyService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def vdo_fills_the_survey(
-        self, user: User, request: CreateAnnualSurveyRequest
-    ) -> AnnualSurveyResponse:
+    async def vdo_fills_the_survey(self, user: User, request: CreateAnnualSurveyRequest) -> AnnualSurveyResponse:
         """Create a new annual survey."""
         # Get active position
         position = await AuthService.get_user_active_position(user)
@@ -276,12 +279,8 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.csc_details),
                 selectinload(AnnualSurvey.swm_assets),
                 selectinload(AnnualSurvey.sbmg_targets),
-                selectinload(AnnualSurvey.village_data).selectinload(
-                    VillageData.sbmg_assets
-                ),
-                selectinload(AnnualSurvey.village_data).selectinload(
-                    VillageData.gwm_assets
-                ),
+                selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
+                selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
             )
             .where(AnnualSurvey.id == survey_id)
         )
@@ -312,12 +311,8 @@ class AnnualSurveyService:
             selectinload(AnnualSurvey.csc_details),
             selectinload(AnnualSurvey.swm_assets),
             selectinload(AnnualSurvey.sbmg_targets),
-            selectinload(AnnualSurvey.village_data).selectinload(
-                VillageData.sbmg_assets
-            ),
-            selectinload(AnnualSurvey.village_data).selectinload(
-                VillageData.gwm_assets
-            ),
+            selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
+            selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
         )
 
         if gp_id:
@@ -350,15 +345,11 @@ class AnnualSurveyService:
 
     async def get_active_financial_years(self) -> List[AnnualSurveyFYResponse]:
         """Get list of active financial years from surveys."""
-        result = await self.db.execute(
-            select(AnnualSurveyFY).where(AnnualSurveyFY.active.is_(True))
-        )
+        result = await self.db.execute(select(AnnualSurveyFY).where(AnnualSurveyFY.active.is_(True)))
         fys = result.scalars().all()
         return [AnnualSurveyFYResponse.model_validate(fy) for fy in fys]
 
-    async def get_latest_survey_by_gp(
-            self, gp_id: int
-    ) -> Optional[AnnualSurveyResponse]:
+    async def get_latest_survey_by_gp(self, gp_id: int) -> Optional[AnnualSurveyResponse]:
         """Get the latest survey for a given Gram Panchayat."""
         result = await self.db.execute(
             select(AnnualSurvey)
@@ -374,12 +365,8 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.csc_details),
                 selectinload(AnnualSurvey.swm_assets),
                 selectinload(AnnualSurvey.sbmg_targets),
-                selectinload(AnnualSurvey.village_data).selectinload(
-                    VillageData.sbmg_assets
-                ),
-                selectinload(AnnualSurvey.village_data).selectinload(
-                    VillageData.gwm_assets
-                ),
+                selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
+                selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
             )
             .where(AnnualSurvey.gp_id == gp_id)
             .order_by(AnnualSurvey.survey_date.desc())
@@ -389,3 +376,152 @@ class AnnualSurveyService:
         if survey:
             return get_response_model_from_survey(survey)
         return None
+
+    async def fill_annual_survey_bulk(
+        self,
+        fy_id: int,
+        vdo_list: List[User],
+        gp_villages_map: dict[int, List[int]],
+    ) -> None:
+        """Fill annual survey for all Gram Panchayats with random data in batches of 100."""
+        gp_ids = sorted(list(gp_villages_map.keys()))
+        vdo_list = sorted(vdo_list, key=lambda vdo: vdo.gp_id or 0)
+        vdo_ids = [vdo.id for vdo in vdo_list]
+
+        assert len(gp_ids) == len(vdo_ids), "Number of GPs and VDOs must be the same for bulk filling."
+
+        batch_size = 100
+        for i in range(0, len(gp_ids), batch_size):
+            batch_gp_ids = gp_ids[i : i + batch_size]
+            batch_vdo_ids = vdo_ids[i : i + batch_size]
+            surveys = await self.db.execute(
+                insert(AnnualSurvey)
+                .returning(AnnualSurvey)
+                .values([
+                    {
+                        "fy_id": fy_id,
+                        "gp_id": gp_id,
+                        "survey_date": date.today(),
+                        "vdo_id": batch_vdo_ids[idx],
+                        "sarpanch_name": f"Sarpanch {gp_id}",
+                        "sarpanch_contact": f"90000000{gp_id % 10}",
+                        "num_ward_panchs": random.randint(5, 15),
+                        "agency_id": 1,
+                    }
+                    for idx, gp_id in enumerate(batch_gp_ids)
+                ])
+            )
+            await self.db.commit()
+            # Fill other related data as well for all related tables compulsorily
+            surveys_list = surveys.scalars().all()
+            # Process related survey data sequentially to avoid concurrent use of the same AsyncSession.
+            # Concurrent operations on the same AsyncSession are not permitted and were causing
+            # `InvalidRequestError: This session is provisioning a new connection; concurrent operations are not permitted`.
+            for survey in surveys_list:
+                await self._fill_related_survey_data(survey, gp_villages_map[survey.gp_id])
+            # Ensure any remaining pending changes are committed
+            await self.db.commit()
+
+    async def _fill_related_survey_data(self, survey: AnnualSurvey, village_ids: List[int]) -> None:
+        """Fill related data for a given survey."""
+        work_order = WorkOrderDetails(
+            id=survey.id,
+            work_order_no=f"WO-{survey.gp_id}-{survey.id}",
+            work_order_date=date.today(),
+            work_order_amount=random.randint(100000, 500000),
+        )
+        self.db.add(work_order)
+
+        fund = FundSanctioned(
+            id=survey.id,
+            amount=random.randint(50000, 200000),
+            head=random.choice(list(FundHead)),
+        )
+        self.db.add(fund)
+
+        dtd = DoorToDoorCollectionDetails(
+            id=survey.id,
+            num_households=random.randint(100, 500),
+            num_shops=random.randint(10, 50),
+            collection_frequency=random.choice(list(CollectionFrequency)),
+        )
+        self.db.add(dtd)
+
+        road = RoadSweepingDetails(
+            id=survey.id,
+            width=random.uniform(2.0, 5.0),
+            length=random.uniform(1000.0, 5000.0),
+            cleaning_frequency=random.choice(list(CleaningFrequency)),
+        )
+        self.db.add(road)
+
+        drain = DrainCleaningDetails(
+            id=survey.id,
+            length=random.uniform(500.0, 2000.0),
+            cleaning_frequency=random.choice(list(CleaningFrequency)),
+        )
+        self.db.add(drain)
+
+        csc = CSCDetails(
+            id=survey.id,
+            numbers=random.randint(1, 5),
+            cleaning_frequency=random.choice(list(CleaningFrequency)),
+        )
+        self.db.add(csc)
+
+        swm = SWMAssets(
+            id=survey.id,
+            rrc=random.randint(1, 3),
+            pwmu=random.randint(1, 2),
+            compost_pit=random.randint(1, 4),
+            collection_vehicle=random.randint(1, 2),
+        )
+        self.db.add(swm)
+
+        targets = SBMGYearTargets(
+            id=survey.id,
+            ihhl=random.randint(100, 300),
+            csc=random.randint(1, 5),
+            rrc=random.randint(1, 3),
+            pwmu=random.randint(1, 2),
+            soak_pit=random.randint(50, 150),
+            magic_pit=random.randint(30, 100),
+            leach_pit=random.randint(20, 80),
+            wsp=random.randint(1, 3),
+            dewats=random.randint(0, 2),
+        )
+
+        village_data_entries: List[VillageData] = []
+        for village_id in village_ids:
+            village_data = VillageData(
+                survey_id=survey.id,
+                village_id=village_id,
+                village_name=f"Village {village_id}",
+                population=random.randint(500, 2000),
+                num_households=random.randint(100, 500),
+            )
+            village_data_entries.append(village_data)
+            self.db.add(village_data)
+            # flush to populate village_data.id without committing the transaction
+            await self.db.flush()
+
+            sbmg_assets = VillageSBMGAssets(
+                id=village_data.id,
+                ihhl=random.randint(50, 150),
+                csc=random.randint(1, 5),
+            )
+            self.db.add(sbmg_assets)
+
+            gwm_assets = VillageGWMAssets(
+                id=village_data.id,
+                soak_pit=random.randint(20, 80),
+                magic_pit=random.randint(10, 50),
+                leach_pit=random.randint(5, 30),
+                wsp=random.randint(1, 3),
+                dewats=random.randint(0, 2),
+            )
+            self.db.add(gwm_assets)
+
+        # add targets and perform a single commit for the entire survey's related data
+        self.db.add(targets)
+        await self.db.commit()
