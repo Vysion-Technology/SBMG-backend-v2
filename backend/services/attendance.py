@@ -24,6 +24,7 @@ from models.response.attendance import (
     GeographyAttendanceCountResponse,
     DayAttendanceSummaryResponse,
     DaySummaryAttendanceResponse,
+    TopNGeoAttendanceResponse,
 )
 
 
@@ -537,7 +538,7 @@ class AttendanceService:
         contractors_count_result = await self.db.execute(contractors_count_query)
         total_contractors = contractors_count_result.scalar() or 0
         if start_date == end_date:
-            present_count_query = select(func.count(func.distinct(DailyAttendance.contractor_id))) # pylint: disable=E1102
+            present_count_query = select(func.count(func.distinct(DailyAttendance.contractor_id)))  # pylint: disable=E1102
             present_count_query = (
                 present_count_query.select_from(DailyAttendance)
                 .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
@@ -591,3 +592,36 @@ class AttendanceService:
             present=present_count,
             absent=absent_count,
         )
+
+    async def get_top_n_geo_attendance(
+        self, level: GeoTypeEnum, year: int, month: int, n: int = 3
+    ) -> list[TopNGeoAttendanceResponse]:
+        """Get top N geographical attendance records."""
+        # Calculate start and end dates for the month
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            end_date = date(year, month + 1, 1) - timedelta(days=1)
+
+        analytics = await self.attendance_analytics(
+            start_date=start_date,
+            end_date=end_date,
+            level=level,
+            limit=n,  # Fetch a larger number to ensure we get top N after sorting
+        )
+
+        # Sort by attendance rate and get top N
+        sorted_analytics = sorted(analytics.response, key=lambda x: x.attendance_rate, reverse=True)[:n]
+
+        top_n_responses = [
+            TopNGeoAttendanceResponse(
+                geo_type=level,
+                geo_id=item.geography_id,
+                geo_name=item.geography_name,
+                attendance_rate=item.attendance_rate,
+            )
+            for item in sorted_analytics
+        ]
+
+        return top_n_responses

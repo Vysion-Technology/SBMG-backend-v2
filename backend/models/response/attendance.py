@@ -1,3 +1,4 @@
+"""Response models for attendance-related endpoints."""
 from typing import Optional, List
 from datetime import date, datetime
 from pydantic import BaseModel
@@ -118,3 +119,12 @@ class AttendanceOverviewResponse(BaseModel):
     attendance_rate: float
     present: Optional[int] = None
     absent: Optional[int] = None
+
+
+class TopNGeoAttendanceResponse(BaseModel):
+    """Response model for top N geographical units by attendance rate."""
+
+    geo_type: GeoTypeEnum
+    geo_id: int
+    geo_name: str
+    attendance_rate: float

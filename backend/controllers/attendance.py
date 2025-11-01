@@ -1,7 +1,7 @@
 """Attendance Controllers: Handles attendance logging and retrieval."""
 
 import traceback
-from typing import Optional
+from typing import List, Optional
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -27,6 +27,7 @@ from models.response.attendance import (
     AttendanceListResponse,
     DayAttendanceSummaryResponse,
     AttendanceAnalyticsResponse,
+    TopNGeoAttendanceResponse,
 )
 from models.internal import GeoTypeEnum
 
@@ -453,6 +454,40 @@ async def attendance_overview(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while fetching attendance overview",
+        ) from e
+
+
+@router.get("/top-n-geo", response_model=List[TopNGeoAttendanceResponse])  # noqa: F821
+async def get_top_n_geo_attendance(
+    level: GeoTypeEnum,
+    year: int,
+    month: int,
+    n: int = 3,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> list[TopNGeoAttendanceResponse]:
+    """
+    Get top N geographic units by attendance rate.
+    """
+    assert current_user is not None, "User must be authenticated"
+    try:
+        attendance_service = AttendanceService(db)
+        top_n_geo = await attendance_service.get_top_n_geo_attendance(
+            n=n,
+            level=level,
+            year=year,
+            month=month,
+        )
+        return top_n_geo
+
+    except HTTPException as e:
+        raise e
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching top N geographic attendance data",
         ) from e
 
 
