@@ -309,7 +309,9 @@ class AttendanceService:
             if gp_id:
                 query = query.where(GramPanchayat.id == gp_id)
 
-        query = query.offset(skip or 0).limit(limit or 500)
+        query = query.offset(skip or 0)
+        if limit is not None:
+            query = query.limit(limit)
 
         result = await self.db.execute(query)
         rows = result.fetchall()
@@ -614,7 +616,7 @@ class AttendanceService:
             start_date=start_date,
             end_date=end_date,
             level=level,
-            limit=n,  # Fetch a larger number to ensure we get top N after sorting
+            limit=None,  # Fetch all records to ensure we get top N after sorting
             district_id=district_id,
             block_id=block_id,
         )
