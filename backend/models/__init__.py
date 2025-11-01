@@ -59,7 +59,7 @@ from models.database.survey_master import (
     WorkOrderDetails,
 )
 from models.database.gps import GPSTracking
-
+from models.database.feedback import Feedback
 __all__ = [
     # Auth models
     "DailyAttendance",
@@ -125,4 +125,6 @@ __all__ = [
     "WorkOrderDetails",
     # GPS Tracking model
     "GPSTracking",
+    # Feedback model
+    "Feedback",
 ]
