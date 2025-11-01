@@ -5,7 +5,7 @@ from typing import Optional
 from datetime import date, datetime, timedelta
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import insert, select, func, and_
+from sqlalchemy import distinct, insert, select, func, and_
 from sqlalchemy.orm import joinedload
 
 from models.database.attendance import DailyAttendance
@@ -287,7 +287,9 @@ class AttendanceService:
                     GramPanchayat.id,
                     GramPanchayat.name,
                     (select(1).scalar_subquery()).label("total_contractors"),
-                    func.count(func.distinct(DailyAttendance.contractor_id)).label("present_count"),  # pylint: disable=E1102
+                    func.count(func.distinct(DailyAttendance.contractor_id, DailyAttendance.date)).label(
+                        "present_count"
+                    ),  # pylint: disable=E1102
                     DailyAttendance.date.label("attendance_date"),
                     (select(1).scalar_subquery()).label("gp_count"),
                 )
@@ -609,27 +611,130 @@ class AttendanceService:
             end_date = date(year + 1, 1, 1) - timedelta(days=1)
         else:
             end_date = date(year, month + 1, 1) - timedelta(days=1)
+        # working days in the month (exclude Sundays)
+        total_days = (end_date - start_date).days + 1
+        working_days = sum(1 for i in range(total_days) if (start_date + timedelta(days=i)).weekday() < 6)
 
-        analytics = await self.attendance_analytics(
-            start_date=start_date,
-            end_date=end_date,
-            level=level,
-            limit=n,  # Fetch a larger number to ensure we get top N after sorting
-            district_id=district_id,
-            block_id=block_id,
-        )
+        # Build total contractors subquery and main query depending on level
+        if level == GeoTypeEnum.GP:
+            total_contractors_subq = (
+                select(
+                    GramPanchayat.id.label("gp_id"),
+                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                )
+                .select_from(GramPanchayat)
+                .join(Contractor, Contractor.gp_id == GramPanchayat.id)
+                .group_by(GramPanchayat.id)
+            ).subquery()
 
-        # Sort by attendance rate and get top N
-        sorted_analytics = sorted(analytics.response, key=lambda x: x.attendance_rate, reverse=True)[:n]
-
-        top_n_responses = [
-            TopNGeoAttendanceResponse(
-                geo_type=level,
-                geo_id=item.geography_id,
-                geo_name=item.geography_name,
-                attendance_rate=item.attendance_rate,
+            query = (
+                select(
+                    GramPanchayat.id.label("geo_id"),
+                    GramPanchayat.name.label("geo_name"),
+                    total_contractors_subq.c.total_contractors,
+                    func.count(func.distinct(DailyAttendance.id)).label("present_count"),
+                )
+                .select_from(DailyAttendance)
+                .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
+                .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
+                .outerjoin(total_contractors_subq, GramPanchayat.id == total_contractors_subq.c.gp_id)
+                .where(DailyAttendance.date >= start_date, DailyAttendance.date <= end_date)
+                .group_by(GramPanchayat.id, GramPanchayat.name, total_contractors_subq.c.total_contractors)
             )
-            for item in sorted_analytics
-        ]
+            if block_id:
+                query = query.where(GramPanchayat.block_id == block_id)
+            if district_id:
+                query = query.join(Block, GramPanchayat.block_id == Block.id).where(Block.district_id == district_id)
 
-        return top_n_responses
+        elif level == GeoTypeEnum.BLOCK:
+            total_contractors_subq = (
+                select(
+                    Block.id.label("block_id"),
+                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                )
+                .select_from(Block)
+                .join(GramPanchayat, GramPanchayat.block_id == Block.id)
+                .join(Contractor, Contractor.gp_id == GramPanchayat.id)
+                .group_by(Block.id)
+            ).subquery()
+
+            query = (
+                select(
+                    Block.id.label("geo_id"),
+                    Block.name.label("geo_name"),
+                    total_contractors_subq.c.total_contractors,
+                    func.count(func.distinct(DailyAttendance.id)).label("present_count"),
+                )
+                .select_from(DailyAttendance)
+                .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
+                .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
+                .join(Block, GramPanchayat.block_id == Block.id)
+                .outerjoin(total_contractors_subq, Block.id == total_contractors_subq.c.block_id)
+                .where(DailyAttendance.date >= start_date, DailyAttendance.date <= end_date)
+                .group_by(Block.id, Block.name, total_contractors_subq.c.total_contractors)
+            )
+            if district_id:
+                query = query.where(Block.district_id == district_id)
+            if block_id:
+                query = query.where(Block.id == block_id)
+
+        else:  # DISTRICT
+            total_contractors_subq = (
+                select(
+                    District.id.label("dist_id"),
+                    func.count(func.distinct(Contractor.id)).label("total_contractors"),
+                )
+                .select_from(District)
+                .join(Block, Block.district_id == District.id)
+                .join(GramPanchayat, GramPanchayat.block_id == Block.id)
+                .join(Contractor, Contractor.gp_id == GramPanchayat.id)
+                .group_by(District.id)
+            ).subquery()
+
+            query = (
+                select(
+                    District.id.label("geo_id"),
+                    District.name.label("geo_name"),
+                    total_contractors_subq.c.total_contractors,
+                    func.count(func.distinct(DailyAttendance.id)).label("present_count"),
+                )
+                .select_from(DailyAttendance)
+                .join(Contractor, DailyAttendance.contractor_id == Contractor.id)
+                .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
+                .join(Block, GramPanchayat.block_id == Block.id)
+                .join(District, Block.district_id == District.id)
+                .outerjoin(total_contractors_subq, District.id == total_contractors_subq.c.dist_id)
+                .where(DailyAttendance.date >= start_date, DailyAttendance.date <= end_date)
+                .group_by(District.id, District.name, total_contractors_subq.c.total_contractors)
+            )
+            if district_id:
+                query = query.where(District.id == district_id)
+
+        # order by present_count descending and limit
+        query = query.order_by(func.count(func.distinct(DailyAttendance.id)).desc()).limit(n)
+
+        # Execute and build responses
+        result = await self.db.execute(query)
+        rows = result.fetchall()
+
+        responses: list[TopNGeoAttendanceResponse] = []
+        working_days = max(working_days, 1)  # avoid division by zero
+        for row in rows:
+            geo_id = row.geo_id
+            geo_name = row.geo_name
+            total_contractors = row.total_contractors or 0
+            present_count = row.present_count or 0
+
+            denom = total_contractors * working_days
+            attendance_rate = (present_count / denom * 100) if denom > 0 else 0.0
+
+            responses.append(
+                TopNGeoAttendanceResponse(
+                    geo_type=level,
+                    geo_id=geo_id,
+                    geo_name=geo_name,
+                    attendance_rate=attendance_rate,
+                )
+            )
+
+        return responses
