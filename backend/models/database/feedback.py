@@ -16,7 +16,7 @@ class Feedback(Base):  # type: ignore
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, index=True)
     auth_user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("authority_users.id"), nullable=True)
-    public_user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("public_users.id"), nullable=True)
+    public_user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("public_users.id"), nullable=True)
     rating: Mapped[int] = mapped_column(nullable=False)
     comment: Mapped[Optional[str]] = mapped_column(nullable=True)
 
