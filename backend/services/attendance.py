@@ -1,6 +1,6 @@
 """Attendance service for managing worker attendance records."""
 
-from typing import Optional
+from typing import Dict, List, Optional
 
 from datetime import date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -537,3 +537,27 @@ class AttendanceService:
             limit=limit or len(attendances),
             total_pages=1,
         )
+
+    async def create_bulk_attendances(
+        self, contractor_id: int, attendance_logs: list[AttendanceLogRequest]
+    ) -> None:
+        """Create bulk attendance records in the database."""
+        attendance_inserts: List[Dict[str, Optional[object]]] = []
+        for log in attendance_logs:
+            attendance_inserts.append(
+                {
+                    "contractor_id": contractor_id,
+                    "date": log.date,
+                    "start_time": log.start_time,
+                    "start_lat": log.start_lat,
+                    "start_long": log.start_long,
+                    "end_time": log.end_time,
+                    "end_lat": log.end_lat,
+                    "end_long": log.end_long,
+                    "remarks": log.remarks,
+                }
+            )
+
+        if attendance_inserts:
+            await self.db.execute(insert(DailyAttendance), attendance_inserts)
+            await self.db.commit()
