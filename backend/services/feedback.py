@@ -32,16 +32,18 @@ class FeedbackService:
         if existing_feedback:
             raise HTTPException(status_code=400, detail="Feedback already exists for this user.")
 
-        feedback = (await self.db.execute(
-            insert(Feedback)
-            .values(
-                auth_user_id=auth_user_id,
-                public_user_id=public_user_id,
-                rating=rating,
-                comment=comment,
+        feedback = (
+            await self.db.execute(
+                insert(Feedback)
+                .values(
+                    auth_user_id=auth_user_id,
+                    public_user_id=public_user_id,
+                    rating=rating,
+                    comment=comment,
+                )
+                .returning(Feedback)
             )
-            .returning(Feedback)
-        )).scalar_one()
+        ).scalar_one()
         await self.db.commit()
         await self.db.refresh(feedback)
         return feedback
@@ -104,3 +106,37 @@ class FeedbackService:
             auth_user_avg_rating=auth_user_avg_rating,
             public_user_avg_rating=public_user_avg_rating,
         )
+
+    async def get_user_own_feedback(self, auth_user_id: int | None, public_user_id: int | None) -> Feedback | None:
+        """Retrieve feedback for a specific user."""
+        if not auth_user_id and not public_user_id:
+            raise ValueError("Either auth_user_id or public_user_id must be provided.")
+
+        query = select(Feedback).where(
+            (Feedback.auth_user_id == auth_user_id) if auth_user_id else (Feedback.public_user_id == public_user_id)
+        )
+        result = await self.db.execute(query)
+        feedback = result.scalar_one_or_none()
+        return feedback
+
+    async def update_user_feedback(
+        self, auth_user_id: int | None, public_user_id: int | None, rating: int, comment: str | None
+    ) -> Feedback:
+        """Update existing feedback for a user."""
+        if not auth_user_id and not public_user_id:
+            raise ValueError("Either auth_user_id or public_user_id must be provided.")
+
+        # Get existing feedback
+        feedback = await self.get_user_own_feedback(auth_user_id, public_user_id)
+
+        if not feedback:
+            raise HTTPException(status_code=404, detail="Feedback not found. Please create feedback first.")
+
+        # Update the feedback
+        feedback.rating = rating
+        if comment is not None:
+            feedback.comment = comment
+
+        await self.db.commit()
+        await self.db.refresh(feedback)
+        return feedback
