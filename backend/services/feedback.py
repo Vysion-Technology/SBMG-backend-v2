@@ -23,6 +23,15 @@ class FeedbackService:
         """Save feedback to the database."""
         if not auth_user_id and not public_user_id:
             raise ValueError("Either auth_user_id or public_user_id must be provided.")
+        # Check if feedback already exists for the user
+        query = select(Feedback).where(
+            (Feedback.auth_user_id == auth_user_id) if auth_user_id else (Feedback.public_user_id == public_user_id)
+        )
+        result = await self.db.execute(query)
+        existing_feedback = result.scalar_one_or_none()
+        if existing_feedback:
+            raise HTTPException(status_code=400, detail="Feedback already exists for this user.")
+
         feedback = (await self.db.execute(
             insert(Feedback)
             .values(

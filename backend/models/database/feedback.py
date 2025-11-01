@@ -3,7 +3,7 @@
 from typing import Optional
 
 
-from sqlalchemy import CheckConstraint, Integer, ForeignKey
+from sqlalchemy import CheckConstraint, Integer, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
@@ -27,4 +27,13 @@ class Feedback(Base):  # type: ignore
             (auth_user_id.isnot(None)) | (public_user_id.isnot(None)),
             name="auth_or_public_user_constraint",
         ),
+        # One user can give only one feedback
+        UniqueConstraint(
+            auth_user_id,
+            name="unique_auth_user_feedback",
+        ),
+        UniqueConstraint(
+            public_user_id,
+            name="unique_public_user_feedback",
+        )
     )
