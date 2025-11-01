@@ -594,7 +594,13 @@ class AttendanceService:
         )
 
     async def get_top_n_geo_attendance(
-        self, level: GeoTypeEnum, year: int, month: int, n: int = 3
+        self,
+        level: GeoTypeEnum,
+        year: int,
+        month: int,
+        n: int = 3,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
     ) -> list[TopNGeoAttendanceResponse]:
         """Get top N geographical attendance records."""
         # Calculate start and end dates for the month
@@ -609,6 +615,8 @@ class AttendanceService:
             end_date=end_date,
             level=level,
             limit=n,  # Fetch a larger number to ensure we get top N after sorting
+            district_id=district_id,
+            block_id=block_id,
         )
 
         # Sort by attendance rate and get top N

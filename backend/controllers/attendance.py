@@ -463,6 +463,8 @@ async def get_top_n_geo_attendance(
     year: int,
     month: int,
     n: int = 3,
+    district_id: Optional[int] = None,
+    block_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
 ) -> list[TopNGeoAttendanceResponse]:
@@ -477,6 +479,8 @@ async def get_top_n_geo_attendance(
             level=level,
             year=year,
             month=month,
+            district_id=district_id,
+            block_id=block_id,
         )
         return top_n_geo
 
