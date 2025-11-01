@@ -1,7 +1,7 @@
 """Response models for notices."""
 
 from typing import Optional, List
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -42,6 +42,21 @@ class PositionHolderBasicInfo(BaseModel):
     end_date: Optional[date] = None
 
 
+class NoticeReplyResponse(BaseModel):
+    """Response model for notice reply."""
+
+    id: int
+    notice_id: int
+    replier_id: int
+    reply_text: str
+    reply_datetime: datetime
+    replier: Optional[PositionHolderBasicInfo] = None
+
+    class Config:
+        """Pydantic config for model serialization."""
+        from_attributes = True
+
+
 class NoticeDetailResponse(BaseModel):
     """Detailed response model for a notice with sender/receiver info."""
 
@@ -54,6 +69,7 @@ class NoticeDetailResponse(BaseModel):
     media: List[NoticeMediaResponse] = []
     sender: Optional[PositionHolderBasicInfo] = None
     receiver: Optional[PositionHolderBasicInfo] = None
+    replies: List[NoticeReplyResponse] = []
 
     class Config:
         """Pydantic config for model serialization."""

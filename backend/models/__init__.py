@@ -44,7 +44,7 @@ from models.database.inspection import (
     CommunitySanitationInspectionItem,
     OtherInspectionItem,
 )
-from models.database.notice import Notice, NoticeMedia
+from models.database.notice import Notice, NoticeMedia, NoticeType, NoticeReply
 from models.database.survey_master import (
     FundHead,
     CollectionFrequency,
@@ -111,6 +111,8 @@ __all__ = [
     # Notice models
     "Notice",
     "NoticeMedia",
+    "NoticeType",
+    "NoticeReply",
     # Survey Master models
     "FundHead",
     "CollectionFrequency",

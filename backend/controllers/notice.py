@@ -10,11 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 
 from models.database.auth import User
-from models.requests.notice import CreateNoticeRequest, CreateNoticeTypeRequest
+from models.requests.notice import CreateNoticeRequest, CreateNoticeTypeRequest, CreateNoticeReplyRequest
 from models.response.notice import (
     NoticeDetailResponse,
     NoticeTypeResponse,
     PositionHolderBasicInfo,
+    NoticeReplyResponse,
 )
 
 from auth_utils import require_admin, require_staff_role
@@ -142,6 +143,26 @@ async def get_sent_notices(
                 start_date=notice.receiver.start_date,
                 end_date=notice.receiver.end_date,
             ),
+            replies=[
+                NoticeReplyResponse(
+                    id=reply.id,
+                    notice_id=reply.notice_id,
+                    replier_id=reply.replier_id,
+                    reply_text=reply.reply_text,
+                    reply_datetime=reply.reply_datetime,
+                    replier=PositionHolderBasicInfo(
+                        id=reply.replier.id,
+                        user_id=reply.replier.user_id,
+                        first_name=reply.replier.first_name,
+                        last_name=reply.replier.last_name,
+                        role_id=reply.replier.role_id,
+                        middle_name=reply.replier.middle_name,
+                        start_date=reply.replier.start_date,
+                        end_date=reply.replier.end_date,
+                    ),
+                )
+                for reply in notice.replies
+            ],
         )
         for notice in notices
     ]
@@ -169,6 +190,46 @@ async def get_received_notices(
             title=notice.title,
             date=notice.date,  # type: ignore
             text=notice.text,
+            sender=PositionHolderBasicInfo(
+                id=notice.sender.id,
+                user_id=notice.sender.user_id,
+                first_name=notice.sender.first_name,
+                last_name=notice.sender.last_name,
+                role_id=notice.sender.role_id,
+                middle_name=notice.sender.middle_name,
+                start_date=notice.sender.start_date,
+                end_date=notice.sender.end_date,
+            ) if notice.sender else None,
+            receiver=PositionHolderBasicInfo(
+                id=notice.receiver.id,
+                user_id=notice.receiver.user_id,
+                first_name=notice.receiver.first_name,
+                last_name=notice.receiver.last_name,
+                role_id=notice.receiver.role_id,
+                middle_name=notice.receiver.middle_name,
+                start_date=notice.receiver.start_date,
+                end_date=notice.receiver.end_date,
+            ) if notice.receiver else None,
+            replies=[
+                NoticeReplyResponse(
+                    id=reply.id,
+                    notice_id=reply.notice_id,
+                    replier_id=reply.replier_id,
+                    reply_text=reply.reply_text,
+                    reply_datetime=reply.reply_datetime,
+                    replier=PositionHolderBasicInfo(
+                        id=reply.replier.id,
+                        user_id=reply.replier.user_id,
+                        first_name=reply.replier.first_name,
+                        last_name=reply.replier.last_name,
+                        role_id=reply.replier.role_id,
+                        middle_name=reply.replier.middle_name,
+                        start_date=reply.replier.start_date,
+                        end_date=reply.replier.end_date,
+                    ),
+                )
+                for reply in notice.replies
+            ],
         )
         for notice in notices
     ]
@@ -190,6 +251,118 @@ async def get_notice_by_id(
         title=notice.title,
         date=notice.date,  # type: ignore
         text=notice.text,
+        sender=PositionHolderBasicInfo(
+            id=notice.sender.id,
+            user_id=notice.sender.user_id,
+            first_name=notice.sender.first_name,
+            last_name=notice.sender.last_name,
+            role_id=notice.sender.role_id,
+            middle_name=notice.sender.middle_name,
+            start_date=notice.sender.start_date,
+            end_date=notice.sender.end_date,
+        ) if notice.sender else None,
+        receiver=PositionHolderBasicInfo(
+            id=notice.receiver.id,
+            user_id=notice.receiver.user_id,
+            first_name=notice.receiver.first_name,
+            last_name=notice.receiver.last_name,
+            role_id=notice.receiver.role_id,
+            middle_name=notice.receiver.middle_name,
+            start_date=notice.receiver.start_date,
+            end_date=notice.receiver.end_date,
+        ) if notice.receiver else None,
+        replies=[
+            NoticeReplyResponse(
+                id=reply.id,
+                notice_id=reply.notice_id,
+                replier_id=reply.replier_id,
+                reply_text=reply.reply_text,
+                reply_datetime=reply.reply_datetime,
+                replier=PositionHolderBasicInfo(
+                    id=reply.replier.id,
+                    user_id=reply.replier.user_id,
+                    first_name=reply.replier.first_name,
+                    last_name=reply.replier.last_name,
+                    role_id=reply.replier.role_id,
+                    middle_name=reply.replier.middle_name,
+                    start_date=reply.replier.start_date,
+                    end_date=reply.replier.end_date,
+                ),
+            )
+            for reply in notice.replies
+        ],
+    )
+
+
+@router.post("/{notice_id}/reply", response_model=NoticeReplyResponse, status_code=status.HTTP_201_CREATED)
+async def reply_to_notice(
+    notice_id: int,
+    request: CreateNoticeReplyRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> NoticeReplyResponse:
+    """
+    Reply to a notice. Only the receiver of the notice can reply.
+    """
+    notice_service = NoticeService(db)
+    position_holder_service = PositionHolderService(db)
+    
+    # Get the notice
+    notice = await notice_service.get_notice_by_id(notice_id)
+    if not notice:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
+    
+    # Get current user's position holder IDs
+    current_user_position_ids = await position_holder_service.get_position_holder_ids_by_user(user_id=current_user.id)
+    
+    # Check if the current user is the receiver of this notice
+    if notice.receiver_id not in current_user_position_ids:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only reply to notices sent to you",
+        )
+    
+    # Get the current position holder for the replier
+    replier_position = await AuthService(db).get_current_position_holder(
+        current_user.district_id,
+        current_user.block_id,
+        current_user.gp_id,
+    )
+    
+    if not replier_position:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Current position holder not found",
+        )
+    
+    # Create the reply
+    reply = await notice_service.create_notice_reply(
+        notice_id=notice_id,
+        replier_id=replier_position.id,
+        reply_text=request.reply_text,
+    )
+    
+    # Fetch the reply with replier info
+    reply_with_info = await notice_service.get_notice_reply_by_id(reply.id)
+    if not reply_with_info:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reply not found")
+    
+    return NoticeReplyResponse(
+        id=reply_with_info.id,
+        notice_id=reply_with_info.notice_id,
+        replier_id=reply_with_info.replier_id,
+        reply_text=reply_with_info.reply_text,
+        reply_datetime=reply_with_info.reply_datetime,
+        replier=PositionHolderBasicInfo(
+            id=reply_with_info.replier.id,
+            user_id=reply_with_info.replier.user_id,
+            first_name=reply_with_info.replier.first_name,
+            last_name=reply_with_info.replier.last_name,
+            role_id=reply_with_info.replier.role_id,
+            middle_name=reply_with_info.replier.middle_name,
+            start_date=reply_with_info.replier.start_date,
+            end_date=reply_with_info.replier.end_date,
+        ),
     )
 
 

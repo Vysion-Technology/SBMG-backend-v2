@@ -1,13 +1,13 @@
 """ "Service for managing notices."""
 
 from typing import Optional, List
-from datetime import date
+from datetime import date, datetime
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete, select, insert, and_
 from sqlalchemy.orm import selectinload
 
-from models.database.notice import Notice, NoticeMedia, NoticeType
+from models.database.notice import Notice, NoticeMedia, NoticeType, NoticeReply
 from models.database.auth import PositionHolder
 
 
@@ -73,7 +73,12 @@ class NoticeService:
         """
         result = await self.db.execute(
             select(Notice)
-            .options(selectinload(Notice.media), selectinload(Notice.sender), selectinload(Notice.receiver))
+            .options(
+                selectinload(Notice.media),
+                selectinload(Notice.sender).selectinload(PositionHolder.employee),
+                selectinload(Notice.receiver).selectinload(PositionHolder.employee),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.employee),
+            )
             .where(Notice.sender_id.in_(sender_ids))
             .offset(skip)
             .limit(limit)
@@ -124,7 +129,12 @@ class NoticeService:
         # Query notices sent to any of these position holders
         result = await self.db.execute(
             select(Notice)
-            .options(selectinload(Notice.media), selectinload(Notice.sender), selectinload(Notice.receiver))
+            .options(
+                selectinload(Notice.media),
+                selectinload(Notice.sender).selectinload(PositionHolder.employee),
+                selectinload(Notice.receiver).selectinload(PositionHolder.employee),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.employee),
+            )
             .where(Notice.receiver_id.in_(list(all_relevant_position_ids)))
             .offset(skip)
             .limit(limit)
@@ -138,7 +148,12 @@ class NoticeService:
         result = await self.db.execute(
             select(Notice)
             .where(Notice.id == notice_id)
-            .options(selectinload(Notice.media), selectinload(Notice.sender), selectinload(Notice.receiver))
+            .options(
+                selectinload(Notice.media),
+                selectinload(Notice.sender).selectinload(PositionHolder.employee),
+                selectinload(Notice.receiver).selectinload(PositionHolder.employee),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.employee),
+            )
         )
         notice = result.scalar_one_or_none()
         return notice
@@ -152,3 +167,29 @@ class NoticeService:
         """Upload media for a specific notice."""
         await self.db.execute(insert(NoticeMedia).values(notice_id=notice_id, media_url=media_url))
         await self.db.commit()
+
+    async def create_notice_reply(self, notice_id: int, replier_id: int, reply_text: str) -> NoticeReply:
+        """Create a reply to a notice."""
+        notice_reply = (
+            await self.db.execute(
+                insert(NoticeReply)
+                .values(
+                    notice_id=notice_id,
+                    replier_id=replier_id,
+                    reply_text=reply_text,
+                    reply_datetime=datetime.now(),
+                )
+                .returning(NoticeReply)
+            )
+        ).scalar_one()
+        await self.db.commit()
+        return notice_reply
+
+    async def get_notice_reply_by_id(self, reply_id: int) -> Optional[NoticeReply]:
+        """Get a specific notice reply by ID."""
+        result = await self.db.execute(
+            select(NoticeReply)
+            .where(NoticeReply.id == reply_id)
+            .options(selectinload(NoticeReply.replier).selectinload(PositionHolder.employee))
+        )
+        return result.scalar_one_or_none()

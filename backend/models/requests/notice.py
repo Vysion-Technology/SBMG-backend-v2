@@ -22,3 +22,9 @@ class CreateNoticeRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=500, description="Notice title")
     text: Optional[str] = Field(None, description="Notice text content")
     media_urls: Optional[List[str]] = Field(None, description="List of media URLs attached to the notice")
+
+
+class CreateNoticeReplyRequest(BaseModel):
+    """Request model for creating a notice reply."""
+
+    reply_text: str = Field(..., min_length=1, description="Reply text content")
