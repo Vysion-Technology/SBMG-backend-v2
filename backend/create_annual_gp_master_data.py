@@ -82,6 +82,9 @@ async def main():
 
         # ignore gp ids 1, 2, 37 as they are already populated
         ignore_gp_ids = {1, 2, 37}
+        ignore_gp_ids.update(
+            [num for num in range(1, 204)]  # Ignoring test GPs created earlier
+        )
         gp_villages_map = await get_gp_villages_map(geo_svc)
         print(f"Total GPs with villages: {len(gp_villages_map)}")
 

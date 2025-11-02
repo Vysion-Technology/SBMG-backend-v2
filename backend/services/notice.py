@@ -203,3 +203,32 @@ class NoticeService:
             .options(selectinload(NoticeReply.replier).selectinload(PositionHolder.employee))
         )
         return result.scalar_one_or_none()
+
+    async def send_bulk_notices(
+        self,
+        notice_type_id: int,
+        sender_id: int,
+        receiver_ids: List[int],
+        title: str,
+        text: Optional[str],
+    ) -> List[Notice]:
+        """Send bulk notices to multiple receivers."""
+        notices = await self.db.execute(
+            insert(Notice)
+            .values(
+                [
+                    {
+                        "type_id": notice_type_id,
+                        "sender_id": sender_id,
+                        "receiver_id": receiver_id,
+                        "title": title,
+                        "text": text,
+                        "date": date.today(),
+                    }
+                    for receiver_id in receiver_ids
+                ]
+            ).returning(Notice)
+        )
+        created_notices = notices.scalars().all()
+        await self.db.commit()
+        return list(created_notices)

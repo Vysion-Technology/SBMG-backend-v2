@@ -520,6 +520,18 @@ class AuthService:
         position_holders = result.scalars().all()
         return list(position_holders)
 
+    async def get_all_position_holders(self) -> List[PositionHolder]:
+        """Fetch all position holders from the database."""
+        position_holders = []
+        result = await self.db.execute(
+            select(PositionHolder).options(
+                selectinload(PositionHolder.user),
+                selectinload(PositionHolder.role),
+            )
+        )
+        position_holders = result.scalars().all()
+        return list(position_holders)
+
 def send_otp(mobile_number: str, otp: int | str) -> bool:
     """Send OTP to the given phone number."""
 
