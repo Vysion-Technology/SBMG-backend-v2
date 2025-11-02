@@ -24,7 +24,7 @@ class GPSTrackingService:
     TRACKVERSE_API_KEY = "NT-20257E2B94DB44C90F755C45D61E0CA55895"
     TRACKVERSE_USERNAME = "clacademy"
     TRACKVERSE_PASSWORD = "123456"
-    FETCH_INTERVAL_SECONDS = 10  # Fetch GPS data every 10 seconds
+    FETCH_INTERVAL_SECONDS = 100  # Fetch GPS data every 10 seconds
 
     _background_task = None
     _should_stop = False
