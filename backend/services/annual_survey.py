@@ -270,7 +270,9 @@ class AnnualSurveyService:
             .options(
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
+                # eager-load both the linked User and Employee for the VDO/position holder
                 selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
+                selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.employee),
                 selectinload(AnnualSurvey.work_order),
                 selectinload(AnnualSurvey.fund_sanctioned),
                 selectinload(AnnualSurvey.door_to_door_collection),
@@ -302,7 +304,9 @@ class AnnualSurveyService:
         query = select(AnnualSurvey).options(
             selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
             selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
+            # eager-load both the linked User and Employee for the VDO/position holder
             selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
+            selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.employee),
             selectinload(AnnualSurvey.work_order),
             selectinload(AnnualSurvey.fund_sanctioned),
             selectinload(AnnualSurvey.door_to_door_collection),
@@ -356,7 +360,9 @@ class AnnualSurveyService:
             .options(
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
+                # eager-load both the linked User and Employee for the VDO/position holder
                 selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
+                selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.employee),
                 selectinload(AnnualSurvey.work_order),
                 selectinload(AnnualSurvey.fund_sanctioned),
                 selectinload(AnnualSurvey.door_to_door_collection),
