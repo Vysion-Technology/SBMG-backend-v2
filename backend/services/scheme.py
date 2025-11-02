@@ -121,5 +121,9 @@ class SchemeService:
 
     async def delete_scheme(self, scheme_id: int) -> None:
         """Delete a scheme by its ID."""
+        # Delete associated media first due to foreign key constraint
+        await self.db.execute(
+            delete(SchemeMedia).where(SchemeMedia.scheme_id == scheme_id),
+        )
         await self.db.execute(delete(Scheme).where(Scheme.id == scheme_id))
         await self.db.commit()

@@ -105,6 +105,10 @@ class EventService:
 
     async def delete_event(self, event_id: int) -> None:
         """Delete an event by its ID."""
+        # Delete associated media first due to foreign key constraint
+        await self.db.execute(
+            delete(EventMedia).where(EventMedia.event_id == event_id),
+        )
         await self.db.execute(
             delete(Event).where(Event.id == event_id),
         )
