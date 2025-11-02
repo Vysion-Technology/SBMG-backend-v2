@@ -260,8 +260,6 @@ async def get_received_notices(
                 name=notice.type.name,
                 description=notice.type.description,
             )
-            if notice.noti
-            else None,
         )
         for notice in notices
     ]
