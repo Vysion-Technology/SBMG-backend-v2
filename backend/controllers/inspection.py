@@ -244,6 +244,7 @@ async def get_my_inspections(
             .options(
                 selectinload(PositionHolder.role),
                 selectinload(PositionHolder.user),
+                selectinload(PositionHolder.employee),
             )
             .where(PositionHolder.id == inspection.position_holder_id)
         )
@@ -355,6 +356,7 @@ async def get_inspections(
             .options(
                 selectinload(PositionHolder.role),
                 selectinload(PositionHolder.user),
+                selectinload(PositionHolder.employee),
             )
             .where(PositionHolder.id == inspection.position_holder_id)
         )
@@ -413,6 +415,7 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
         .options(
             selectinload(PositionHolder.role),
             selectinload(PositionHolder.user),
+            selectinload(PositionHolder.employee),
         )
         .where(PositionHolder.id == inspection.position_holder_id)
     )
