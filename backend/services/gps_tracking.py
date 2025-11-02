@@ -12,7 +12,7 @@ from sqlalchemy import insert, select, distinct, func
 from sqlalchemy.orm import selectinload
 
 from models.database.geography import Block, District, GramPanchayat
-from models.database.gps import GPSTracking, Vehicle
+from models.database.gps import GPSRecord, GPSTracking, Vehicle
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,19 @@ class GPSTrackingService:
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
+
+    async def get_vehicle_by_number(self, vehicle_no: str) -> Optional[Vehicle]:
+        """
+        Get vehicle by its registration number.
+
+        Args:
+            vehicle_no: Vehicle registration number
+
+        Returns:
+            Vehicle or None if not found
+        """
+        result = await self.db.execute(select(Vehicle).where(Vehicle.vehicle_no == vehicle_no))
+        return result.scalar_one_or_none()
 
     async def fetch_and_save_gps_data(self) -> Dict[str, Any]:
         """
@@ -70,18 +83,20 @@ class GPSTrackingService:
                     # Parse timestamp from "30-10-2025 14:57:35" format
                     timestamp_str = device.get("timestamp")
                     timestamp = datetime.strptime(timestamp_str, "%d-%m-%Y %H:%M:%S")
-
-                    gps_record = GPSTracking(
-                        vehicle_no=device.get("vehicleNo"),
-                        imei=device.get("imei"),
-                        latitude=device.get("latitude"),
-                        longitude=device.get("longitude"),
-                        speed=device.get("speed"),
-                        ignition=device.get("ignition"),
-                        total_gps_odometer=device.get("totalGpsOdometer"),
+                    vehicle = await self.get_vehicle_by_number(device.get("vehicleNo"))
+                    if not vehicle:
+                        logger.warning("Vehicle with number %s not found, skipping record", device.get("vehicleNo"))
+                        continue
+                    assert vehicle, "Vehicle should not be None here"
+                    gps_record = GPSRecord(
+                        vehicle_id=vehicle.id,
+                        latitude=float(device.get("latitude")),
+                        longitude=float(device.get("longitude")),
+                        speed=float(device.get("speed")),
+                        ignition=bool(device.get("ignition")),
+                        total_gps_odometer=float(device.get("totalGpsOdometer")),
                         timestamp=timestamp,
                     )
-
                     self.db.add(gps_record)
                     records_saved += 1
                 except Exception as e:  # pylint: disable=broad-except

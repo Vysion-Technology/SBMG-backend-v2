@@ -1,6 +1,7 @@
 """GPS Tracking database model."""
 
 from datetime import datetime
+from typing import List
 
 from sqlalchemy import String, Integer, DateTime, Index, Float, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -25,6 +26,12 @@ class Vehicle(Base):
         "GramPanchayat",
         back_populates="vehicles",
         foreign_keys=[gp_id],
+    )
+
+    gps_records: Mapped[List["GPSRecord"]] = relationship(
+        "GPSRecord",
+        back_populates="vehicle",
+        foreign_keys="[GPSRecord.vehicle_id]",
     )
 
     __table_args__ = (Index("idx_gp_vehicle", "gp_id", "vehicle_no", unique=True),)
