@@ -532,6 +532,20 @@ class AuthService:
         position_holders = result.scalars().all()
         return list(position_holders)
 
+    async def get_smd_position_holder(self) -> PositionHolder:
+        """Get all users with SMD role."""
+        result = await self.db.execute(
+            select(PositionHolder).options(
+                selectinload(PositionHolder.user),
+                selectinload(PositionHolder.role),
+            ).join(Role)
+            .where(
+                Role.name == UserRole.ADMIN.value,
+            )
+        )
+        position_holder = result.scalar_one()
+        return position_holder
+
 def send_otp(mobile_number: str, otp: int | str) -> bool:
     """Send OTP to the given phone number."""
 

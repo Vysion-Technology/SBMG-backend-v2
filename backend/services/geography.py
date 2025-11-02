@@ -296,7 +296,7 @@ class GeographyService:
         district_id: Optional[int] = None,
     ) -> list[GramPanchayat]:
         """List all villages, optionally filtered by block or district."""
-        query = select(GramPanchayat).order_by(GramPanchayat.id)
+        query = select(GramPanchayat).options(selectinload(GramPanchayat.villages)).order_by(GramPanchayat.id)
         if block_id:
             query = query.where(GramPanchayat.block_id == block_id)
         if district_id:
