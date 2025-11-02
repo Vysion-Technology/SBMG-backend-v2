@@ -30,6 +30,34 @@ class Vehicle(Base):
     __table_args__ = (Index("idx_gp_vehicle", "gp_id", "vehicle_no", unique=True),)
 
 
+class GPSRecord(Base):
+    """
+    Describes a GPS record entity
+    """
+
+    __tablename__ = "gps_records"
+
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id"), nullable=False, index=True)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    speed: Mapped[float] = mapped_column(Float, nullable=False)
+    ignition: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    total_gps_odometer: Mapped[float] = mapped_column(Float, nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+    vehicle: Mapped["Vehicle"] = relationship(
+        "Vehicle",
+        back_populates="gps_records",
+        foreign_keys=[vehicle_id],
+    )
+
+    __table_args__ = (
+        Index("idx_gps_record_vehicle_timestamp", "vehicle_id", "timestamp"),
+        Index("idx_gps_record_vehicle", "vehicle_id"),
+        Index("idx_gps_record_timestamp", "timestamp"),
+    )
+
 class GPSTracking(Base):
     """
     Describes a GPS tracking entity
