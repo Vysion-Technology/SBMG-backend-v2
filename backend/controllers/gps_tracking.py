@@ -51,7 +51,7 @@ async def add_vehicles(
     )
 
 
-@router.get("/vehicles", response_model=List[VehicleResponse])
+@router.get("/vehicles-list", response_model=List[VehicleResponse])
 async def get_vehicles(
     district_id: Optional[int] = Query(None, description="District ID"),
     block_id: Optional[int] = Query(None, description="Block ID"),
@@ -82,7 +82,7 @@ async def get_vehicles(
     ]
 
 
-@router.get("/vehicles/", response_model=RunningVehiclesListResponse)
+@router.get("/vehicles", response_model=RunningVehiclesListResponse)
 async def get_vehicle(
     district_id: Optional[int] = Query(None, description="District ID"),
     block_id: Optional[int] = Query(None, description="Block ID"),
