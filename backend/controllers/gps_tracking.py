@@ -1,100 +1,69 @@
 """GPS Tracking Controller."""
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models.response.gps import GPSTrackingResponse, UniqueVehiclesResponse
+from models.response.gps import GPSTrackingResponse, UniqueVehiclesResponse, VehicleResponse
 from services.gps_tracking import GPSTrackingService
 
 router = APIRouter()
 
 
-@router.get("/vehicles", response_model=UniqueVehiclesResponse)
-async def get_unique_vehicles(
+@router.post("/vehicles", response_model=VehicleResponse)
+async def add_vehicles(
+    gp_id: int = Query(..., description="Gram Panchayat ID"),
+    vehicle_no: str = Query(..., description="Vehicle number to add"),
+    imei: str = Query(..., description="IMEI number of the vehicle GPS device"),
     db: AsyncSession = Depends(get_db),
-):
+) -> VehicleResponse:
     """
-    Get list of unique vehicles from GPS tracking data.
-
-    Returns:
-        UniqueVehiclesResponse: List of unique vehicle numbers with count
-    """
-    vehicles = await GPSTrackingService(db).get_unique_vehicles()
-
-    return UniqueVehiclesResponse(vehicles=vehicles, total_count=len(vehicles))
-
-
-@router.get("/tracking", response_model=List[GPSTrackingResponse])
-async def get_vehicle_tracking(
-    vehicle_nos: str = Query(..., description="Comma-separated list of vehicle numbers (e.g., 'UP91T5013,UP91T4309')"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Get GPS tracking data for specified vehicles.
+    Add a new vehicle for a Gram Panchayat.
 
     Args:
-        vehicle_nos: Comma-separated list of vehicle numbers
-        limit: Maximum number of records to return
+        gp_id: Gram Panchayat ID
+        vehicle_no: Vehicle number
+        imei: IMEI number of the GPS device
         db: Database session
 
     Returns:
-        List[GPSTrackingResponse]: List of GPS tracking records
+        VehicleResponse: The added vehicle information
     """
-    # Parse comma-separated vehicle numbers
-    vehicle_list = [v.strip() for v in vehicle_nos.split(",") if v.strip()]
-
-    if not vehicle_list:
-        raise HTTPException(status_code=400, detail="At least one vehicle number must be provided")
-
-    # Get tracking data
-    tracking_records = await GPSTrackingService(db).get_latest_vehicle_positions(vehicle_nos=vehicle_list, limit=limit)
-
-    if not tracking_records:
-        raise HTTPException(status_code=404, detail=f"No tracking data found for vehicles: {', '.join(vehicle_list)}")
-
-    return [
-        GPSTrackingResponse(
-            id=record.id,
-            vehicle_no=record.vehicle_no,
-            imei=record.imei,
-            latitude=record.latitude,
-            longitude=record.longitude,
-            speed=record.speed,
-            ignition=record.ignition,
-            total_gps_odometer=record.total_gps_odometer,
-            timestamp=record.timestamp,
-        )
-        for record in tracking_records
-    ]
+    vehicle = await GPSTrackingService(db).add_vehicle(gp_id=gp_id, vehicle_no=vehicle_no, imei=imei)
+    return VehicleResponse(
+        vehicle_no=vehicle.vehicle_no,
+        imei=vehicle.imei,
+        gp_id=vehicle.gp_id,
+    )
 
 
-@router.get("/tracking/latest", response_model=List[GPSTrackingResponse])
-async def get_latest_positions(
+@router.get("/vehicles", response_model=List[VehicleResponse])
+async def get_vehicles(
+    district_id: Optional[int] = Query(None, description="District ID"),
+    block_id: Optional[int] = Query(None, description="Block ID"),
+    gp_id: Optional[int] = Query(None, description="Gram Panchayat ID"),
     db: AsyncSession = Depends(get_db),
-):
+) -> List[VehicleResponse]:
     """
-    Get the latest GPS position for all vehicles.
+    Get all vehicles for a specific location.
+
+    Args:
+        district_id: District ID
+        block_id: Block ID
+        gp_id: Gram Panchayat ID
+        db: Database session
 
     Returns:
-        List[GPSTrackingResponse]: Latest GPS tracking record for each vehicle
+        List[VehicleResponse]: List of vehicles for the specified Gram Panchayat
     """
-    tracking_records = await GPSTrackingService(db).get_latest_vehicle_positions()
-
+    vehicles = await GPSTrackingService(db).get_vehicles(district_id=district_id, block_id=block_id, gp_id=gp_id)
     return [
-        GPSTrackingResponse(
-            id=record.id,
-            vehicle_no=record.vehicle_no,
-            imei=record.imei,
-            latitude=record.latitude,
-            longitude=record.longitude,
-            speed=record.speed,
-            ignition=record.ignition,
-            total_gps_odometer=record.total_gps_odometer,
-            timestamp=record.timestamp,
+        VehicleResponse(
+            vehicle_no=vehicle.vehicle_no,
+            imei=vehicle.imei,
+            gp_id=vehicle.gp_id,
         )
-        for record in tracking_records
+        for vehicle in vehicles
     ]

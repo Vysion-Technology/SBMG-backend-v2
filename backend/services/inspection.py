@@ -108,8 +108,8 @@ class InspectionService:
         position = positions[0]
 
         # Check if user can inspect this village
-        if not await self.can_inspect_village(user, request.gp_id):
-            raise ValueError("User does not have jurisdiction to inspect this village")
+        # if not await self.can_inspect_village(user, request.gp_id):
+        #     raise ValueError("User does not have jurisdiction to inspect this village")
 
         # Get village details to populate district and block
         result = await self.db.execute(select(GramPanchayat).where(GramPanchayat.id == request.gp_id))

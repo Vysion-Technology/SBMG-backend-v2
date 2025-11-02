@@ -5,11 +5,14 @@ import asyncio
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
+from fastapi import HTTPException
 import requests
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, distinct, func
+from sqlalchemy import insert, select, distinct, func
+from sqlalchemy.orm import selectinload
 
-from models.database.gps import GPSTracking
+from models.database.geography import Block, District, GramPanchayat
+from models.database.gps import GPSTracking, Vehicle
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +85,7 @@ class GPSTrackingService:
                     self.db.add(gps_record)
                     records_saved += 1
                 except Exception as e:  # pylint: disable=broad-except
-                    logger.error("Error saving GPS record for vehicle %s: %s", device.get('vehicleNo'), e)
+                    logger.error("Error saving GPS record for vehicle %s: %s", device.get("vehicleNo"), e)
                     continue
 
             await self.db.commit()
@@ -97,7 +100,7 @@ class GPSTrackingService:
         except requests.RequestException as e:
             logger.error("Error fetching GPS data from API: %s", e)
             return {"success": False, "message": f"Failed to fetch data from API: {str(e)}", "records_saved": 0}
-        except Exception as e: # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except
             logger.error("Unexpected error in fetch_and_save_gps_data: %s", e)
             return {"success": False, "message": f"Unexpected error: {str(e)}", "records_saved": 0}
 
@@ -163,8 +166,7 @@ class GPSTrackingService:
         return list(result.scalars().all())
 
     async def get_latest_vehicle_positions(
-        self,
-        vehicle_nos: Optional[List[str]] = None, limit: int = 1000
+        self, vehicle_nos: Optional[List[str]] = None, limit: int = 1000
     ) -> List[GPSTracking]:
         """
         Get the latest position for each vehicle.
@@ -199,6 +201,73 @@ class GPSTrackingService:
             )
             .order_by(GPSTracking.vehicle_no)
         )
+
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def add_vehicle(self, vehicle_no: str, imei: str, gp_id: int) -> Vehicle:
+        """
+        Add a new vehicle to the tracking system.
+
+        Args:
+            vehicle_no: Vehicle registration number
+            imei: Device IMEI number
+            gp_id: Gram Panchayat ID
+
+        Returns:
+            The created GPSTracking record
+        """
+        # Check if a vehicle with the same vehicle_no and gp_id already exists
+        existing_vehicle = await self.get_vehicles(vehicle_no=vehicle_no)
+        if existing_vehicle:
+            raise HTTPException(status_code=400, detail=f"Vehicle with number {vehicle_no} already exists.")
+        new_vehicle = (
+            await self.db.execute(
+                insert(Vehicle)
+                .values(  # type: ignore
+                    vehicle_no=vehicle_no,
+                    imei=imei,
+                    gp_id=gp_id,
+                )
+                .returning(Vehicle)
+            )
+        ).scalar_one()
+        await self.db.commit()
+        return new_vehicle
+
+    async def get_vehicles(
+        self,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
+        vehicle_no: Optional[str] = None,
+    ) -> List[Vehicle]:
+        """
+        Get all vehicles for a specific Gram Panchayat.
+
+        Args:
+            gp_id: Gram Panchayat ID
+            db: Database session
+
+        Returns:
+            List[Vehicle]: List of vehicles for the specified Gram Panchayat
+        """
+        query = (
+            select(Vehicle)
+            .options(selectinload(Vehicle.gp).selectinload(GramPanchayat.block).selectinload(Block.district))
+            .join(GramPanchayat, Vehicle.gp_id == GramPanchayat.id)
+            .join(Block, GramPanchayat.block_id == Block.id)
+            .join(District, Block.district_id == District.id)
+        )
+
+        if district_id:
+            query = query.where(District.id == district_id)
+        if block_id:
+            query = query.where(Block.id == block_id)
+        if gp_id:
+            query = query.where(GramPanchayat.id == gp_id)
+        if vehicle_no:
+            query = query.where(Vehicle.vehicle_no == vehicle_no)
 
         result = await self.db.execute(query)
         return list(result.scalars().all())

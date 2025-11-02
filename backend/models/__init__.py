@@ -58,7 +58,7 @@ from models.database.survey_master import (
     FundSanctioned,
     WorkOrderDetails,
 )
-from models.database.gps import GPSTracking
+from models.database.gps import GPSTracking, Vehicle
 from models.database.feedback import Feedback
 __all__ = [
     # Auth models
@@ -127,6 +127,7 @@ __all__ = [
     "WorkOrderDetails",
     # GPS Tracking model
     "GPSTracking",
+    "Vehicle",
     # Feedback model
     "Feedback",
 ]

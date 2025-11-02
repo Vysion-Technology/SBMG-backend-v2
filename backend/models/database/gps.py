@@ -2,10 +2,33 @@
 
 from datetime import datetime
 
-from sqlalchemy import String, Integer, DateTime, Index, Float, Boolean
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, Integer, DateTime, Index, Float, Boolean, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database import Base  # type: ignore
+from database import Base
+from models.database.geography import GramPanchayat  # type: ignore
+
+
+class Vehicle(Base):
+    """
+    Describes a Vehicle entity
+    """
+
+    __tablename__ = "vehicles"
+
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    gp_id: Mapped[int] = mapped_column(Integer, ForeignKey("gram_panchayats.id"), nullable=False, index=True)
+    vehicle_no: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    imei: Mapped[str] = mapped_column(String, nullable=False)
+
+    gp: Mapped["GramPanchayat"] = relationship(
+        "GramPanchayat",
+        back_populates="vehicles",
+        foreign_keys=[gp_id],
+    )
+
+    __table_args__ = (Index("idx_gp_vehicle", "gp_id", "vehicle_no", unique=True),)
+
 
 class GPSTracking(Base):
     """

@@ -73,6 +73,7 @@ class GramPanchayat(Base):  # type: ignore
     district: Mapped[District] = relationship("District", back_populates="villages")
     villages: Mapped[List["Village"]] = relationship("Village", back_populates="gram_panchayat")
     complaints: Mapped[List["Complaint"]] = relationship("Complaint", back_populates="gp")
+    vehicles: Mapped[List["Vehicle"]] = relationship("Vehicle", back_populates="gp")
 
     # Table indexes
     __table_args__ = (
