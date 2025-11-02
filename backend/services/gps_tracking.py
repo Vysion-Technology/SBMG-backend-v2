@@ -2,7 +2,7 @@
 
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 
 from fastapi import HTTPException
@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from models.database.geography import Block, District, GramPanchayat
 from models.database.gps import GPSRecord, GPSTracking, Vehicle
+from models.response.gps import CoordinatesResponse, RunningVehiclesResponse
 
 logger = logging.getLogger(__name__)
 
@@ -286,3 +287,69 @@ class GPSTrackingService:
 
         result = await self.db.execute(query)
         return list(result.scalars().all())
+
+    async def get_vehicle_details(
+        self,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> List[RunningVehiclesResponse]:
+        """
+        Get vehicle details by vehicle ID.
+
+        Args:
+            vehicle_id: Vehicle ID
+
+        Returns:
+            Vehicle or None if not found
+        """
+        now = datetime.now(tz=timezone.utc)
+        if not start_time:
+            start_time = now - timedelta(minutes=30)
+        end_time = end_time or now
+        print(f"Start time: {start_time}, End time: {end_time}")
+
+        vehicles_query = select(GPSRecord).join(Vehicle, GPSRecord.vehicle_id == Vehicle.id)
+        if district_id:
+            vehicles_query = vehicles_query.where(District.id == district_id)
+        if block_id:
+            vehicles_query = vehicles_query.where(Block.id == block_id)
+        if gp_id:
+            vehicles_query = vehicles_query.where(GramPanchayat.id == gp_id)
+        vehicles_query = vehicles_query.where(GPSRecord.timestamp >= start_time)
+        if end_time:
+            vehicles_query = vehicles_query.where(GPSRecord.timestamp <= end_time)
+        vehicles_query = vehicles_query.order_by(Vehicle.id, GPSRecord.timestamp.asc())
+        vehicles = await self.db.execute(vehicles_query)
+        vehicles = vehicles.scalars().all()
+        print(vehicles)
+        if len(vehicles) > 10000:
+            raise HTTPException(status_code=400, detail="Too many vehicles found, please narrow down your query.")
+        vehicle_details: List[RunningVehiclesResponse] = []
+        vehicle_id_to_index_map: Dict[int, int] = {}
+        for _, record in enumerate(vehicles):
+            if record.vehicle.id in vehicle_id_to_index_map:
+                vehicle_index = vehicle_id_to_index_map[record.vehicle.id]
+                vehicle_details[vehicle_index].route.append(
+                    CoordinatesResponse(lat=record.latitude, long=record.longitude)
+                )
+            else:
+                vehicle_id_to_index_map[record.vehicle.id] = len(vehicle_details)
+                vehicle_details.append(
+                    RunningVehiclesResponse(
+                        vehicle_id=record.vehicle.id,
+                        name=f"Vehicle {record.vehicle.vehicle_no}",
+                        vehicle_no=record.vehicle.vehicle_no,
+                        status="Running" if record.speed > 0 else "Stopped",
+                        speed=record.speed,
+                        last_updated=record.timestamp,
+                        coordinates=CoordinatesResponse(lat=record.latitude, long=record.longitude),
+                        route=[
+                            CoordinatesResponse(lat=record.latitude, long=record.longitude)
+                        ],
+                    )
+                )
+
+        return vehicle_details

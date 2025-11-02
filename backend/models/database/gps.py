@@ -21,6 +21,7 @@ class Vehicle(Base):
     gp_id: Mapped[int] = mapped_column(Integer, ForeignKey("gram_panchayats.id"), nullable=False, index=True)
     vehicle_no: Mapped[str] = mapped_column(String, nullable=False, index=True)
     imei: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=True)
 
     gp: Mapped["GramPanchayat"] = relationship(
         "GramPanchayat",
