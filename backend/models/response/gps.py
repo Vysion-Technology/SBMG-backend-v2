@@ -45,6 +45,7 @@ class VehicleBaseResponse(BaseModel):
 class VehicleResponse(VehicleBaseResponse):
     """Response model for a single vehicle."""
 
+    id: int = Field(..., description="Vehicle ID")
     gp_id: int = Field(..., description="Gram Panchayat ID")
 
 
