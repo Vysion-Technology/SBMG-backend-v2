@@ -307,24 +307,35 @@ class GPSTrackingService:
         """
         now = datetime.now(tz=timezone.utc)
         if not start_time:
-            start_time = now - timedelta(minutes=30)
+            start_time = now - timedelta(minutes=300)
         end_time = end_time or now
         print(f"Start time: {start_time}, End time: {end_time}")
 
-        vehicles_query = select(GPSRecord).join(Vehicle, GPSRecord.vehicle_id == Vehicle.id)
+        # Eager-load the related Vehicle to avoid lazy-loading (which triggers DB IO
+        # outside the async context and results in MissingGreenlet errors).
+        vehicles_query = (
+            select(GPSRecord)
+            .options(selectinload(GPSRecord.vehicle))
+            .join(Vehicle, GPSRecord.vehicle_id == Vehicle.id)
+            .join(GramPanchayat, Vehicle.gp_id == GramPanchayat.id)
+            .join(Block, GramPanchayat.block_id == Block.id)
+            .join(District, Block.district_id == District.id)
+        )
         if district_id:
             vehicles_query = vehicles_query.where(District.id == district_id)
         if block_id:
             vehicles_query = vehicles_query.where(Block.id == block_id)
         if gp_id:
             vehicles_query = vehicles_query.where(GramPanchayat.id == gp_id)
-        vehicles_query = vehicles_query.where(GPSRecord.timestamp >= start_time)
-        if end_time:
-            vehicles_query = vehicles_query.where(GPSRecord.timestamp <= end_time)
-        vehicles_query = vehicles_query.order_by(Vehicle.id, GPSRecord.timestamp.asc())
+        # vehicles_query = vehicles_query.where(GPSRecord.timestamp >= start_time)
+        # if end_time:
+        #     vehicles_query = vehicles_query.where(GPSRecord.timestamp <= end_time)
+        vehicles_query = vehicles_query.order_by(Vehicle.id, GPSRecord.timestamp.desc())
+        vehicles_query = vehicles_query.limit(10000)  # Limit to 10,000 records to prevent overload
         vehicles = await self.db.execute(vehicles_query)
+        # Let us print SQL for debugging with actual parameters
+        print(str(vehicles_query.compile(compile_kwargs={"literal_binds": True})))
         vehicles = vehicles.scalars().all()
-        print(vehicles)
         if len(vehicles) > 10000:
             raise HTTPException(status_code=400, detail="Too many vehicles found, please narrow down your query.")
         vehicle_details: List[RunningVehiclesResponse] = []

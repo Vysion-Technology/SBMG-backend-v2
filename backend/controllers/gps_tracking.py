@@ -105,10 +105,10 @@ async def get_vehicle(
         raise HTTPException(status_code=400, detail="end_time must be greater than or equal to start_time")
 
     now = datetime.now(tz=timezone.utc)
-    start_time = start_time or now - timedelta(minutes=30)
+    start_time = start_time or now - timedelta(minutes=300)
     end_time = end_time or now
-    if start_time.date() != end_time.date():
-        raise HTTPException(status_code=400, detail="start_time and end_time must be on the same date")
+    # if start_time.date() != end_time.date():
+    #     raise HTTPException(status_code=400, detail="start_time and end_time must be on the same date")
     vehicles = await GPSTrackingService(db).get_vehicle_details(
         district_id=district_id,
         block_id=block_id,
@@ -130,11 +130,11 @@ async def get_vehicle(
             gp=(await geo_service.get_village(gp_id)).name if gp_id else "",
         ),
         summary=RunningVehicleSummaryResponse(
-            total=0,
-            running=0,
-            stopped=0,
-            active=0,
-            inactive=0,
+            total=len(vehicles),
+            running=len([v for v in vehicles if v.status == "Running"]),
+            stopped=len([v for v in vehicles if v.status == "Stopped"]),
+            active=len([v for v in vehicles if v.status in ("Running", "Stopped")]),
+            inactive=len([v for v in vehicles if v.status == "Inactive"]),
         ),
         vehicles=vehicles,
     )
