@@ -22,10 +22,10 @@ class GPSTrackingService:
     """Service for GPS tracking operations."""
 
     TRACKVERSE_API_URL = "https://api.trackverse.in/api/public/tracking/v0/device"
-    TRACKVERSE_API_KEY = "NT-20257E2B94DB44C90F755C45D61E0CA55895"
-    TRACKVERSE_USERNAME = "clacademy"
+    TRACKVERSE_API_KEY = "NT-20250001332338322F488A3E78AC07DD24BF"
+    TRACKVERSE_USERNAME = "deepakgupta"
     TRACKVERSE_PASSWORD = "123456"
-    FETCH_INTERVAL_SECONDS = 100  # Fetch GPS data every 10 seconds
+    FETCH_INTERVAL_SECONDS = 30  # Fetch GPS data every 30 seconds
 
     _background_task = None
     _should_stop = False
