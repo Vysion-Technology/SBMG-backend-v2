@@ -15,7 +15,7 @@ class FeedbackResponse(BaseModel):
     class Config:
         """Pydantic configuration."""
 
-        orm_mode = True
+        from_attributes = True
 
 
 class FeedbackStatsResponse(BaseModel):

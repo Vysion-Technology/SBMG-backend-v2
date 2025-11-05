@@ -65,6 +65,58 @@ async def get_user_type(
     return (None, None)
 
 
+@router.get("/my", response_model=FeedbackResponse)
+async def get_my_feedback(
+    db: AsyncSession = Depends(get_db),
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Header(None),
+) -> FeedbackResponse:
+    """
+    Get the authenticated user's own feedback.
+
+    This endpoint works for both:
+    - Authority users: Provide Authorization header with Bearer token
+    - Public users: Provide token header with public user token
+    """
+    auth_user, public_user = await get_user_type(authorization, token, db)
+
+    if not auth_user and not public_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Provide either Authorization header (for authority users) or token header (for public users)",
+        )
+
+    feedback_service = FeedbackService(db)
+
+    try:
+        feedback = await feedback_service.get_user_own_feedback(
+            auth_user_id=auth_user.id if auth_user else None,
+            public_user_id=public_user.id if public_user else None,
+        )
+
+        if not feedback:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No feedback found for this user",
+            )
+
+        return FeedbackResponse(
+            id=feedback.id,
+            auth_user_id=feedback.auth_user_id,
+            public_user_id=feedback.public_user_id,
+            rating=feedback.rating,
+            comment=feedback.comment,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error fetching user feedback: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch feedback",
+        ) from e
+
+
 @router.post("/", response_model=FeedbackResponse, status_code=status.HTTP_201_CREATED)
 async def create_feedback(
     feedback_request: FeedbackCreateRequest,
@@ -207,58 +259,6 @@ async def get_feedback_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch feedback statistics",
-        ) from e
-
-
-@router.get("/my", response_model=FeedbackResponse)
-async def get_my_feedback(
-    db: AsyncSession = Depends(get_db),
-    authorization: Optional[str] = Header(None),
-    token: Optional[str] = Header(None),
-) -> FeedbackResponse:
-    """
-    Get the authenticated user's own feedback.
-
-    This endpoint works for both:
-    - Authority users: Provide Authorization header with Bearer token
-    - Public users: Provide token header with public user token
-    """
-    auth_user, public_user = await get_user_type(authorization, token, db)
-
-    if not auth_user and not public_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required. Provide either Authorization header (for authority users) or token header (for public users)",
-        )
-
-    feedback_service = FeedbackService(db)
-
-    try:
-        feedback = await feedback_service.get_user_own_feedback(
-            auth_user_id=auth_user.id if auth_user else None,
-            public_user_id=public_user.id if public_user else None,
-        )
-
-        if not feedback:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No feedback found for this user",
-            )
-
-        return FeedbackResponse(
-            id=feedback.id,
-            auth_user_id=feedback.auth_user_id,
-            public_user_id=feedback.public_user_id,
-            rating=feedback.rating,
-            comment=feedback.comment,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Error fetching user feedback: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch feedback",
         ) from e
 
 
