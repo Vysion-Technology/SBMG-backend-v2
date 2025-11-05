@@ -3,6 +3,7 @@ export interface Complaint {
   description: string;
   mobile_number?: string | null;
   status_name: string;
+  complaint_type_name?: string;
   village_name: string;
   block_name: string;
   district_name: string;
@@ -10,6 +11,8 @@ export interface Complaint {
   updated_at: string | null;
   media_urls?: string[];
   assigned_worker?: string | null;
+  assigned_worker_name?: string | null;
+  media_count?: number;
 }
 
 export interface CreateComplaintRequest {
@@ -133,26 +136,11 @@ export interface MediaUploadResponse {
 
 export interface DashboardStats {
   total_complaints: number;
-  open_complaints: number;
-  in_progress_complaints: number;
-  completed_complaints: number;
-  verified_complaints: number;
-  closed_complaints: number;
-  invalid_complaints: number;
-  total_users: number;
-  total_workers: number;
-  total_districts: number;
-  total_blocks: number;
-  total_villages: number;
-  complaints_by_district: { district: string; count: number }[];
-  complaints_by_status: { status: string; count: number }[];
-  recent_complaints: {
-    id: number;
-    description: string;
-    created_at: string;
-    status_name: string;
-    location: string;
-  }[];
+  complaints_by_status: Record<string, number>;
+  complaints_by_type?: Record<string, number>;
+  recent_complaints: Complaint[];
+  geographic_summary?: Record<string, any>;
+  performance_metrics?: Record<string, any>;
 }
 
 export interface ComplaintStatusResponse {

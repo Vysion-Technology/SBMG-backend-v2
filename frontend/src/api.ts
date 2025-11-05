@@ -15,10 +15,7 @@ import type {
   MediaUploadResponse,
   ComplaintStatusResponse,
   ComplaintDetailsResponse,
-  CitizenStatusUpdateRequest,
-  CitizenStatusUpdateResponse,
-  VerifyComplaintStatusRequest,
-  VerifyComplaintStatusResponse,
+  ComplaintCommentResponse,
   Role,
   CreateRoleRequest,
   UpdateRoleRequest,
@@ -56,20 +53,43 @@ export const authApi = {
     const response = await api.get('/auth/me');
     return response.data;
   },
+
+  // Citizen OTP authentication
+  sendOTP: async (mobileNumber: string): Promise<{ detail: string }> => {
+    const response = await api.post<{ detail: string }>('/auth/send-otp', null, {
+      params: { mobile_number: mobileNumber }
+    });
+    return response.data;
+  },
+
+  verifyOTP: async (mobileNumber: string, otp: string): Promise<{ token: string }> => {
+    const response = await api.post<{ token: string }>('/auth/verify-otp', null, {
+      params: { mobile_number: mobileNumber, otp: otp }
+    });
+    return response.data;
+  },
 };
 
-// Public API
+// Public API (Citizen)
 export const publicApi = {
-  // Create complaint without media
-  createComplaint: async (complaint: CreateComplaintRequest): Promise<Complaint> => {
-    const response = await api.post('/complaints/', complaint);
-    return response.data as Complaint;
+  // Create complaint without media (for backwards compatibility)
+  createComplaint: async (complaint: CreateComplaintRequest, citizenToken?: string): Promise<Complaint> => {
+    const headers: Record<string, string> = {};
+    const token = citizenToken || localStorage.getItem('citizen_token');
+    if (token) {
+      headers['token'] = token;
+    }
+
+    // Use empty FileList for consistency
+    const emptyFiles = new DataTransfer().files;
+    return publicApi.createComplaintWithMedia(complaint, emptyFiles, citizenToken);
   },
-  
-  // Create complaint with media
+
+  // Create complaint with media (requires citizen token)
   createComplaintWithMedia: async (
     complaint: CreateComplaintRequest, 
-    files: FileList
+    files: FileList,
+    citizenToken?: string
   ): Promise<Complaint> => {
     const formData = new FormData();
     formData.append('complaint_type_id', complaint.complaint_type_id.toString());
@@ -78,44 +98,31 @@ export const publicApi = {
     formData.append('district_id', complaint.district_id.toString());
     formData.append('description', complaint.description);
     
-    // Add mobile number if provided
-    if (complaint.mobile_number) {
-      formData.append('mobile_number', complaint.mobile_number);
-    }
-    
     // Add files
     Array.from(files).forEach((file) => {
       formData.append('files', file);
     });
+
+    const headers: Record<string, string> = { 'Content-Type': 'multipart/form-data' };
+    const token = citizenToken || localStorage.getItem('citizen_token');
+    if (token) {
+      headers['token'] = token;
+    }
     
-    const response = await api.post('/complaints/with-media', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
+    const response = await api.post('/citizen/with-media', formData, { headers });
     return response.data as Complaint;
   },
   
   // Get complaint status (public)
   getComplaintStatus: async (complaintId: number): Promise<ComplaintStatusResponse> => {
-    const response = await api.get(`/public/complaints/${complaintId}/status`);
+    const response = await api.get(`/complaints/${complaintId}/status`);
     return response.data as ComplaintStatusResponse;
   },
 
   // Get detailed complaint information (public)
   getComplaintDetails: async (complaintId: number): Promise<ComplaintDetailsResponse> => {
-    const response = await api.get(`/complaints/${complaintId}/details`);
+    const response = await api.get(`/public/${complaintId}/details`);
     return response.data as ComplaintDetailsResponse;
-  },
-
-  // Citizen update complaint status (public)
-  citizenUpdateComplaintStatus: async (request: CitizenStatusUpdateRequest): Promise<CitizenStatusUpdateResponse> => {
-    const response = await api.post('/complaints/citizen/update-status', request);
-    return response.data as CitizenStatusUpdateResponse;
-  },
-
-  // Verify complaint status (public) - NEW API
-  verifyComplaintStatus: async (request: VerifyComplaintStatusRequest): Promise<VerifyComplaintStatusResponse> => {
-    const response = await api.post('/complaints/citizen/verify-status', request);
-    return response.data as VerifyComplaintStatusResponse;
   },
 
   // Get public complaints list with details (for aggregated data)
@@ -133,7 +140,7 @@ export const publicApi = {
     if (skip !== undefined) params.skip = skip;
     if (limit !== undefined) params.limit = limit;
 
-    const response = await api.get('/reports/public/complaints-status', { params });
+    const response = await api.get('/reports/public/status', { params });
     return response.data as ComplaintDetailsResponse[];
   },
 };
@@ -142,23 +149,23 @@ export const publicApi = {
 export const adminApi = {
   // Dashboard analytics
   getDashboardStats: async () => {
-    const response = await api.get('/admin/dashboard/stats');
+    const response = await api.get('/reports/dashboard');
     return response.data;
   },
 
   // Geography Management
   createDistrict: async (district: CreateDistrictRequest): Promise<District> => {
-    const response = await api.post('/admin/districts', district);
+    const response = await api.post('/geography/districts', district);
     return response.data as District;
   },
 
   createBlock: async (block: CreateBlockRequest): Promise<Block> => {
-    const response = await api.post('/admin/blocks', block);
+    const response = await api.post('/geography/blocks', block);
     return response.data as Block;
   },
 
   createVillage: async (village: CreateVillageRequest): Promise<Village> => {
-    const response = await api.post('/admin/villages', village);
+    const response = await api.post('/geography/villages', village);
     return response.data as Village;
   },
 
@@ -168,24 +175,24 @@ export const adminApi = {
   },
     
   getDistricts: async (): Promise<District[]> => {
-    const response = await api.get('/public/districts');
+    const response = await api.get('/geography/districts');
     return response.data as District[];
   },
     
   getBlocks: async (districtId?: number): Promise<Block[]> => {
     const params = districtId ? { district_id: districtId } : {};
-    const response = await api.get('/public/blocks', { params });
+    const response = await api.get('/geography/blocks', { params });
     return response.data as Block[];
   },
     
   getVillages: async (blockId?: number): Promise<Village[]> => {
     const params = blockId ? { block_id: blockId } : {};
-    const response = await api.get('/public/villages', { params });
+    const response = await api.get('/geography/villages', { params });
     return response.data as Village[];
   },
 };
 
-// Staff API
+// Staff API (BDO, CEO, ADMIN, VDO)
 export const staffApi = {
   // Update complaint status
   updateComplaintStatus: async (complaintId: number, statusName: string) => {
@@ -193,9 +200,16 @@ export const staffApi = {
     return response.data;
   },
     
-  // Get all complaints
-  getAllComplaints: async (): Promise<Complaint[]> => {
-    const response = await api.get('/reports/complaints');
+  // Get all complaints with filters (consolidated reporting)
+  getAllComplaints: async (params?: {
+    district_id?: number;
+    block_id?: number;
+    village_id?: number;
+    status_name?: string;
+    skip?: number;
+    limit?: number;
+  }): Promise<Complaint[]> => {
+    const response = await api.get('/reports/complaints', { params });
     return response.data as Complaint[];
   },
     
@@ -204,13 +218,53 @@ export const staffApi = {
     const response = await api.get(`/reports/complaints/${complaintId}`);
     return response.data as AssignedComplaintResponse;
   },
+
+  // Add comment to complaint (Workers and VDOs)
+  addComplaintComment: async (
+    complaintId: number,
+    commentText: string,
+    photo?: File
+  ): Promise<ComplaintCommentResponse> => {
+    const formData = new FormData();
+    formData.append('comment_text', commentText);
+    if (photo) {
+      formData.append('photo', photo);
+    }
+
+    const response = await api.post(`/complaints/${complaintId}/comments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data as ComplaintCommentResponse;
+  },
+
+  // VDO verify complaint
+  verifyComplaint: async (
+    complaintId: number,
+    comment: string,
+    media?: File
+  ): Promise<{ message: string; complaint_id: number; error?: string }> => {
+    const formData = new FormData();
+    formData.append('comment', comment);
+    if (media) {
+      formData.append('media', media);
+    }
+
+    const response = await api.patch<{ message: string; complaint_id: number; error?: string }>(
+      `/complaints/vdo/complaints/${complaintId}/verify`, 
+      formData, 
+      {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      }
+    );
+    return response.data;
+  },
 };
 
 // Worker API
 export const workerApi = {
-  // Get assigned complaints
+  // Get assigned tasks/complaints (consolidated reporting)
   getAssignedComplaints: async (): Promise<AssignedComplaintResponse[]> => {
-    const response = await api.get('/reports/worker/assigned-complaints');
+    const response = await api.get('/reports/worker/tasks');
     return response.data as AssignedComplaintResponse[];
   },
     
@@ -219,15 +273,17 @@ export const workerApi = {
     const formData = new FormData();
     formData.append('file', file);
     
-    const response = await api.post(`/reports/worker/complaints/${complaintId}/media`, formData, {
+    const response = await api.post(`/complaints/${complaintId}/media`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     return response.data as MediaUploadResponse;
   },
   
   // Mark complaint as done
-  markComplaintDone: async (complaintId: number) => {
-    const response = await api.patch(`/reports/worker/complaints/${complaintId}/mark-done`);
+  markComplaintDone: async (complaintId: number, resolutionComment?: string) => {
+    const response = await api.patch(`/complaints/${complaintId}/resolve`, { 
+      resolution_comment: resolutionComment 
+    });
     return response.data;
   },
 };

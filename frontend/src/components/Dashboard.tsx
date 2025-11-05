@@ -83,80 +83,72 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 </div>
               </div>
 
-              <div className="card-modern">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Total Users</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {dashboardStats.total_users}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-gradient-success rounded-full">
-                    <Users className="w-6 h-6 text-white" />
+              {dashboardStats.geographic_summary?.total_districts !== undefined && (
+                <div className="card-modern">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Districts</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {dashboardStats.geographic_summary.total_districts}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-gradient-warning rounded-full">
+                      <MapPin className="w-6 h-6 text-white" />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              <div className="card-modern">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Districts</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {dashboardStats.total_districts}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-gradient-warning rounded-full">
-                    <MapPin className="w-6 h-6 text-white" />
+              {dashboardStats.geographic_summary?.total_blocks !== undefined && (
+                <div className="card-modern">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Blocks</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {dashboardStats.geographic_summary.total_blocks}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-gradient-info rounded-full">
+                      <BarChart3 className="w-6 h-6 text-white" />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              <div className="card-modern">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Blocks</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {dashboardStats.total_blocks}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-gradient-info rounded-full">
-                    <BarChart3 className="w-6 h-6 text-white" />
+              {dashboardStats.geographic_summary?.total_villages !== undefined && (
+                <div className="card-modern">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Villages</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {dashboardStats.geographic_summary.total_villages}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-gradient-success rounded-full">
+                      <Users className="w-6 h-6 text-white" />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Status Distribution */}
-            <div className="mt-8 card-modern">
-              <h3 className="text-lg font-semibold mb-4 flex items-center">
-                <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
-                Complaint Status Overview
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {dashboardStats.complaints_by_status.map((item) => (
-                  <div key={item.status} className="text-center">
-                    <p className="text-2xl font-bold text-gray-900">{item.count}</p>
-                    <p className="text-sm text-gray-600 capitalize">{item.status.replace('_', ' ')}</p>
-                  </div>
-                ))}
+            {Object.keys(dashboardStats.complaints_by_status).length > 0 && (
+              <div className="mt-8 card-modern">
+                <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
+                  Complaint Status Overview
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {Object.entries(dashboardStats.complaints_by_status).map(([status, count]) => (
+                    <div key={status} className="text-center">
+                      <p className="text-2xl font-bold text-gray-900">{count}</p>
+                      <p className="text-sm text-gray-600 capitalize">{status.replace('_', ' ')}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-
-            {/* Districts Overview */}
-            <div className="mt-6 card-modern">
-              <h3 className="text-lg font-semibold mb-4 flex items-center">
-                <MapPin className="w-5 h-5 mr-2 text-green-600" />
-                Top Districts by Complaints
-              </h3>
-              <div className="space-y-2">
-                {dashboardStats.complaints_by_district.slice(0, 5).map((item) => (
-                  <div key={item.district} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">{item.district}</span>
-                    <span className="badge badge-secondary">{item.count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
           </div>
         )}
 
