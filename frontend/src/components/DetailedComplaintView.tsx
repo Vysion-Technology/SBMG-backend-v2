@@ -32,28 +32,31 @@ const DetailedComplaintView: React.FC<DetailedComplaintViewProps> = ({ complaint
     return `${API_BASE_URL}/public/media/${mediaUrl}`;
   };
 
-  useEffect(() => {
-    fetchComplaintDetails();
-  }, [complaintId]);
-
-  const fetchComplaintDetails = async () => {
+  const fetchComplaintDetails = React.useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
       const result = await publicApi.getComplaintDetails(complaintId);
       setComplaint(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching complaint:', error);
-      if (error.response?.status === 404) {
-        setError('Complaint not found. Please check the ID and try again.');
-      } else {
-        setError('Failed to fetch complaint details. Please try again.');
+      let errorMessage = 'Failed to fetch complaint details. Please try again.';
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as { response?: { status: number } };
+        if (axiosError.response?.status === 404) {
+          errorMessage = 'Complaint not found. Please check the ID and try again.';
+        }
       }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [complaintId]);
+
+  useEffect(() => {
+    fetchComplaintDetails();
+  }, [fetchComplaintDetails]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {

@@ -44,10 +44,15 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
       } else {
         navigate('/');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login error:', error);
-      if (error.response?.status === 401) {
-        setError('Invalid username or password');
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as { response?: { status: number } };
+        if (axiosError.response?.status === 401) {
+          setError('Invalid username or password');
+        } else {
+          setError('Login failed. Please try again.');
+        }
       } else {
         setError('Login failed. Please try again.');
       }

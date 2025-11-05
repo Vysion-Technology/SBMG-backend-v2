@@ -144,7 +144,7 @@ function App() {
 
         <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <Routes>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<HomePage user={user} />} />
             <Route path="/create-complaint" element={<CreateComplaint />} />
             <Route path="/complaint-status" element={<ComplaintStatus />} />
             <Route path="/citizen-verification" element={<CitizenComplaintVerification />} />

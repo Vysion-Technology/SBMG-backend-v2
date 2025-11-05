@@ -133,26 +133,31 @@ export interface MediaUploadResponse {
 
 export interface DashboardStats {
   total_complaints: number;
-  open_complaints: number;
-  in_progress_complaints: number;
-  completed_complaints: number;
-  verified_complaints: number;
-  closed_complaints: number;
-  invalid_complaints: number;
-  total_users: number;
-  total_workers: number;
-  total_districts: number;
-  total_blocks: number;
-  total_villages: number;
-  complaints_by_district: { district: string; count: number }[];
-  complaints_by_status: { status: string; count: number }[];
-  recent_complaints: {
-    id: number;
-    description: string;
-    created_at: string;
-    status_name: string;
-    location: string;
-  }[];
+  total_users?: number;
+  total_districts?: number;
+  total_blocks?: number;
+  complaints_by_status: Record<string, number>;
+  complaints_by_type: Record<string, number>;
+  complaints_by_district?: Array<{ district: string; count: number }>;
+  recent_complaints: ComplaintResponse[];
+  geographic_summary: Record<string, unknown>;
+  performance_metrics: Record<string, unknown>;
+}
+
+// Updated complaint response to match backend
+export interface ComplaintResponse {
+  id: number;
+  description: string;
+  status_name: string;
+  complaint_type_name?: string | null;
+  village_name: string;
+  block_name: string;
+  district_name: string;
+  created_at: string;
+  updated_at?: string | null;
+  assigned_worker_name?: string | null;
+  media_count: number;
+  media_urls: string[];
 }
 
 export interface ComplaintStatusResponse {
@@ -289,4 +294,109 @@ export interface UserWithPositionResponse {
     is_active: boolean;
   };
   position: PositionHolder;
+}
+
+// Worker Task Response (from consolidated reporting)
+export interface WorkerTaskResponse {
+  id: number;
+  description: string;
+  status_name: string;
+  village_name: string;
+  block_name: string;
+  district_name: string;
+  assigned_date?: string | null;
+  due_date?: string | null;
+  priority: string;
+  media_urls: string[];
+  completion_percentage: number;
+}
+
+// Admin Analytics Response
+export interface AdminAnalyticsResponse {
+  total_entities: Record<string, number>;
+  performance_trends: Record<string, Array<Record<string, unknown>>>;
+  user_productivity: Array<Record<string, unknown>>;
+  geographic_distribution: Record<string, unknown>;
+  system_health: Record<string, unknown>;
+}
+
+// Geography Detail Response Models
+export interface DistrictDetailResponse {
+  id: number;
+  name: string;
+  description?: string;
+  blocks_count: number;
+  villages_count: number;
+  complaints_count: number;
+}
+
+export interface BlockDetailResponse {
+  id: number;
+  name: string;
+  description?: string;
+  district_id: number;
+  district_name?: string;
+  villages_count: number;
+  complaints_count: number;
+}
+
+export interface VillageDetailResponse {
+  id: number;
+  name: string;
+  description?: string;
+  block_id: number;
+  district_id: number;
+  block_name?: string;
+  district_name?: string;
+  complaints_count: number;
+}
+
+// Error Response Models
+export interface ErrorResponse {
+  message: string;
+  status_code: number;
+  detail?: string;
+}
+
+export interface ValidationErrorResponse {
+  message: string;
+  status_code: number;
+  errors: Array<Record<string, string>>;
+}
+
+// Pagination Response Models
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
+
+// Hierarchical Geography Models
+export interface DistrictWithBlocksResponse {
+  id: number;
+  name: string;
+  description?: string;
+  blocks: Block[];
+}
+
+export interface BlockWithVillagesResponse {
+  id: number;
+  name: string;
+  description?: string;
+  district_id: number;
+  district_name?: string;
+  villages: Village[];
+}
+
+// Bulk Operation Models
+export interface BulkDeleteRequest {
+  ids: number[];
+}
+
+export interface BulkDeleteResponse {
+  deleted_count: number;
+  failed_ids: number[];
+  errors: string[];
 }

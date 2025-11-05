@@ -34,13 +34,16 @@ const CitizenComplaintVerification: React.FC = () => {
     try {
       const result = await publicApi.getComplaintDetails(Number(complaintId));
       setComplaint(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching complaint:', error);
-      if (error.response?.status === 404) {
-        setError('Complaint not found. Please check the ID and try again.');
-      } else {
-        setError('Failed to fetch complaint details. Please try again.');
+      let errorMessage = 'Failed to fetch complaint details. Please try again.';
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as { response?: { status: number } };
+        if (axiosError.response?.status === 404) {
+          errorMessage = 'Complaint not found. Please check the ID and try again.';
+        }
       }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -70,13 +73,16 @@ const CitizenComplaintVerification: React.FC = () => {
 
       const result = await publicApi.verifyComplaintStatus(request);
       setVerificationResult(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error verifying status:', error);
-      if (error.response?.status === 404) {
-        setError('Complaint not found or mobile number does not match our records.');
-      } else {
-        setError('Failed to verify complaint status. Please try again.');
+      let errorMessage = 'Failed to verify complaint status. Please try again.';
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as { response?: { status: number } };
+        if (axiosError.response?.status === 404) {
+          errorMessage = 'Complaint not found or mobile number does not match our records.';
+        }
       }
+      setError(errorMessage);
     } finally {
       setVerifying(false);
     }

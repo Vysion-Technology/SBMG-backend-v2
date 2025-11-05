@@ -26,7 +26,11 @@ import type {
   UpdatePositionHolderRequest,
   CreateUserWithPositionRequest,
   UserWithPositionResponse,
-  ChangePasswordRequest
+  ChangePasswordRequest,
+  DashboardStats,
+  ComplaintResponse,
+  WorkerTaskResponse,
+  AdminAnalyticsResponse
 } from './types';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
@@ -126,7 +130,7 @@ export const publicApi = {
     skip?: number,
     limit?: number
   ): Promise<ComplaintDetailsResponse[]> => {
-    const params: Record<string, any> = {};
+    const params: Record<string, number> = {};
     if (districtId) params.district_id = districtId;
     if (blockId) params.block_id = blockId;
     if (villageId) params.village_id = villageId;
@@ -140,10 +144,16 @@ export const publicApi = {
 
 // Admin API
 export const adminApi = {
-  // Dashboard analytics
-  getDashboardStats: async () => {
-    const response = await api.get('/admin/dashboard/stats');
-    return response.data;
+  // Dashboard analytics (updated to use consolidated reporting)
+  getDashboardStats: async (): Promise<DashboardStats> => {
+    const response = await api.get('/reports/dashboard');
+    return response.data as DashboardStats;
+  },
+
+  // Advanced analytics (admin only)
+  getAdvancedAnalytics: async (): Promise<AdminAnalyticsResponse> => {
+    const response = await api.get('/reports/admin/analytics');
+    return response.data as AdminAnalyticsResponse;
   },
 
   // Geography Management
@@ -185,30 +195,57 @@ export const adminApi = {
   },
 };
 
-// Staff API
+// Staff API (Updated to use consolidated reporting)
 export const staffApi = {
+  // Get dashboard statistics
+  getDashboardStats: async (): Promise<DashboardStats> => {
+    const response = await api.get('/reports/dashboard');
+    return response.data as DashboardStats;
+  },
+
+  // Get complaints with advanced filtering
+  getComplaints: async (params?: {
+    district_id?: number;
+    block_id?: number;
+    village_id?: number;
+    status_name?: string;
+    complaint_type_id?: number;
+    assigned_worker_id?: number;
+    date_from?: string;
+    date_to?: string;
+    search?: string;
+    sort_by?: string;
+    sort_order?: string;
+    skip?: number;
+    limit?: number;
+  }): Promise<ComplaintResponse[]> => {
+    const response = await api.get('/reports/complaints', { params });
+    return response.data as ComplaintResponse[];
+  },
+
   // Update complaint status
   updateComplaintStatus: async (complaintId: number, statusName: string) => {
     const response = await api.patch(`/complaints/${complaintId}/status`, { status_name: statusName });
     return response.data;
   },
     
-  // Get all complaints
-  getAllComplaints: async (): Promise<Complaint[]> => {
-    const response = await api.get('/reports/complaints');
-    return response.data as Complaint[];
-  },
-    
   // Get complaint details
-  getComplaintDetails: async (complaintId: number): Promise<AssignedComplaintResponse> => {
+  getComplaintDetails: async (complaintId: number): Promise<ComplaintResponse> => {
     const response = await api.get(`/reports/complaints/${complaintId}`);
-    return response.data as AssignedComplaintResponse;
+    return response.data as ComplaintResponse;
   },
 };
 
-// Worker API
+// Worker API (Updated to use consolidated reporting)
 export const workerApi = {
-  // Get assigned complaints
+  // Get assigned tasks (using new consolidated endpoint)
+  getAssignedTasks: async (statusFilter?: string): Promise<WorkerTaskResponse[]> => {
+    const params = statusFilter ? { status_filter: statusFilter } : {};
+    const response = await api.get('/reports/worker/tasks', { params });
+    return response.data as WorkerTaskResponse[];
+  },
+
+  // Legacy method for backward compatibility
   getAssignedComplaints: async (): Promise<AssignedComplaintResponse[]> => {
     const response = await api.get('/reports/worker/assigned-complaints');
     return response.data as AssignedComplaintResponse[];
@@ -219,15 +256,57 @@ export const workerApi = {
     const formData = new FormData();
     formData.append('file', file);
     
-    const response = await api.post(`/reports/worker/complaints/${complaintId}/media`, formData, {
+    const response = await api.post(`/complaints/${complaintId}/media`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     return response.data as MediaUploadResponse;
   },
   
-  // Mark complaint as done
+  // Mark complaint as completed
+  markComplaintCompleted: async (complaintId: number) => {
+    const response = await api.patch(`/reports/worker/tasks/${complaintId}/complete`);
+    return response.data;
+  },
+
+  // Legacy method for backward compatibility
   markComplaintDone: async (complaintId: number) => {
     const response = await api.patch(`/reports/worker/complaints/${complaintId}/mark-done`);
+    return response.data;
+  },
+
+  // Add comment with optional media (combined operation)
+  addComplaintComment: async (
+    complaintId: number, 
+    comment: string, 
+    file?: File
+  ) => {
+    const formData = new FormData();
+    formData.append('comment_text', comment);
+    if (file) {
+      formData.append('photo', file);
+    }
+    
+    const response = await api.post(`/complaints/${complaintId}/comments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  },
+
+  // Resolve complaint with comment and optional media (combined operation)
+  resolveComplaint: async (
+    complaintId: number,
+    comment: string,
+    file?: File
+  ) => {
+    const formData = new FormData();
+    formData.append('comment', comment);
+    if (file) {
+      formData.append('media', file);
+    }
+    
+    const response = await api.patch(`/complaints/${complaintId}/resolve`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
     return response.data;
   },
 };
@@ -262,7 +341,7 @@ export const userManagementApi = {
   },
 
   getAllPositionHolders: async (skip: number = 0, limit: number = 100, roleName?: string): Promise<PositionHolder[]> => {
-    const params: any = { skip, limit };
+    const params: Record<string, string | number> = { skip, limit };
     if (roleName) params.role_name = roleName;
     const response = await api.get('/user-management/position-holders', { params });
     return response.data as PositionHolder[];

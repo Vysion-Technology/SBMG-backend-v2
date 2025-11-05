@@ -146,7 +146,7 @@ const GeographyManager: React.FC = () => {
       let result: District | Block | Village;
       
       switch (activeTab) {
-        case 'district':
+        case 'district': {
           const districtData: CreateDistrictRequest = {
             name: formData.name.trim(),
             description: formData.description.trim() || undefined
@@ -154,8 +154,9 @@ const GeographyManager: React.FC = () => {
           result = await adminApi.createDistrict(districtData);
           setDistricts(prev => [...prev, result as District]);
           break;
+        }
 
-        case 'block':
+        case 'block': {
           const blockData: CreateBlockRequest = {
             name: formData.name.trim(),
             description: formData.description.trim() || undefined,
@@ -164,8 +165,9 @@ const GeographyManager: React.FC = () => {
           result = await adminApi.createBlock(blockData);
           setBlocks(prev => [...prev, result as Block]);
           break;
+        }
 
-        case 'village':
+        case 'village': {
           const villageData: CreateVillageRequest = {
             name: formData.name.trim(),
             description: formData.description.trim() || undefined,
@@ -175,6 +177,7 @@ const GeographyManager: React.FC = () => {
           result = await adminApi.createVillage(villageData);
           setVillages(prev => [...prev, result as Village]);
           break;
+        }
 
         default:
           throw new Error('Invalid entity type');
@@ -187,11 +190,16 @@ const GeographyManager: React.FC = () => {
       
       resetForm();
       setShowCreateForm(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating entity:', error);
+      let errorMessage = 'Failed to create entity. Please try again.';
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as { response?: { data?: { detail?: string } } };
+        errorMessage = axiosError.response?.data?.detail || errorMessage;
+      }
       setSubmitResult({
         success: false,
-        message: error.response?.data?.detail || `Failed to create ${activeTab}`
+        message: errorMessage
       });
     } finally {
       setIsSubmitting(false);
@@ -223,7 +231,7 @@ const GeographyManager: React.FC = () => {
   };
 
   const renderEntityList = () => {
-    let entities: any[] = [];
+    let entities: Array<District | Block | Village> = [];
     let icon = <MapPin className="w-4 h-4" />;
     
     switch (activeTab) {

@@ -15,7 +15,7 @@ const CreateComplaint: React.FC = () => {
   const [villages, setVillages] = useState<Village[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitResult, setSubmitResult] = useState<{ success: boolean; data?: Complaint; error?: string } | null>(null);
+  const [submitResult, setSubmitResult] = useState<{ success: boolean; data?: Complaint; error?: string; message?: string } | null>(null);
 
   const { register, handleSubmit, watch, setValue, formState: { errors }, reset } = useForm<CreateComplaintForm>();
 
@@ -64,13 +64,51 @@ const CreateComplaint: React.FC = () => {
     setIsSubmitting(true);
     setSubmitResult(null);
 
+    // Client-side validation
+    if (!data.complaint_type_id || data.complaint_type_id === 0) {
+      setSubmitResult({ success: false, error: 'Please select a complaint type.' });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!data.district_id || data.district_id === 0) {
+      setSubmitResult({ success: false, error: 'Please select a district.' });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!data.block_id || data.block_id === 0) {
+      setSubmitResult({ success: false, error: 'Please select a block.' });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!data.village_id || data.village_id === 0) {
+      setSubmitResult({ success: false, error: 'Please select a village.' });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (data.description.trim().length < 10) {
+      setSubmitResult({ success: false, error: 'Description must be at least 10 characters long.' });
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Mobile number validation (optional but if provided, should be valid)
+    if (data.mobile_number && !/^[6-9]\d{9}$/.test(data.mobile_number)) {
+      setSubmitResult({ success: false, error: 'Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.' });
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const complaintData: CreateComplaintRequest = {
         complaint_type_id: Number(data.complaint_type_id),
         village_id: Number(data.village_id),
         block_id: Number(data.block_id),
         district_id: Number(data.district_id),
-        description: data.description,
+        description: data.description.trim(),
         mobile_number: data.mobile_number || null,
       };
 
@@ -82,14 +120,27 @@ const CreateComplaint: React.FC = () => {
         result = await publicApi.createComplaint(complaintData);
       }
 
-      setSubmitResult({ success: true, data: result });
+      setSubmitResult({ 
+        success: true, 
+        data: result,
+        message: `Complaint submitted successfully! Your complaint ID is #${result.id}. ${
+          data.mobile_number 
+            ? 'You will receive SMS updates on the provided mobile number.' 
+            : 'You can track your complaint status using the complaint ID.'
+        }`
+      });
       reset();
       setSelectedFiles(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error submitting complaint:', error);
+      let errorMessage = 'Failed to submit complaint. Please try again.';
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as { response?: { data?: { detail?: string } } };
+        errorMessage = axiosError.response?.data?.detail || errorMessage;
+      }
       setSubmitResult({ 
         success: false, 
-        error: error.response?.data?.detail || 'Failed to submit complaint. Please try again.' 
+        error: errorMessage
       });
     } finally {
       setIsSubmitting(false);
@@ -123,7 +174,7 @@ const CreateComplaint: React.FC = () => {
           <div className="text-green-800">
             <p className="mb-2">Your complaint has been registered with ID: <strong>#{submitResult.data?.id}</strong></p>
             <p className="mb-2">Status: <strong>{submitResult.data?.status_name}</strong></p>
-            <p className="mb-4">You can track the progress using the complaint ID.</p>
+            <p className="mb-4">{submitResult.message || 'You can track the progress using the complaint ID.'}</p>
             <div className="flex space-x-4">
               <button
                 onClick={() => setSubmitResult(null)}
