@@ -573,3 +573,29 @@ def send_otp(mobile_number: str, otp: int | str) -> bool:
 
     print(response.text)
     return True
+
+
+
+class PublicUserService:
+    """Service for managing public users."""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def get_or_create_public_user_by_phone(self, phone_number: str) -> PublicUser:
+        """Get or create a public user by phone number."""
+        result = await self.db.execute(select(PublicUser).where(PublicUser.mobile_number == phone_number))
+        public_user = result.scalar_one_or_none()
+        if not public_user:
+            new_user = PublicUser(mobile_number=phone_number)
+            self.db.add(new_user)
+            await self.db.commit()
+            await self.db.refresh(new_user)
+            return new_user
+        return public_user
+
+    async def get_public_user_by_id(self, user_id: int) -> Optional[PublicUser]:
+        """Get a public user by ID."""
+        result = await self.db.execute(select(PublicUser).where(PublicUser.id == user_id))
+        return result.scalar_one_or_none()
+

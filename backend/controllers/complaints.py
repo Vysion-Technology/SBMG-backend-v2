@@ -46,11 +46,122 @@ from services.s3_service import s3_service
 from services.auth import AuthService
 from services.fcm_notification_service import notify_user_on_complaint_status_update
 from services.complaints import ComplaintOrderByEnum, ComplaintService
+from services.auth import PublicUserService
 
 router = APIRouter()
 
 
 # Helper function to get public user by token
+
+
+@router.post("/smd/complaints", response_model=DetailedComplaintResponse)
+async def create_complaint_for_public_user(
+    phone_number: str = Form(...),
+    description: str = Form(...),
+    complaint_type_id: int = Form(...),
+    lat: Optional[float] = Form(None),
+    long: Optional[float] = Form(None),
+    gp_id: int = Form(...),
+    location: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+):
+    """Create a complaint on behalf of a public user (Admin only)."""
+    # Ensure the user is an ADMIN
+    if not PermissionChecker.user_has_role(current_user, [UserRole.ADMIN]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only ADMIN users can create complaints on behalf of public users",
+        )
+
+    # Check if the public user exists, if not create one
+    public_user_service = PublicUserService(db)
+    public_user = await public_user_service.get_or_create_public_user_by_phone(phone_number)
+
+    # Create the complaint
+    complaint_service = ComplaintService(db)
+    complaint = await complaint_service.create_complaint(
+        public_user_id=public_user.id,
+        description=description,
+        complaint_type_id=complaint_type_id,
+        lat=lat,
+        long=long,
+        location=location,
+        gp_id=gp_id,
+    )
+
+    return DetailedComplaintResponse(
+        id=complaint.id,
+        description=complaint.description,
+        complaint_type_id=complaint.complaint_type_id,
+        mobile_number=phone_number,
+        created_at=complaint.created_at,
+        updated_at=complaint.updated_at,
+        status_id=complaint.status_id,
+        lat=complaint.lat,
+        long=complaint.long,
+        location=complaint.location,
+        resolved_at=complaint.resolved_at,
+        verified_at=complaint.verified_at,
+        closed_at=complaint.closed_at,
+        complaint_type=complaint.complaint_type.name if complaint.complaint_type else None,
+        status=complaint.status.name if complaint.status else None,
+        village_name=complaint.gp.name if complaint.gp else None,
+        block_name=complaint.block.name if complaint.block else None,
+        district_name=complaint.district.name if complaint.district else None,
+        media_urls=[],
+        media=[],
+        comments=[],
+    )
+
+
+@router.put("/smd/complaints/{complaint_id}", response_model=DetailedComplaintResponse)
+async def update_complaint_for_public_user(
+    complaint_id: int,
+    dstatus_id: int = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+):
+    """Update a complaint on behalf of a public user (Admin only)."""
+    # Ensure the user is an ADMIN
+    if not PermissionChecker.user_has_role(current_user, [UserRole.ADMIN]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only ADMIN users can update complaints on behalf of public users",
+        )
+
+    # Update the complaint
+    complaint_service = ComplaintService(db)
+    complaint = await complaint_service.update_complaint(
+        complaint_id=complaint_id,
+        status_id=dstatus_id,
+    )
+    if not complaint:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
+
+    return DetailedComplaintResponse(
+        id=complaint.id,
+        description=complaint.description,
+        complaint_type_id=complaint.complaint_type_id,
+        mobile_number=complaint.mobile_number,
+        created_at=complaint.created_at,
+        updated_at=complaint.updated_at,
+        status_id=complaint.status_id,
+        lat=complaint.lat,
+        long=complaint.long,
+        location=complaint.location,
+        resolved_at=complaint.resolved_at,
+        verified_at=complaint.verified_at,
+        closed_at=complaint.closed_at,
+        complaint_type=complaint.complaint_type.name if complaint.complaint_type else None,
+        status=complaint.status.name if complaint.status else None,
+        village_name=complaint.gp.name if complaint.gp else None,
+        block_name=complaint.block.name if complaint.block else None,
+        district_name=complaint.district.name if complaint.district else None,
+        media_urls=[],
+        media=[],
+        comments=[],
+    )
 
 
 # Pydantic models

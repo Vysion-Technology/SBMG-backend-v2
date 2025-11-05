@@ -4,6 +4,7 @@ from enum import Enum
 from typing import List, Optional
 from datetime import datetime, timezone
 
+from fastapi import HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import Date, func, select
@@ -16,7 +17,7 @@ from models.database.complaint import (
     ComplaintStatus,
     ComplaintComment,
 )
-from models.database.geography import Block, District, GramPanchayat as Village
+from models.database.geography import Block, District, GramPanchayat as GramPanchayat
 from models.response.complaint import (
     ComplaintCommentResponse,
     DetailedComplaintResponse,
@@ -32,6 +33,8 @@ from models.internal import GeoTypeEnum
 
 
 class ComplaintOrderByEnum(str, Enum):
+    """Enumeration for complaint ordering options."""
+
     NEWEST = "newest"
     OLDEST = "oldest"
     STATUS = "status"
@@ -41,14 +44,19 @@ class ComplaintOrderByEnum(str, Enum):
 
 
 class ComplaintService:
+    """Service layer for managing complaints."""
+
     def __init__(self, db: AsyncSession):
         self.db = db
 
     async def get_complaint_by_id(self, complaint_id: int) -> Optional[Complaint]:
+        """Retrieve a complaint by its ID."""
         result = await self.db.execute(
-            select(Complaint).where(
+            select(Complaint)
+            .where(
                 Complaint.id == complaint_id,  # type: ignore
-            ).options(
+            )
+            .options(
                 selectinload(Complaint.status),
                 selectinload(Complaint.gp),
                 selectinload(Complaint.block),
@@ -57,7 +65,6 @@ class ComplaintService:
                 selectinload(Complaint.media),
                 selectinload(Complaint.comments),
                 selectinload(Complaint.comments).selectinload(ComplaintComment.user),
-                
             )
         )
         complaint = result.scalar_one_or_none()
@@ -75,17 +82,27 @@ class ComplaintService:
         limit: Optional[int] = 500,
         order_by: ComplaintOrderByEnum = ComplaintOrderByEnum.NEWEST,
     ) -> list[DetailedComplaintResponse]:
-        query = select(Complaint).options(
-            selectinload(Complaint.status),
-            selectinload(Complaint.gp),
-            selectinload(Complaint.block),
-            selectinload(Complaint.district),
-            selectinload(Complaint.complaint_type),
-            # selectinload(Complaint.media_urls),
-            selectinload(Complaint.media),
-            selectinload(Complaint.comments),
-            selectinload(Complaint.comments).selectinload(ComplaintComment.user),
-        ).join(ComplaintStatus, isouter=True).join(Village, isouter=True).join(Block, isouter=True).join(District, isouter=True).join(ComplaintType, isouter=True).join(ComplaintComment, isouter=True).join(Complaint.media, isouter=True)
+        query = (
+            select(Complaint)
+            .options(
+                selectinload(Complaint.status),
+                selectinload(Complaint.gp),
+                selectinload(Complaint.block),
+                selectinload(Complaint.district),
+                selectinload(Complaint.complaint_type),
+                # selectinload(Complaint.media_urls),
+                selectinload(Complaint.media),
+                selectinload(Complaint.comments),
+                selectinload(Complaint.comments).selectinload(ComplaintComment.user),
+            )
+            .join(ComplaintStatus, isouter=True)
+            .join(GramPanchayat, isouter=True)
+            .join(Block, isouter=True)
+            .join(District, isouter=True)
+            .join(ComplaintType, isouter=True)
+            .join(ComplaintComment, isouter=True)
+            .join(Complaint.media, isouter=True)
+        )
         if district_id is not None:
             query = query.where(Complaint.district_id == district_id)  # type: ignore
         if block_id is not None:
@@ -241,8 +258,8 @@ class ComplaintService:
                         )
                     ).label("avg_resolution_time"),
                 )
-                .join(Village, Complaint.gp_id == Village.id)
-                .join(Block, Village.block_id == Block.id)
+                .join(GramPanchayat, Complaint.gp_id == GramPanchayat.id)
+                .join(Block, GramPanchayat.block_id == Block.id)
                 .join(District, Block.district_id == District.id)
                 .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
                 .group_by(
@@ -267,8 +284,8 @@ class ComplaintService:
                         )
                     ).label("avg_resolution_time"),
                 )
-                .join(Village, Complaint.gp_id == Village.id)
-                .join(Block, Village.block_id == Block.id)
+                .join(GramPanchayat, Complaint.gp_id == GramPanchayat.id)
+                .join(Block, GramPanchayat.block_id == Block.id)
                 .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
                 .group_by(Complaint.block_id, Block.name, ComplaintStatus.id, ComplaintStatus.name)
             )
@@ -276,7 +293,7 @@ class ComplaintService:
             query = (
                 select(
                     Complaint.gp_id,
-                    Village.name,
+                    GramPanchayat.name,
                     ComplaintStatus.id,
                     ComplaintStatus.name,
                     func.count(Complaint.id),
@@ -286,9 +303,9 @@ class ComplaintService:
                         )
                     ).label("avg_resolution_time"),
                 )
-                .join(Village, Complaint.gp_id == Village.id)
+                .join(GramPanchayat, Complaint.gp_id == GramPanchayat.id)
                 .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
-                .group_by(Complaint.gp_id, Village.name, ComplaintStatus.id, ComplaintStatus.name)
+                .group_by(Complaint.gp_id, GramPanchayat.name, ComplaintStatus.id, ComplaintStatus.name)
             )
         if district_id is not None:
             query = query.where(Complaint.district_id == district_id)
@@ -396,8 +413,8 @@ class ComplaintService:
                         )
                     ).label("avg_resolution_time"),
                 )
-                .join(Village, Complaint.gp_id == Village.id)
-                .join(Block, Village.block_id == Block.id)
+                .join(GramPanchayat, Complaint.gp_id == GramPanchayat.id)
+                .join(Block, GramPanchayat.block_id == Block.id)
                 .join(District, Block.district_id == District.id)
                 .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
                 .group_by(
@@ -422,8 +439,8 @@ class ComplaintService:
                         )
                     ).label("avg_resolution_time"),
                 )
-                .join(Village, Complaint.gp_id == Village.id)
-                .join(Block, Village.block_id == Block.id)
+                .join(GramPanchayat, Complaint.gp_id == GramPanchayat.id)
+                .join(Block, GramPanchayat.block_id == Block.id)
                 .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
                 .group_by(Complaint.block_id, Block.name, ComplaintStatus.id, ComplaintStatus.name)
             )
@@ -431,7 +448,7 @@ class ComplaintService:
             query = (
                 select(
                     Complaint.gp_id,
-                    Village.name,
+                    GramPanchayat.name,
                     ComplaintStatus.id,
                     ComplaintStatus.name,
                     func.count(Complaint.id),
@@ -441,9 +458,9 @@ class ComplaintService:
                         )
                     ).label("avg_resolution_time"),
                 )
-                .join(Village, Complaint.gp_id == Village.id)
+                .join(GramPanchayat, Complaint.gp_id == GramPanchayat.id)
                 .join(ComplaintStatus, Complaint.status_id == ComplaintStatus.id)
-                .group_by(Complaint.gp_id, Village.name, ComplaintStatus.id, ComplaintStatus.name)
+                .group_by(Complaint.gp_id, GramPanchayat.name, ComplaintStatus.id, ComplaintStatus.name)
             )
         query = query.where(Complaint.created_at >= start_date)
         query = query.where(Complaint.created_at <= end_date)
@@ -459,6 +476,7 @@ class ComplaintService:
         # Create a list of list of rows with the same geo id and name
         class TempGeoItem(BaseModel):
             """Temporary model to hold aggregated data per geography."""
+
             geo_id: int
             geo_name: str
             total_complaints: int
@@ -485,7 +503,7 @@ class ComplaintService:
                 nested_rows[geo_id].total_resolved_complaints += count
                 nested_rows[geo_id].total_resolution_time += avg_resolution_time * count
         # Create a list of TopNGeographiesInDateRangeResponse from the nested_rows
-        res =  [
+        res = [
             TopNGeographiesInDateRangeResponse(
                 geo_type=level,
                 start_date=start_date.date(),
@@ -504,6 +522,66 @@ class ComplaintService:
             )
             for geo_id in nested_rows
         ]
-        res =  sorted(res, key=lambda x: (x.score), reverse=True)
+        res = sorted(res, key=lambda x: (x.score), reverse=True)
         res = sorted(res, key=lambda x: (x.geo_name))
         return res[:n]
+
+    async def create_complaint(
+        self,
+        public_user_id: int,
+        description: str,
+        complaint_type_id: int,
+        gp_id: int,
+        mobile_number: Optional[str] = None,
+        lat: Optional[float] = 1,
+        long: Optional[float] = 1,
+        location: str = "location",
+    ) -> Complaint:
+        """Create a new complaint."""
+        # Get default status (e.g., "NEW")
+        status_result = await self.db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "NEW"))
+        default_status = status_result.scalar_one_or_none()
+        if not default_status:
+            default_status = ComplaintStatus(name="NEW", description="Newly created complaint")
+            self.db.add(default_status)
+            await self.db.commit()
+            await self.db.refresh(default_status)
+
+        gp = await self.db.execute(
+            select(GramPanchayat).options(selectinload(GramPanchayat.block)).where(GramPanchayat.id == gp_id)
+        )
+        gp_obj = gp.scalar_one_or_none()
+        if not gp_obj:
+            raise HTTPException(status_code=404, detail=f"Gram Panchayat with id {gp_id} does not exist")
+
+        complaint = Complaint(
+            public_user_id=public_user_id,
+            description=description,
+            complaint_type_id=complaint_type_id,
+            gp_id=gp_id,
+            block_id=gp_obj.block_id,
+            district_id=gp_obj.block.district_id,
+            mobile_number=mobile_number,
+            status_id=default_status.id,
+            lat=lat,
+            long=long,
+            location=location,
+        )
+
+        self.db.add(complaint)
+        await self.db.commit()
+        await self.db.refresh(complaint)
+        return complaint
+
+    async def update_complaint(self, complaint_id: int, status_id: Optional[int] = None) -> Optional[Complaint]:
+        """Update an existing complaint."""
+        complaint_result = await self.db.execute(select(Complaint).where(Complaint.id == complaint_id))
+        complaint = complaint_result.scalar_one_or_none()
+        if not complaint:
+            return None
+        if status_id is not None:
+            complaint.status_id = status_id
+        complaint.updated_at = datetime.now(tz=timezone.utc)
+        await self.db.commit()
+        await self.db.refresh(complaint)
+        return await self.get_complaint_by_id(complaint.id)
