@@ -571,7 +571,7 @@ class ComplaintService:
         self.db.add(complaint)
         await self.db.commit()
         await self.db.refresh(complaint)
-        return complaint
+        return await self.get_complaint_by_id(complaint.id)
 
     async def update_complaint(self, complaint_id: int, status_id: Optional[int] = None) -> Optional[Complaint]:
         """Update an existing complaint."""
