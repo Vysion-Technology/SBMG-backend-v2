@@ -12,13 +12,9 @@ class ComplaintStatusEnum(str, Enum):
     """Enum for complaint status types."""
 
     OPEN = "OPEN"
-    VERIFIED = "VERIFIED"
     RESOLVED = "RESOLVED"
+    VERIFIED = "VERIFIED"
     CLOSED = "CLOSED"
-    COMPLETED = "COMPLETED"
-    PENDING = "PENDING"
-    IN_PROGRESS = "IN_PROGRESS"
-    REJECTED = "REJECTED"
 
 
 class GeographyComplaintCountByStatusResponse(BaseModel):
@@ -49,6 +45,7 @@ class TopNGeographiesInDateRangeResponse(BaseModel):
     geo_name: str
     score: float
 
+
 class ComplaintDateAnalyticsResponse(BaseModel):
     """Response model for complaint analytics aggregated by date."""
 
@@ -59,6 +56,7 @@ class ComplaintDateAnalyticsResponse(BaseModel):
     status_id: int
     count: int
     status: Optional[ComplaintStatusEnum]
+
 
 class AttendanceStatusEnum(str, Enum):
     """Enum for attendance status types."""
@@ -86,5 +84,3 @@ class AttendanceAnalyticsResponse(BaseModel):
     geo_type: GeoTypeEnum
     date: date
     response: List[GeographyAttendanceCountResponse]
-
-

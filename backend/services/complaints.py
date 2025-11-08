@@ -539,10 +539,10 @@ class ComplaintService:
     ) -> Complaint:
         """Create a new complaint."""
         # Get default status (e.g., "NEW")
-        status_result = await self.db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "NEW"))
+        status_result = await self.db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "OPEN"))
         default_status = status_result.scalar_one_or_none()
         if not default_status:
-            default_status = ComplaintStatus(name="NEW", description="Newly created complaint")
+            default_status = ComplaintStatus(name="OPEN", description="Newly created complaint")
             self.db.add(default_status)
             await self.db.commit()
             await self.db.refresh(default_status)
