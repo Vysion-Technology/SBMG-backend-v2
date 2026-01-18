@@ -29,6 +29,7 @@ from models.response.inspection import (
     CriticalInspectionResponse,
     HouseHoldWasteCollectionResponse,
     InspectionAnalyticsResponse,
+    InspectionImageResponse,
     InspectionListItemResponse,
     InspectionResponse,
     OtherInspectionItemsResponse,
@@ -265,6 +266,14 @@ async def get_my_inspections(
                 officer_role=officer_role,
                 remarks=inspection.remarks,
                 visibly_clean=inspection.other_item.village_visibly_clean if inspection.other_item else False,
+                images=[
+                    InspectionImageResponse(
+                        id=img.id,
+                        inspection_id=img.inspection_id,
+                        image_url=img.image_url,
+                    )
+                    for img in inspection.media
+                ] if inspection.media else [],
                 # overall_score=inspection.overall_score,
             )
         )
@@ -377,6 +386,14 @@ async def get_inspections(
                 officer_role=officer_role,
                 remarks=inspection.remarks,
                 visibly_clean=inspection.other_item.village_visibly_clean if inspection.other_item else False,
+                images=[
+                    InspectionImageResponse(
+                        id=img.id,
+                        inspection_id=img.inspection_id,
+                        image_url=img.image_url,
+                    )
+                    for img in inspection.media
+                ] if inspection.media else [],
             )
         )
 
@@ -468,6 +485,14 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
         road_and_drain=RoadAndDrainCleaningResponse.model_validate(road) if road else None,
         community_sanitation=CommunitySanitationResponse.model_validate(community) if community else None,
         other_items=OtherInspectionItemsResponse.model_validate(other) if other else None,
+        images=[
+            InspectionImageResponse(
+                id=img.id,
+                inspection_id=img.inspection_id,
+                image_url=img.image_url,
+            )
+            for img in inspection.media
+        ] if inspection.media else [],
     )
 
 

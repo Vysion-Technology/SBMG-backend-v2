@@ -132,6 +132,7 @@ class InspectionListItemResponse(BaseModel):
     remarks: Optional[str]
     visibly_clean: Optional[bool] = False
     overall_score: Optional[float] = 0.0
+    images: List[InspectionImageResponse] = []
 
     class Config:
         from_attributes = True

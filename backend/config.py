@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     # FCM Settings
     fcm_credential_path: Optional[str] = os.getenv("FCM_CREDENTIAL_PATH") or "firebase.json"
 
+    # Trackverse API Settings
+    trackverse_api_url: str = os.getenv("TRACKVERSE_API_URL") or "https://api.trackverse.in/api/public/tracking/v0/device"
+    trackverse_api_key: str = os.getenv("TRACKVERSE_API_KEY") or "NT-20250001332338322F488A3E78AC07DD24BF"
+    trackverse_username: str = os.getenv("TRACKVERSE_USERNAME") or "deepakgupta"
+    trackverse_password: str = os.getenv("TRACKVERSE_PASSWORD") or "123456"
+
     # Application
     debug: bool = False
     host: str = "0.0.0.0"

@@ -90,28 +90,49 @@ async def create_complaint_for_public_user(
         gp_id=gp_id,
     )
 
+    # Re-fetch complaint with all relationships loaded
+    complaint_with_relations = await complaint_service.get_complaint_by_id(complaint.id)
+    if not complaint_with_relations:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found after creation")
+
     return DetailedComplaintResponse(
-        id=complaint.id,
-        description=complaint.description,
-        complaint_type_id=complaint.complaint_type_id,
+        id=complaint_with_relations.id,
+        description=complaint_with_relations.description,
+        complaint_type_id=complaint_with_relations.complaint_type_id,
         mobile_number=phone_number,
-        created_at=complaint.created_at,
-        updated_at=complaint.updated_at,
-        status_id=complaint.status_id,
-        lat=complaint.lat,
-        long=complaint.long,
-        location=complaint.location,
-        resolved_at=complaint.resolved_at,
-        verified_at=complaint.verified_at,
-        closed_at=complaint.closed_at,
-        complaint_type=complaint.complaint_type.name if complaint.complaint_type else None,
-        status=complaint.status.name if complaint.status else None,
-        village_name=complaint.gp.name if complaint.gp else None,
-        block_name=complaint.block.name if complaint.block else None,
-        district_name=complaint.district.name if complaint.district else None,
-        media_urls=[],
-        media=[],
-        comments=[],
+        created_at=complaint_with_relations.created_at,
+        updated_at=complaint_with_relations.updated_at,
+        status_id=complaint_with_relations.status_id,
+        lat=complaint_with_relations.lat,
+        long=complaint_with_relations.long,
+        location=complaint_with_relations.location,
+        resolved_at=complaint_with_relations.resolved_at,
+        verified_at=complaint_with_relations.verified_at,
+        closed_at=complaint_with_relations.closed_at,
+        complaint_type=complaint_with_relations.complaint_type.name if complaint_with_relations.complaint_type else None,
+        status=complaint_with_relations.status.name if complaint_with_relations.status else None,
+        village_name=complaint_with_relations.gp.name if complaint_with_relations.gp else None,
+        block_name=complaint_with_relations.block.name if complaint_with_relations.block else None,
+        district_name=complaint_with_relations.district.name if complaint_with_relations.district else None,
+        media_urls=[media.media_url for media in complaint_with_relations.media] if complaint_with_relations.media else [],
+        media=[
+            MediaResponse(
+                id=media.id,
+                media_url=media.media_url,
+                uploaded_at=media.uploaded_at,
+            )
+            for media in complaint_with_relations.media
+        ] if complaint_with_relations.media else [],
+        comments=[
+            ComplaintCommentResponse(
+                id=comment.id,
+                complaint_id=comment.complaint_id,
+                comment=comment.comment,
+                commented_at=comment.commented_at,
+                user_name=comment.user.name if comment.user else "",
+            )
+            for comment in complaint_with_relations.comments
+        ] if complaint_with_relations.comments else [],
     )
 
 
@@ -139,28 +160,49 @@ async def update_complaint_for_public_user(
     if not complaint:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
 
+    # Re-fetch complaint with all relationships loaded
+    complaint_with_relations = await complaint_service.get_complaint_by_id(complaint.id)
+    if not complaint_with_relations:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found after update")
+
     return DetailedComplaintResponse(
-        id=complaint.id,
-        description=complaint.description,
-        complaint_type_id=complaint.complaint_type_id,
-        mobile_number=complaint.mobile_number,
-        created_at=complaint.created_at,
-        updated_at=complaint.updated_at,
-        status_id=complaint.status_id,
-        lat=complaint.lat,
-        long=complaint.long,
-        location=complaint.location,
-        resolved_at=complaint.resolved_at,
-        verified_at=complaint.verified_at,
-        closed_at=complaint.closed_at,
-        complaint_type=complaint.complaint_type.name if complaint.complaint_type else None,
-        status=complaint.status.name if complaint.status else None,
-        village_name=complaint.gp.name if complaint.gp else None,
-        block_name=complaint.block.name if complaint.block else None,
-        district_name=complaint.district.name if complaint.district else None,
-        media_urls=[],
-        media=[],
-        comments=[],
+        id=complaint_with_relations.id,
+        description=complaint_with_relations.description,
+        complaint_type_id=complaint_with_relations.complaint_type_id,
+        mobile_number=complaint_with_relations.mobile_number,
+        created_at=complaint_with_relations.created_at,
+        updated_at=complaint_with_relations.updated_at,
+        status_id=complaint_with_relations.status_id,
+        lat=complaint_with_relations.lat,
+        long=complaint_with_relations.long,
+        location=complaint_with_relations.location,
+        resolved_at=complaint_with_relations.resolved_at,
+        verified_at=complaint_with_relations.verified_at,
+        closed_at=complaint_with_relations.closed_at,
+        complaint_type=complaint_with_relations.complaint_type.name if complaint_with_relations.complaint_type else None,
+        status=complaint_with_relations.status.name if complaint_with_relations.status else None,
+        village_name=complaint_with_relations.gp.name if complaint_with_relations.gp else None,
+        block_name=complaint_with_relations.block.name if complaint_with_relations.block else None,
+        district_name=complaint_with_relations.district.name if complaint_with_relations.district else None,
+        media_urls=[media.media_url for media in complaint_with_relations.media] if complaint_with_relations.media else [],
+        media=[
+            MediaResponse(
+                id=media.id,
+                media_url=media.media_url,
+                uploaded_at=media.uploaded_at,
+            )
+            for media in complaint_with_relations.media
+        ] if complaint_with_relations.media else [],
+        comments=[
+            ComplaintCommentResponse(
+                id=comment.id,
+                complaint_id=comment.complaint_id,
+                comment=comment.comment,
+                commented_at=comment.commented_at,
+                user_name=comment.user.name if comment.user else "",
+            )
+            for comment in complaint_with_relations.comments
+        ] if complaint_with_relations.comments else [],
     )
 
 

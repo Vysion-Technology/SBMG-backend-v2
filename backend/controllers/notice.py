@@ -13,6 +13,7 @@ from models.database.auth import User
 from models.requests.notice import CreateNoticeRequest, CreateNoticeTypeRequest, CreateNoticeReplyRequest
 from models.response.notice import (
     NoticeDetailResponse,
+    NoticeMediaResponse,
     NoticeTypeResponse,
     PositionHolderBasicInfo,
     NoticeReplyResponse,
@@ -70,13 +71,27 @@ async def create_notice(
             title=request.title,
             text=request.text,
         )
+        
+        # Re-fetch notice with all relationships to include media
+        notice_with_relations = await notice_service.get_notice_by_id(notice.id)
+        if not notice_with_relations:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Notice created but not found")
+        
         return NoticeDetailResponse(
-            id=notice.id,
-            sender_id=notice.sender_id,
-            receiver_id=notice.receiver_id,
-            title=notice.title,
-            date=notice.date,  # type: ignore
-            text=notice.text,
+            id=notice_with_relations.id,
+            sender_id=notice_with_relations.sender_id,
+            receiver_id=notice_with_relations.receiver_id,
+            title=notice_with_relations.title,
+            date=notice_with_relations.date,  # type: ignore
+            text=notice_with_relations.text,
+            media=[
+                NoticeMediaResponse(
+                    id=m.id,
+                    notice_id=m.notice_id,
+                    media_url=m.media_url,
+                )
+                for m in notice_with_relations.media
+            ] if notice_with_relations.media else [],
         )
     except HTTPException as e:
         logger.error("Database error while creating notice: %s", e)
@@ -139,6 +154,14 @@ async def get_sent_notices(
             title=notice.title,
             date=notice.date,  # type: ignore
             text=notice.text,
+            media=[
+                NoticeMediaResponse(
+                    id=m.id,
+                    notice_id=m.notice_id,
+                    media_url=m.media_url,
+                )
+                for m in notice.media
+            ] if notice.media else [],
             sender=PositionHolderBasicInfo(
                 id=notice.sender.id,
                 user_id=notice.sender.user_id,
@@ -211,6 +234,14 @@ async def get_received_notices(
             title=notice.title,
             date=notice.date,  # type: ignore
             text=notice.text,
+            media=[
+                NoticeMediaResponse(
+                    id=m.id,
+                    notice_id=m.notice_id,
+                    media_url=m.media_url,
+                )
+                for m in notice.media
+            ] if notice.media else [],
             sender=PositionHolderBasicInfo(
                 id=notice.sender.id,
                 user_id=notice.sender.user_id,
@@ -281,6 +312,14 @@ async def get_notice_by_id(
         title=notice.title,
         date=notice.date,  # type: ignore
         text=notice.text,
+        media=[
+            NoticeMediaResponse(
+                id=m.id,
+                notice_id=m.notice_id,
+                media_url=m.media_url,
+            )
+            for m in notice.media
+        ] if notice.media else [],
         sender=PositionHolderBasicInfo(
             id=notice.sender.id,
             user_id=notice.sender.user_id,

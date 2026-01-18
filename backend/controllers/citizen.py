@@ -380,31 +380,44 @@ async def close_complaint(
     await db.commit()
     await db.refresh(complaint)
 
+    # Re-fetch complaint with all relationships to get accurate data
+    complaint_with_relations = await ComplaintService(db).get_complaint_by_id(complaint_id)
+    if not complaint_with_relations:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found after closing")
+
     return ComplaintResponse(
-        id=complaint.id,
-        description=complaint.description,
-        mobile_number=complaint.mobile_number,
+        id=complaint_with_relations.id,
+        description=complaint_with_relations.description,
+        mobile_number=complaint_with_relations.mobile_number,
         status_name=closed_status.name,
-        village_name="",  # Could be fetched if needed
-        block_name="",
-        district_name="",
-        created_at=complaint.created_at,
-        updated_at=complaint.updated_at,
-        lat=complaint.lat,
-        long=complaint.long,
-        media_urls=[],  # Could be fetched if needed
-        media=[],
-        location=complaint.location,
-        resolved_at=complaint.resolved_at,
-        verified_at=complaint.verified_at,
-        closed_at=complaint.closed_at,
-        comments=[  # type: ignore
+        village_name=complaint_with_relations.gp.name if complaint_with_relations.gp else "",
+        block_name=complaint_with_relations.block.name if complaint_with_relations.block else "",
+        district_name=complaint_with_relations.district.name if complaint_with_relations.district else "",
+        created_at=complaint_with_relations.created_at,
+        updated_at=complaint_with_relations.updated_at,
+        lat=complaint_with_relations.lat,
+        long=complaint_with_relations.long,
+        media_urls=[media.media_url for media in complaint_with_relations.media] if complaint_with_relations.media else [],
+        media=[
+            MediaResponse(
+                id=media.id,
+                media_url=media.media_url,
+                uploaded_at=media.uploaded_at,
+            )
+            for media in complaint_with_relations.media
+        ] if complaint_with_relations.media else [],
+        location=complaint_with_relations.location,
+        resolved_at=complaint_with_relations.resolved_at,
+        verified_at=complaint_with_relations.verified_at,
+        closed_at=complaint_with_relations.closed_at,
+        comments=[
             ComplaintCommentResponse(
                 id=comment.id,
                 complaint_id=comment.complaint_id,
                 comment=comment.comment,
                 commented_at=comment.commented_at,
-                user_name=comment.user.username if comment.user else "Public User",
-            ) for comment in complaint.comments
-        ],
+                user_name=comment.user.name if comment.user else "Public User",
+            )
+            for comment in complaint_with_relations.comments
+        ] if complaint_with_relations.comments else [],
     )
