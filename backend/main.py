@@ -32,14 +32,15 @@ async def lifespan(app: FastAPI):
     logger.info("Starting GPS data periodic fetch task...")
     
     # Create background task for periodic GPS fetching
-    gps_task = asyncio.create_task(GPSTrackingService().start_periodic_fetch())
-    
-    yield
-    
-    # Shutdown: Stop GPS fetching task
-    logger.info("Application shutting down...")
-    logger.info("Stopping GPS data periodic fetch task...")
-    GPSTrackingService().stop_periodic_fetch()
+    async for db in get_db():
+        gps_task = asyncio.create_task(GPSTrackingService(db).start_periodic_fetch())
+        
+        yield
+        
+        # Shutdown: Stop GPS fetching task
+        logger.info("Application shutting down...")
+        logger.info("Stopping GPS data periodic fetch task...")
+        GPSTrackingService(db).stop_periodic_fetch()
     
     # Wait for the task to complete (with timeout)
     try:
