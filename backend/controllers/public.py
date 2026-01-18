@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from database import get_db
-from models.database.auth import User
+from models.database.auth import User, PositionHolder
 from models.database.complaint import (
     Complaint,
     ComplaintComment,
@@ -145,8 +145,8 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
             selectinload(Complaint.status),
             selectinload(Complaint.gp).selectinload(GramPanchayat.block).selectinload(Block.district),
             selectinload(Complaint.media),
-            selectinload(Complaint.comments).selectinload(ComplaintComment.user).selectinload(User.positions),
-            selectinload(Complaint.assignments).selectinload(ComplaintAssignment.user).selectinload(User.positions),
+            selectinload(Complaint.comments).selectinload(ComplaintComment.user).selectinload(User.positions).selectinload(PositionHolder.employee),
+            selectinload(Complaint.assignments).selectinload(ComplaintAssignment.user).selectinload(User.positions).selectinload(PositionHolder.employee),
         )
         .where(Complaint.id == complaint_id)
     )
