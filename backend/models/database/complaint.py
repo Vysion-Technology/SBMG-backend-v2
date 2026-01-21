@@ -104,7 +104,7 @@ class Complaint(Base):  # type: ignore
     )
     created_at: Mapped[datetime] = mapped_column(  # type: ignore
         DateTime(timezone=True),
-        default=datetime.now(tz=timezone.utc),
+        default=lambda: datetime.now(tz=timezone.utc),
     )
     resolved_at: Mapped[Optional[datetime]] = mapped_column(  # type: ignore
         DateTime(timezone=True),
@@ -120,7 +120,7 @@ class Complaint(Base):  # type: ignore
     )
     updated_at: Mapped[Optional[datetime]] = mapped_column(  # type: ignore
         DateTime(timezone=True),
-        onupdate=datetime.now(tz=timezone.utc),
+        onupdate=lambda: datetime.now(tz=timezone.utc),
         nullable=True,
     )
 
@@ -150,7 +150,7 @@ class ComplaintAssignment(Base):  # type: ignore
     )
     assigned_at: Mapped[datetime] = mapped_column(  # type: ignore
         DateTime(timezone=True),
-        default=datetime.now(tz=timezone.utc),
+        default=lambda: datetime.now(tz=timezone.utc),
     )
 
     # Relationships
@@ -179,7 +179,7 @@ class ComplaintMedia(Base):  # type: ignore
     media_url: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     uploaded_at: Mapped[datetime] = mapped_column(  # type: ignore
         DateTime(timezone=True),
-        default=datetime.now(tz=timezone.utc),
+        default=lambda: datetime.now(tz=timezone.utc),
     )
     uploaded_by_public_mobile: Mapped[Optional[str]] = mapped_column(  # type: ignore
         String, nullable=True
@@ -218,7 +218,7 @@ class ComplaintComment(Base):  # type: ignore
     comment: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     commented_at: Mapped[datetime] = mapped_column(  # type: ignore
         DateTime(timezone=True),
-        default=datetime.now(tz=timezone.utc),
+        default=lambda: datetime.now(tz=timezone.utc),
     )
 
     # Relationships

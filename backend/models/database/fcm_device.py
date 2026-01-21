@@ -29,10 +29,10 @@ class UserDeviceToken(Base):  # type: ignore
     device_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     platform: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore # ios, android, web
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.now(tz=timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(tz=timezone.utc)
     )  # type: ignore
     updated_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), onupdate=datetime.now(tz=timezone.utc), nullable=True
+        DateTime(timezone=True), onupdate=lambda: datetime.now(tz=timezone.utc), nullable=True
     )  # type: ignore
 
     # Relationships
@@ -58,10 +58,10 @@ class PublicUserDeviceToken(Base):  # type: ignore
     device_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     platform: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore # ios, android, web
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.now(tz=timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(tz=timezone.utc)
     )  # type: ignore
     updated_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), onupdate=datetime.now(tz=timezone.utc), nullable=True
+        DateTime(timezone=True), onupdate=lambda: datetime.now(tz=timezone.utc), nullable=True
     )  # type: ignore
 
     # Relationships
