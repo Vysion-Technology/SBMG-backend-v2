@@ -3,6 +3,8 @@ Annual Survey Service
 Handles business logic for annual survey management
 """
 
+from fastapi.exceptions import HTTPException
+from fastapi import status
 from typing import List, Optional
 from datetime import date
 import random
@@ -286,7 +288,12 @@ class AnnualSurveyService:
             )
             .where(AnnualSurvey.id == survey_id)
         )
-        resp = get_response_model_from_survey(result.scalar_one_or_none())
+        survey = result.scalar_one_or_none()
+        if not survey:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Annual Survey has not been filled for this GP yet."
+            )
+        resp = get_response_model_from_survey(survey)
         return resp
 
     async def get_surveys_list(
