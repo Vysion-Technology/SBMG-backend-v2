@@ -1,12 +1,12 @@
 """Contractor Service Module."""
 
 from typing import Optional
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import func, insert, select, update, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from models.database.contractor import Agency, Contractor
-from models.database.geography import GramPanchayat, Block
+from models.database.geography import GramPanchayat, Block, District
 from models.requests.contractor import CreateAgencyRequest, CreateContractorRequest, UpdateContractorRequest
 from models.response.contractor import AgencyResponse, ContractorResponse
 
@@ -77,6 +77,58 @@ class ContractorService:
         result = await self.db.execute(query)
         agencies = result.scalars().all()
         return [map_agency_to_response(agency) for agency in agencies]
+
+    async def list_contractors(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        gp_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        district_id: Optional[int] = None,
+        agency_id: Optional[int] = None,
+        person_name: Optional[str] = None,
+        active_only: bool = False,
+    ) -> list[ContractorResponse]:
+        """List contractors with optional filtering and pagination."""
+        # Build query with relationships loaded
+        query = select(Contractor).options(
+            selectinload(Contractor.agency),
+            selectinload(Contractor.gp).selectinload(GramPanchayat.block).selectinload(Block.district),
+        )
+
+        # Build filter conditions
+        filters = []
+        if gp_id is not None:
+            filters.append(Contractor.gp_id == gp_id)
+        if agency_id is not None:
+            filters.append(Contractor.agency_id == agency_id)
+        if person_name is not None:
+            filters.append(Contractor.person_name.ilike(f"%{person_name}%"))
+        if active_only:
+            filters.append(Contractor.contract_end_date >= func.current_date())
+
+        # Apply block_id filter by joining with GramPanchayat
+        if block_id is not None:
+            query = query.join(Contractor.gp).where(GramPanchayat.block_id == block_id)
+
+        # Apply district_id filter by joining with GramPanchayat and Block
+        if district_id is not None:
+            if block_id is None:  # Only join if not already joined
+                query = query.join(Contractor.gp)
+            query = query.join(GramPanchayat.block).where(Block.district_id == district_id)
+
+        # Apply all other filters
+        if filters:
+            query = query.where(and_(*filters))
+
+        # Apply pagination
+        query = query.offset(skip).limit(limit)
+
+        # Execute query
+        result = await self.db.execute(query)
+        contractors = result.scalars().unique().all()
+
+        return [map_contractor_to_response(contractor) for contractor in contractors]
 
     async def create_agency(
         self,
