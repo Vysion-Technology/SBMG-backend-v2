@@ -160,8 +160,7 @@ class EventService:
             .limit(limit)
         )
         result = await self.db.execute(query)
-        events = result.scalars().all()
-        return list(events)
+        return result.scalars().all()
 
     async def is_bookmarked(self, event_id: int, user_id: int) -> bool:
         """Check if an event is bookmarked by a user."""

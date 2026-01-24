@@ -174,8 +174,7 @@ class SchemeService:
             .limit(limit)
         )
         result = await self.db.execute(query)
-        schemes = result.scalars().all()
-        return list(schemes)
+        return result.scalars().all()
 
     async def is_bookmarked(self, scheme_id: int, user_id: int) -> bool:
         """Check if a scheme is bookmarked by a user."""
