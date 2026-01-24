@@ -105,19 +105,34 @@ class ContractorService:
         if person_name is not None:
             filters.append(Contractor.person_name.ilike(f"%{person_name}%"))
         if active_only:
-            filters.append(Contractor.contract_end_date >= func.current_date())
+            # A contract is active if it has started and not yet ended
+            filters.append(
+                and_(
+                    Contractor.contract_start_date <= func.current_date(),
+                    Contractor.contract_end_date >= func.current_date()
+                )
+            )
+
+        # Track if we've already joined GramPanchayat and Block tables
+        gp_joined = False
+        block_joined = False
 
         # Apply block_id filter by joining with GramPanchayat
         if block_id is not None:
-            query = query.join(Contractor.gp).where(GramPanchayat.block_id == block_id)
+            query = query.join(Contractor.gp)
+            gp_joined = True
+            filters.append(GramPanchayat.block_id == block_id)
 
         # Apply district_id filter by joining with GramPanchayat and Block
         if district_id is not None:
-            if block_id is None:  # Only join if not already joined
+            if not gp_joined:
                 query = query.join(Contractor.gp)
-            query = query.join(GramPanchayat.block).where(Block.district_id == district_id)
+                gp_joined = True
+            query = query.join(GramPanchayat.block)
+            block_joined = True
+            filters.append(Block.district_id == district_id)
 
-        # Apply all other filters
+        # Apply all filters
         if filters:
             query = query.where(and_(*filters))
 
