@@ -270,8 +270,6 @@ class AnnualSurveyService:
         self, survey_id: int, request: UpdateAnnualSurveyRequest
     ) -> AnnualSurveyResponse:
         """Update an existing annual survey."""
-        from sqlalchemy import update
-
         # Get the existing survey
         result = await self.db.execute(
             select(AnnualSurvey)
