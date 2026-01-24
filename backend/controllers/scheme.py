@@ -265,7 +265,7 @@ async def list_bookmarked_schemes(
             start_time=scheme.start_time,
             end_time=scheme.end_time,
             active=scheme.active,
-            media=[media for media in scheme.media],
+            media=scheme.media,
         )
         for scheme in schemes
     ]

@@ -1,5 +1,5 @@
 """Database models for schemes and their associated media."""
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import Integer, String, DateTime, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship, mapped_column, Mapped
