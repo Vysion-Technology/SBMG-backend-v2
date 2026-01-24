@@ -93,7 +93,7 @@ async def update_annual_survey(
             )
 
         # Check permissions
-        if survey.gp_id != current_user.gp_id:
+        if current_user.gp_id and survey.gp_id != current_user.gp_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to update this survey",
