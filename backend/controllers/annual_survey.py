@@ -15,7 +15,7 @@ from database import get_db
 
 from models.database.auth import User
 
-from models.requests.survey import CreateAnnualSurveyRequest
+from models.requests.survey import CreateAnnualSurveyRequest, UpdateAnnualSurveyRequest
 from models.response.annual_survey import (
     AnnualSurveyFYResponse,
     AnnualSurveyResponse,
@@ -66,6 +66,49 @@ async def create_annual_survey(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
     return survey
+
+
+@router.put("/{survey_id}", response_model=AnnualSurveyResponse)
+async def update_annual_survey(
+    survey_id: int,
+    survey_request: UpdateAnnualSurveyRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> AnnualSurveyResponse:
+    """
+    Update an existing annual survey.
+
+    - Staff members can update surveys for GPs within their jurisdiction
+    - Admin can update surveys anywhere
+    """
+    service = AnnualSurveyService(db)
+
+    try:
+        # Get the existing survey to check permissions
+        survey = await service.get_survey_by_id(survey_id)
+        if not survey:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Survey not found",
+            )
+
+        # Check permissions
+        if survey.gp_id != current_user.gp_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to update this survey",
+            )
+        if "contractor" in current_user.username:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Contractor users cannot update surveys",
+            )
+
+        updated_survey = await service.update_survey(survey_id, survey_request)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    return updated_survey
 
 
 @router.delete("/{survey_id}", status_code=status.HTTP_204_NO_CONTENT)

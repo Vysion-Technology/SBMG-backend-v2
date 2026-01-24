@@ -165,21 +165,12 @@ class CreateAnnualSurveyRequest(BaseModel):
 class UpdateAnnualSurveyRequest(BaseModel):
     """Request model for updating an annual survey."""
 
-    survey_date: Optional[date] = None
-
-    # 1. VDO Details
-    vdo_name: Optional[str] = None
-    vdo_contact: Optional[str] = None
-
     # 2. Sarpanch Details
     sarpanch_name: Optional[str] = None
     sarpanch_contact: Optional[str] = None
 
     # 3. No. of Ward Panchs
     num_ward_panchs: Optional[int] = None
-
-    # 4. Bidder Name
-    bidder_name: Optional[str] = None
 
     # 5. Work Order Details
     work_order: Optional[WorkOrderDetailsRequest] = None
