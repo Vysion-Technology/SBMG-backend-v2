@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_utils import require_admin
+from auth_utils import require_admin, require_staff_role
 
 from database import get_db
 
@@ -189,3 +189,60 @@ async def delete_event(
 
     await service.delete_event(event_id)
     return DeletionResponse(message="Event deleted successfully")
+
+
+@router.post("/{event_id}/bookmark", status_code=201)
+async def add_event_bookmark(
+    event_id: int,
+    current_user = Depends(require_staff_role),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add a bookmark for an event."""
+    service = EventService(db)
+    event = await service.get_event_by_id(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    await service.add_bookmark(event_id, current_user.id)
+    return {"message": "Event bookmarked successfully"}
+
+
+@router.delete("/{event_id}/bookmark", status_code=200)
+async def remove_event_bookmark(
+    event_id: int,
+    current_user = Depends(require_staff_role),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a bookmark for an event."""
+    service = EventService(db)
+    deleted = await service.remove_bookmark(event_id, current_user.id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Bookmark not found")
+    return {"message": "Bookmark removed successfully"}
+
+
+@router.get("/bookmarked/list", response_model=List[EventResponse])
+async def list_bookmarked_events(
+    skip: int = 0,
+    limit: int = 100,
+    current_user = Depends(require_staff_role),
+    db: AsyncSession = Depends(get_db),
+) -> List[EventResponse]:
+    """List all bookmarked events for the current user."""
+    if limit > 1000:
+        raise HTTPException(status_code=400, detail="Limit exceeds maximum of 100.")
+
+    service = EventService(db)
+    events = await service.get_bookmarked_events(current_user.id, skip=skip, limit=limit)
+    return [
+        EventResponse(
+            id=event.id,
+            name=event.name,
+            description=event.description,
+            start_time=event.start_time,
+            end_time=event.end_time,
+            active=event.active,
+            media=event.media,
+        )
+        for event in events
+    ]

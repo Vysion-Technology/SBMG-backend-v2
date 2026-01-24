@@ -4,10 +4,11 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import IntegrityError
 
 from sqlalchemy import delete, insert, select, update
 
-from models.database.event import Event, EventMedia
+from models.database.event import Event, EventMedia, EventBookmark
 
 
 class EventService:
@@ -113,3 +114,60 @@ class EventService:
             delete(Event).where(Event.id == event_id),
         )
         await self.db.commit()
+
+    async def add_bookmark(self, event_id: int, user_id: int) -> EventBookmark:
+        """Add a bookmark for an event."""
+        bookmark = EventBookmark(event_id=event_id, user_id=user_id)
+        self.db.add(bookmark)
+        try:
+            await self.db.commit()
+            await self.db.refresh(bookmark)
+            return bookmark
+        except IntegrityError:
+            await self.db.rollback()
+            # Bookmark already exists, return existing one
+            result = await self.db.execute(
+                select(EventBookmark)
+                .where(EventBookmark.event_id == event_id)
+                .where(EventBookmark.user_id == user_id)
+            )
+            return result.scalar_one()
+
+    async def remove_bookmark(self, event_id: int, user_id: int) -> bool:
+        """Remove a bookmark for an event. Returns True if deleted, False if not found."""
+        result = await self.db.execute(
+            delete(EventBookmark)
+            .where(EventBookmark.event_id == event_id)
+            .where(EventBookmark.user_id == user_id)
+            .returning(EventBookmark.id)
+        )
+        await self.db.commit()
+        return result.scalar_one_or_none() is not None
+
+    async def get_bookmarked_events(
+        self,
+        user_id: int,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> list[Event]:
+        """Get all bookmarked events for a user."""
+        query = (
+            select(Event)
+            .join(EventBookmark, Event.id == EventBookmark.event_id)
+            .where(EventBookmark.user_id == user_id)
+            .options(selectinload(Event.media))
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        events = result.scalars().all()
+        return list(events)
+
+    async def is_bookmarked(self, event_id: int, user_id: int) -> bool:
+        """Check if an event is bookmarked by a user."""
+        result = await self.db.execute(
+            select(EventBookmark)
+            .where(EventBookmark.event_id == event_id)
+            .where(EventBookmark.user_id == user_id)
+        )
+        return result.scalar_one_or_none() is not None

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Integer, String, DateTime, ForeignKey, Boolean
+from sqlalchemy import Integer, String, DateTime, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 
 from database import Base  # type: ignore
@@ -34,3 +34,21 @@ class EventMedia(Base):  # type: ignore
     media_url: Mapped[str] = mapped_column(String, nullable=False)
 
     event = relationship("Event", back_populates="media")
+
+
+class EventBookmark(Base):  # type: ignore
+    """Database model for event bookmarks."""
+
+    __tablename__ = "event_bookmarks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    event_id: Mapped[int] = mapped_column(Integer, ForeignKey("events.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("authority_users.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.now)
+
+    event = relationship("Event")
+    user = relationship("User")
+
+    __table_args__ = (
+        UniqueConstraint("event_id", "user_id", name="uix_event_user_bookmark"),
+    )

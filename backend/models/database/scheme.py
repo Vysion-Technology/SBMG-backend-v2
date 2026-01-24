@@ -1,7 +1,7 @@
 """Database models for schemes and their associated media."""
 from datetime import datetime
 
-from sqlalchemy import Integer, String, DateTime, ForeignKey, Boolean
+from sqlalchemy import Integer, String, DateTime, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 
 from database import Base  # type: ignore
@@ -36,3 +36,21 @@ class SchemeMedia(Base):  # type: ignore
     media_url: Mapped[str] = mapped_column(String, nullable=False)
 
     scheme = relationship("Scheme", back_populates="media")
+
+
+class SchemeBookmark(Base):  # type: ignore
+    """Database model for scheme bookmarks."""
+
+    __tablename__ = "scheme_bookmarks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    scheme_id: Mapped[int] = mapped_column(Integer, ForeignKey("schemes.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("authority_users.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.now)
+
+    scheme = relationship("Scheme")
+    user = relationship("User")
+
+    __table_args__ = (
+        UniqueConstraint("scheme_id", "user_id", name="uix_scheme_user_bookmark"),
+    )
