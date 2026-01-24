@@ -1,8 +1,9 @@
 """Database models for schemes and their associated media."""
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Integer, String, DateTime, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship, mapped_column, Mapped
+from sqlalchemy.sql import func
 
 from database import Base  # type: ignore
 
@@ -46,7 +47,7 @@ class SchemeBookmark(Base):  # type: ignore
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     scheme_id: Mapped[int] = mapped_column(Integer, ForeignKey("schemes.id"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("authority_users.id"), nullable=False, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.now)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     scheme = relationship("Scheme")
     user = relationship("User")
