@@ -230,7 +230,7 @@ async def list_bookmarked_events(
 ) -> List[EventResponse]:
     """List all bookmarked events for the current user."""
     if limit > 100:
-        raise HTTPException(status_code=400, detail="Limit exceeds maximum of 100.")
+        raise HTTPException(status_code=400, detail="Limit cannot exceed 100")
 
     service = EventService(db)
     events = await service.get_bookmarked_events(current_user.id, skip=skip, limit=limit)
