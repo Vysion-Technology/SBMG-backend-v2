@@ -42,12 +42,14 @@ async def add_vehicles(
         gp_id=add_vehicle_request.gp_id,
         vehicle_no=add_vehicle_request.vehicle_no,
         imei=add_vehicle_request.imei,
+        name=add_vehicle_request.name,
     )
     return VehicleResponse(
         id=vehicle.id,
         vehicle_no=vehicle.vehicle_no,
         imei=vehicle.imei,
         gp_id=vehicle.gp_id,
+        name=vehicle.name,
     )
 
 
@@ -77,6 +79,7 @@ async def get_vehicles(
             vehicle_no=vehicle.vehicle_no,
             imei=vehicle.imei,
             gp_id=vehicle.gp_id,
+            name=vehicle.name,
         )
         for vehicle in vehicles
     ]

@@ -221,7 +221,7 @@ class GPSTrackingService:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def add_vehicle(self, vehicle_no: str, imei: str, gp_id: int) -> Vehicle:
+    async def add_vehicle(self, vehicle_no: str, imei: str, gp_id: int, name: str) -> Vehicle:
         """
         Add a new vehicle to the tracking system.
 
@@ -229,6 +229,7 @@ class GPSTrackingService:
             vehicle_no: Vehicle registration number
             imei: Device IMEI number
             gp_id: Gram Panchayat ID
+            name: Name of the vehicle
 
         Returns:
             The created GPSTracking record
@@ -244,6 +245,7 @@ class GPSTrackingService:
                     vehicle_no=vehicle_no,
                     imei=imei,
                     gp_id=gp_id,
+                    name=name,
                 )
                 .returning(Vehicle)
             )
@@ -351,7 +353,7 @@ class GPSTrackingService:
                 vehicle_details.append(
                     RunningVehiclesResponse(
                         vehicle_id=record.vehicle.id,
-                        name=f"Vehicle {record.vehicle.vehicle_no}",
+                        name=record.vehicle.name or f"Vehicle {record.vehicle.vehicle_no}",
                         vehicle_no=record.vehicle.vehicle_no,
                         status="Running" if record.speed > 0 else "Stopped",
                         speed=record.speed,
