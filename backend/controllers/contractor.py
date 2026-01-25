@@ -33,6 +33,42 @@ async def list_agencies(
     return [agency for agency in agencies]
 
 
+@router.get("/contractors", response_model=List[ContractorResponse])
+async def list_contractors(
+    db: AsyncSession = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+    gp_id: Optional[int] = None,
+    block_id: Optional[int] = None,
+    district_id: Optional[int] = None,
+    agency_id: Optional[int] = None,
+    person_name: Optional[str] = None,
+    active_only: bool = False,
+) -> List[ContractorResponse]:
+    """
+    List all contractors with optional filtering and pagination.
+    
+    Filters:
+    - gp_id: Filter by Gram Panchayat (Village) ID
+    - block_id: Filter by Block ID
+    - district_id: Filter by District ID
+    - agency_id: Filter by Agency ID
+    - person_name: Search by person name (case-insensitive partial match)
+    - active_only: If true, only return contractors with active contracts
+    """
+    contractors = await ContractorService(db).list_contractors(
+        skip=skip,
+        limit=limit,
+        gp_id=gp_id,
+        block_id=block_id,
+        district_id=district_id,
+        agency_id=agency_id,
+        person_name=person_name,
+        active_only=active_only,
+    )
+    return contractors
+
+
 @router.post("/agencies", response_model=AgencyResponse)
 async def create_agency(
     agency: CreateAgencyRequest,
