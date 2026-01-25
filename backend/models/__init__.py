@@ -24,9 +24,9 @@ from models.database.complaint import (
     ComplaintComment,
 )
 from models.database.fcm_device import UserDeviceToken, PublicUserDeviceToken
-from models.database.event import Event, EventMedia
+from models.database.event import Event, EventMedia, EventBookmark
 from models.database.contractor import Agency, Contractor
-from models.database.scheme import Scheme, SchemeMedia
+from models.database.scheme import Scheme, SchemeMedia, SchemeBookmark
 from models.database.survey import (
     Form,
     Question,
@@ -84,6 +84,7 @@ __all__ = [
     # Event models
     "Event",
     "EventMedia",
+    "EventBookmark",
     # Contractor models
     "Agency",
     "Contractor",
@@ -93,6 +94,7 @@ __all__ = [
     # Scheme models
     "Scheme",
     "SchemeMedia",
+    "SchemeBookmark",
     # Survey models
     "Form",
     "Question",

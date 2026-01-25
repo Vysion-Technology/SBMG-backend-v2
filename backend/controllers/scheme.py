@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from auth_utils import require_admin
+from auth_utils import require_admin, require_staff_role
 
 from services.s3_service import s3_service
 from services.scheme import SchemeService
@@ -211,3 +211,61 @@ async def delete_scheme(
 
     await service.delete_scheme(scheme_id)
     return DeletionResponse(message="Scheme deleted successfully")
+
+
+@router.post("/{scheme_id}/bookmark", status_code=201)
+async def add_scheme_bookmark(
+    scheme_id: int,
+    current_user = Depends(require_staff_role),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add a bookmark for a scheme."""
+    service = SchemeService(db)
+    scheme = await service.get_scheme_by_id(scheme_id)
+    if not scheme:
+        raise HTTPException(status_code=404, detail="Scheme not found")
+
+    await service.add_bookmark(scheme_id, current_user.id)
+    return {"message": "Scheme bookmarked successfully"}
+
+
+@router.delete("/{scheme_id}/bookmark", status_code=200)
+async def remove_scheme_bookmark(
+    scheme_id: int,
+    current_user = Depends(require_staff_role),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a bookmark for a scheme."""
+    service = SchemeService(db)
+    deleted = await service.remove_bookmark(scheme_id, current_user.id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Bookmark not found")
+    return {"message": "Bookmark removed successfully"}
+
+
+@router.get("/bookmarked/list", response_model=List[SchemeResponse])
+async def list_bookmarked_schemes(
+    skip: int = 0,
+    limit: int = 100,
+    current_user = Depends(require_staff_role),
+    db: AsyncSession = Depends(get_db),
+) -> List[SchemeResponse]:
+    """List all bookmarked schemes for the current user."""
+    if limit > 100:
+        raise HTTPException(status_code=400, detail="Limit cannot exceed 100")
+    service = SchemeService(db)
+    schemes = await service.get_bookmarked_schemes(current_user.id, skip=skip, limit=limit)
+    return [
+        SchemeResponse(
+            id=scheme.id,
+            name=scheme.name,
+            description=scheme.description,
+            eligibility=scheme.eligibility,
+            benefits=scheme.benefits,
+            start_time=scheme.start_time,
+            end_time=scheme.end_time,
+            active=scheme.active,
+            media=scheme.media,
+        )
+        for scheme in schemes
+    ]

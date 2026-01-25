@@ -6,8 +6,9 @@ from typing import Optional
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import IntegrityError
 
-from models.database.scheme import Scheme, SchemeMedia
+from models.database.scheme import Scheme, SchemeMedia, SchemeBookmark
 
 
 class SchemeService:
@@ -127,3 +128,59 @@ class SchemeService:
         )
         await self.db.execute(delete(Scheme).where(Scheme.id == scheme_id))
         await self.db.commit()
+
+    async def add_bookmark(self, scheme_id: int, user_id: int) -> SchemeBookmark:
+        """Add a bookmark for a scheme."""
+        bookmark = SchemeBookmark(scheme_id=scheme_id, user_id=user_id)
+        self.db.add(bookmark)
+        try:
+            await self.db.commit()
+            await self.db.refresh(bookmark)
+            return bookmark
+        except IntegrityError:
+            await self.db.rollback()
+            # Bookmark already exists, return existing one
+            result = await self.db.execute(
+                select(SchemeBookmark)
+                .where(SchemeBookmark.scheme_id == scheme_id)
+                .where(SchemeBookmark.user_id == user_id)
+            )
+            return result.scalar_one()
+
+    async def remove_bookmark(self, scheme_id: int, user_id: int) -> bool:
+        """Remove a bookmark for a scheme. Returns True if deleted, False if not found."""
+        result = await self.db.execute(
+            delete(SchemeBookmark)
+            .where(SchemeBookmark.scheme_id == scheme_id)
+            .where(SchemeBookmark.user_id == user_id)
+            .returning(SchemeBookmark.id)
+        )
+        await self.db.commit()
+        return result.scalar_one_or_none() is not None
+
+    async def get_bookmarked_schemes(
+        self,
+        user_id: int,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> list[Scheme]:
+        """Get all bookmarked schemes for a user."""
+        query = (
+            select(Scheme)
+            .join(SchemeBookmark, Scheme.id == SchemeBookmark.scheme_id)
+            .where(SchemeBookmark.user_id == user_id)
+            .options(selectinload(Scheme.media))
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        return result.scalars().all()
+
+    async def is_bookmarked(self, scheme_id: int, user_id: int) -> bool:
+        """Check if a scheme is bookmarked by a user."""
+        result = await self.db.execute(
+            select(SchemeBookmark)
+            .where(SchemeBookmark.scheme_id == scheme_id)
+            .where(SchemeBookmark.user_id == user_id)
+        )
+        return result.scalar_one_or_none() is not None
