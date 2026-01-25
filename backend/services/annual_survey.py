@@ -36,7 +36,7 @@ from models.database.survey_master import (
     CleaningFrequency,
 )
 from models.database.auth import PositionHolder, User
-from models.database.geography import Block, District, GramPanchayat
+from models.database.geography import Block, District, GramPanchayat, Village
 from models.requests.survey import (
     CreateAnnualSurveyRequest,
     UpdateAnnualSurveyRequest,
@@ -482,7 +482,35 @@ class AnnualSurveyService:
 
         # Update village data if provided
         if request.village_data is not None:
+            # Validate that all village_ids exist
+            requested_village_ids = [v.village_id for v in request.village_data]
+            existing_result = await self.db.execute(
+                select(Village.id).where(Village.id.in_(requested_village_ids))
+            )
+            existing_ids = set(existing_result.scalars().all())
+            missing_ids = set(requested_village_ids) - existing_ids
+            if missing_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid village_id(s): {sorted(missing_ids)}. These do not exist in the villages table.",
+                )
+
             # Delete existing village data and recreate
+            village_ids_subquery = select(VillageData.id).where(
+                VillageData.survey_id == survey_id
+            )
+
+            # Remove village-level assets first to honor FK constraints
+            await self.db.execute(
+                delete(VillageGWMAssets).where(
+                    VillageGWMAssets.id.in_(village_ids_subquery)
+                )
+            )
+            await self.db.execute(
+                delete(VillageSBMGAssets).where(
+                    VillageSBMGAssets.id.in_(village_ids_subquery)
+                )
+            )
             await self.db.execute(
                 delete(VillageData).where(VillageData.survey_id == survey_id)
             )
