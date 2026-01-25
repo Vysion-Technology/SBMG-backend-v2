@@ -9,3 +9,4 @@ class AddVehicleRequest(BaseModel):
     gp_id: int = Field(..., description="Gram Panchayat ID")
     vehicle_no: str = Field(..., description="Vehicle number to add")
     imei: str = Field(..., description="IMEI number of the vehicle GPS device")
+    name: str = Field(..., description="Name of the vehicle")

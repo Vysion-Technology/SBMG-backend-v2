@@ -42,6 +42,7 @@ class VehicleBaseResponse(BaseModel):
 
     vehicle_no: str = Field(..., description="Vehicle registration number")
     imei: str = Field(..., description="Device IMEI number")
+    name: str | None = Field(None, description="Name of the vehicle")
 
 
 class VehicleResponse(VehicleBaseResponse):
