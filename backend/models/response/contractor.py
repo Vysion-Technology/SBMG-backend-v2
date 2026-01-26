@@ -1,6 +1,8 @@
 from typing import Optional, Any
 from pydantic import BaseModel
 
+from models.database.contractor import ContractorFrequency
+
 
 class AgencyResponse(BaseModel):
     """Response model for agency"""
@@ -28,6 +30,8 @@ class ContractorResponse(BaseModel):
     district_name: Optional[str]
     contract_start_date: Optional[Any] = None
     contract_end_date: Optional[Any] = None
+    contract_frequency: ContractorFrequency
+    contract_amount: float
 
     class Config:
         from_attributes = True

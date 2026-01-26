@@ -4,6 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from models.database.contractor import ContractorFrequency
+
 
 class CreateAgencyRequest(BaseModel):
     """Request model for creating an agency"""
@@ -21,6 +23,8 @@ class CreateContractorRequest(BaseModel):
     gp_id: int
     contract_start_date: Optional[datetime] = None
     contract_end_date: Optional[datetime] = None
+    contract_frequency: ContractorFrequency = ContractorFrequency.DAILY
+    contract_amount: float = 0.0
 
 
 class UpdateContractorRequest(BaseModel):
@@ -31,3 +35,5 @@ class UpdateContractorRequest(BaseModel):
     gp_id: Optional[int] = None
     contract_start_date: Optional[datetime] = None
     contract_end_date: Optional[datetime] = None
+    contract_frequency: Optional[ContractorFrequency] = None
+    contract_amount: Optional[float] = None

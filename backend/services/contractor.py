@@ -37,6 +37,8 @@ def map_contractor_to_response(contractor: Contractor) -> ContractorResponse:
         else None,
         contract_start_date=contractor.contract_start_date,
         contract_end_date=contractor.contract_end_date,
+        contract_frequency=contractor.contract_frequency,
+        contract_amount=contractor.contract_amount,
     )
 
 
@@ -192,6 +194,8 @@ class ContractorService:
                 gp_id=contractor_req.gp_id,
                 contract_start_date=contractor_req.contract_start_date,
                 contract_end_date=contractor_req.contract_end_date,
+                contract_frequency=contractor_req.contract_frequency,
+                contract_amount=contractor_req.contract_amount,
             )
             .returning(Contractor)
         )
@@ -237,6 +241,10 @@ class ContractorService:
             update_values["contract_start_date"] = contractor_req.contract_start_date
         if contractor_req.contract_end_date is not None:
             update_values["contract_end_date"] = contractor_req.contract_end_date
+        if contractor_req.contract_frequency is not None:
+            update_values["contract_frequency"] = contractor_req.contract_frequency
+        if contractor_req.contract_amount is not None:
+            update_values["contract_amount"] = contractor_req.contract_amount
 
         # Update contractor
         if update_values:
@@ -275,6 +283,8 @@ class ContractorService:
                     "gp_id": req.gp_id,
                     "contract_start_date": req.contract_start_date,
                     "contract_end_date": req.contract_end_date,
+                    "contract_frequency": req.contract_frequency,
+                    "contract_amount": req.contract_amount,
                 }
                 for req in contractors_req
             ])

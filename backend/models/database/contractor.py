@@ -2,7 +2,8 @@ from database import Base  # type: ignore
 from typing import Optional, List, TYPE_CHECKING
 
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy import String, Integer, ForeignKey, DateTime
+from sqlalchemy import String, Integer, ForeignKey, DateTime, Enum, Float
+from enum import Enum as PyEnum
 
 from models.database.geography import GramPanchayat
 
@@ -26,6 +27,17 @@ class Agency(Base):  # type: ignore
     contractors = relationship("Contractor", back_populates="agency")
 
 
+class ContractorFrequency(str, PyEnum):  # type: ignore
+    """
+    Describes a contractor/worker frequency entity
+    """
+
+    DAILY = "DAILY"
+    ONCE_IN_THREE_DAYS = "ONCE_IN_THREE_DAYS"
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
+
+
 class Contractor(Base):  # type: ignore
     """
     Describes a contractor/worker entity
@@ -47,6 +59,12 @@ class Contractor(Base):  # type: ignore
     )  # type: ignore
     contract_end_date: Mapped[Optional[DateTime]] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )  # type: ignore
+    contract_frequency: Mapped[ContractorFrequency] = mapped_column(
+        Enum(ContractorFrequency), nullable=False, server_default="DAILY"
+    )  # type: ignore
+    contract_amount: Mapped[float] = mapped_column(
+        Float, nullable=False, server_default="0.0"
     )  # type: ignore
 
     # Relationships
