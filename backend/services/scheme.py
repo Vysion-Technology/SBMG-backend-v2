@@ -129,9 +129,16 @@ class SchemeService:
         await self.db.execute(delete(Scheme).where(Scheme.id == scheme_id))
         await self.db.commit()
 
-    async def add_bookmark(self, scheme_id: int, user_id: int) -> SchemeBookmark:
+    async def add_bookmark(
+        self,
+        scheme_id: int,
+        user_id: Optional[int] = None,
+        public_user_id: Optional[int] = None,
+    ) -> SchemeBookmark:
         """Add a bookmark for a scheme."""
-        bookmark = SchemeBookmark(scheme_id=scheme_id, user_id=user_id)
+        bookmark = SchemeBookmark(
+            scheme_id=scheme_id, user_id=user_id, public_user_id=public_user_id
+        )
         self.db.add(bookmark)
         try:
             await self.db.commit()
@@ -140,27 +147,37 @@ class SchemeService:
         except IntegrityError:
             await self.db.rollback()
             # Bookmark already exists, return existing one
-            result = await self.db.execute(
-                select(SchemeBookmark)
-                .where(SchemeBookmark.scheme_id == scheme_id)
-                .where(SchemeBookmark.user_id == user_id)
-            )
+            query = select(SchemeBookmark).where(SchemeBookmark.scheme_id == scheme_id)
+            if user_id:
+                query = query.where(SchemeBookmark.user_id == user_id)
+            if public_user_id:
+                query = query.where(SchemeBookmark.public_user_id == public_user_id)
+
+            result = await self.db.execute(query)
             return result.scalar_one()
 
-    async def remove_bookmark(self, scheme_id: int, user_id: int) -> bool:
+    async def remove_bookmark(
+        self,
+        scheme_id: int,
+        user_id: Optional[int] = None,
+        public_user_id: Optional[int] = None,
+    ) -> bool:
         """Remove a bookmark for a scheme. Returns True if deleted, False if not found."""
-        result = await self.db.execute(
-            delete(SchemeBookmark)
-            .where(SchemeBookmark.scheme_id == scheme_id)
-            .where(SchemeBookmark.user_id == user_id)
-            .returning(SchemeBookmark.id)
-        )
+        query = delete(SchemeBookmark).where(SchemeBookmark.scheme_id == scheme_id)
+
+        if user_id:
+            query = query.where(SchemeBookmark.user_id == user_id)
+        if public_user_id:
+            query = query.where(SchemeBookmark.public_user_id == public_user_id)
+
+        result = await self.db.execute(query.returning(SchemeBookmark.id))
         await self.db.commit()
         return result.scalar_one_or_none() is not None
 
     async def get_bookmarked_schemes(
         self,
-        user_id: int,
+        user_id: Optional[int] = None,
+        public_user_id: Optional[int] = None,
         skip: int = 0,
         limit: int = 100,
     ) -> list[Scheme]:
@@ -168,19 +185,31 @@ class SchemeService:
         query = (
             select(Scheme)
             .join(SchemeBookmark, Scheme.id == SchemeBookmark.scheme_id)
-            .where(SchemeBookmark.user_id == user_id)
             .options(selectinload(Scheme.media))
             .offset(skip)
             .limit(limit)
         )
+
+        if user_id:
+            query = query.where(SchemeBookmark.user_id == user_id)
+        if public_user_id:
+            query = query.where(SchemeBookmark.public_user_id == public_user_id)
+
         result = await self.db.execute(query)
         return result.scalars().all()
 
-    async def is_bookmarked(self, scheme_id: int, user_id: int) -> bool:
+    async def is_bookmarked(
+        self,
+        scheme_id: int,
+        user_id: Optional[int] = None,
+        public_user_id: Optional[int] = None,
+    ) -> bool:
         """Check if a scheme is bookmarked by a user."""
-        result = await self.db.execute(
-            select(SchemeBookmark)
-            .where(SchemeBookmark.scheme_id == scheme_id)
-            .where(SchemeBookmark.user_id == user_id)
-        )
+        query = select(SchemeBookmark).where(SchemeBookmark.scheme_id == scheme_id)
+        if user_id:
+            query = query.where(SchemeBookmark.user_id == user_id)
+        if public_user_id:
+            query = query.where(SchemeBookmark.public_user_id == public_user_id)
+
+        result = await self.db.execute(query)
         return result.scalar_one_or_none() is not None

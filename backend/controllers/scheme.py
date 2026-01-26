@@ -1,13 +1,15 @@
 """Controller for managing schemes and their associated media."""
 
 from datetime import timezone
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from models.database.auth import User, PublicUser
+from controllers.auth import get_current_any_user
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from auth_utils import require_admin, require_staff_role
+from auth_utils import require_admin
 
 from services.s3_service import s3_service
 from services.scheme import SchemeService
@@ -216,7 +218,7 @@ async def delete_scheme(
 @router.post("/{scheme_id}/bookmark", status_code=201)
 async def add_scheme_bookmark(
     scheme_id: int,
-    current_user = Depends(require_staff_role),
+    current_user: Union[User, PublicUser] = Depends(get_current_any_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Add a bookmark for a scheme."""
@@ -225,19 +227,30 @@ async def add_scheme_bookmark(
     if not scheme:
         raise HTTPException(status_code=404, detail="Scheme not found")
 
-    await service.add_bookmark(scheme_id, current_user.id)
+    user_id = current_user.id if isinstance(current_user, User) else None
+    public_user_id = current_user.id if isinstance(current_user, PublicUser) else None
+
+    await service.add_bookmark(
+        scheme_id, user_id=user_id, public_user_id=public_user_id
+    )
     return {"message": "Scheme bookmarked successfully"}
 
 
 @router.delete("/{scheme_id}/bookmark", status_code=200)
 async def remove_scheme_bookmark(
     scheme_id: int,
-    current_user = Depends(require_staff_role),
+    current_user: Union[User, PublicUser] = Depends(get_current_any_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Remove a bookmark for a scheme."""
     service = SchemeService(db)
-    deleted = await service.remove_bookmark(scheme_id, current_user.id)
+
+    user_id = current_user.id if isinstance(current_user, User) else None
+    public_user_id = current_user.id if isinstance(current_user, PublicUser) else None
+
+    deleted = await service.remove_bookmark(
+        scheme_id, user_id=user_id, public_user_id=public_user_id
+    )
     if not deleted:
         raise HTTPException(status_code=404, detail="Bookmark not found")
     return {"message": "Bookmark removed successfully"}
@@ -247,14 +260,20 @@ async def remove_scheme_bookmark(
 async def list_bookmarked_schemes(
     skip: int = 0,
     limit: int = 100,
-    current_user = Depends(require_staff_role),
+    current_user: Union[User, PublicUser] = Depends(get_current_any_user),
     db: AsyncSession = Depends(get_db),
 ) -> List[SchemeResponse]:
     """List all bookmarked schemes for the current user."""
     if limit > 100:
         raise HTTPException(status_code=400, detail="Limit cannot exceed 100")
     service = SchemeService(db)
-    schemes = await service.get_bookmarked_schemes(current_user.id, skip=skip, limit=limit)
+
+    user_id = current_user.id if isinstance(current_user, User) else None
+    public_user_id = current_user.id if isinstance(current_user, PublicUser) else None
+
+    schemes = await service.get_bookmarked_schemes(
+        user_id=user_id, public_user_id=public_user_id, skip=skip, limit=limit
+    )
     return [
         SchemeResponse(
             id=scheme.id,

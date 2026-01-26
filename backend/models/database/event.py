@@ -2,7 +2,15 @@
 
 from datetime import datetime
 
-from sqlalchemy import Integer, String, DateTime, ForeignKey, Boolean, UniqueConstraint
+from sqlalchemy import (
+    Integer,
+    String,
+    DateTime,
+    ForeignKey,
+    Boolean,
+    UniqueConstraint,
+    CheckConstraint,
+)
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 from sqlalchemy.sql import func
 
@@ -44,12 +52,25 @@ class EventBookmark(Base):  # type: ignore
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     event_id: Mapped[int] = mapped_column(Integer, ForeignKey("events.id"), nullable=False, index=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("authority_users.id"), nullable=False, index=True)
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("authority_users.id"), nullable=True, index=True
+    )
+    public_user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("public_users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     event = relationship("Event")
     user = relationship("User")
+    public_user = relationship("PublicUser")
 
     __table_args__ = (
         UniqueConstraint("event_id", "user_id", name="uix_event_user_bookmark"),
+        UniqueConstraint(
+            "event_id", "public_user_id", name="uix_event_public_user_bookmark"
+        ),
+        CheckConstraint(
+            "(user_id IS NOT NULL AND public_user_id IS NULL) OR (user_id IS NULL AND public_user_id IS NOT NULL)",
+            name="check_event_bookmark_owner",
+        ),
     )

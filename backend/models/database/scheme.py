@@ -1,7 +1,15 @@
 """Database models for schemes and their associated media."""
 from datetime import datetime
 
-from sqlalchemy import Integer, String, DateTime, ForeignKey, Boolean, UniqueConstraint
+from sqlalchemy import (
+    Integer,
+    String,
+    DateTime,
+    ForeignKey,
+    Boolean,
+    UniqueConstraint,
+    CheckConstraint,
+)
 from sqlalchemy.orm import relationship, mapped_column, Mapped
 from sqlalchemy.sql import func
 
@@ -46,12 +54,25 @@ class SchemeBookmark(Base):  # type: ignore
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     scheme_id: Mapped[int] = mapped_column(Integer, ForeignKey("schemes.id"), nullable=False, index=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("authority_users.id"), nullable=False, index=True)
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("authority_users.id"), nullable=True, index=True
+    )
+    public_user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("public_users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     scheme = relationship("Scheme")
     user = relationship("User")
+    public_user = relationship("PublicUser")
 
     __table_args__ = (
         UniqueConstraint("scheme_id", "user_id", name="uix_scheme_user_bookmark"),
+        UniqueConstraint(
+            "scheme_id", "public_user_id", name="uix_scheme_public_user_bookmark"
+        ),
+        CheckConstraint(
+            "(user_id IS NOT NULL AND public_user_id IS NULL) OR (user_id IS NULL AND public_user_id IS NOT NULL)",
+            name="check_scheme_bookmark_owner",
+        ),
     )

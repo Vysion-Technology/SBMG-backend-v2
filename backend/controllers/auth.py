@@ -1,5 +1,5 @@
 from services.auth import UserRole
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from database import get_db
-from models.database.auth import PositionHolder, User
+from models.database.auth import PositionHolder, User, PublicUser
 from services.auth import AuthService
 from config import settings
 
@@ -120,6 +120,33 @@ async def get_current_active_user(
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
+
+
+async def get_current_any_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> Union[User, PublicUser]:
+    """Get current user (User or PublicUser) from token."""
+    auth_service = AuthService(db)
+    token = credentials.credentials
+
+    # 1. Try Public User (Token based)
+    public_user = await auth_service.get_public_user_by_token(token)
+    if public_user:
+        return public_user
+
+    # 2. Try Authority User (JWT based)
+    user = await auth_service.get_current_user_from_token(token)
+    if user:
+        if not user.is_active:
+            raise HTTPException(status_code=400, detail="Inactive user")
+        return user
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 # Route handlers

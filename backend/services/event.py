@@ -115,9 +115,16 @@ class EventService:
         )
         await self.db.commit()
 
-    async def add_bookmark(self, event_id: int, user_id: int) -> EventBookmark:
+    async def add_bookmark(
+        self,
+        event_id: int,
+        user_id: Optional[int] = None,
+        public_user_id: Optional[int] = None,
+    ) -> EventBookmark:
         """Add a bookmark for an event."""
-        bookmark = EventBookmark(event_id=event_id, user_id=user_id)
+        bookmark = EventBookmark(
+            event_id=event_id, user_id=user_id, public_user_id=public_user_id
+        )
         self.db.add(bookmark)
         try:
             await self.db.commit()
@@ -126,27 +133,37 @@ class EventService:
         except IntegrityError:
             await self.db.rollback()
             # Bookmark already exists, return existing one
-            result = await self.db.execute(
-                select(EventBookmark)
-                .where(EventBookmark.event_id == event_id)
-                .where(EventBookmark.user_id == user_id)
-            )
+            query = select(EventBookmark).where(EventBookmark.event_id == event_id)
+            if user_id:
+                query = query.where(EventBookmark.user_id == user_id)
+            if public_user_id:
+                query = query.where(EventBookmark.public_user_id == public_user_id)
+
+            result = await self.db.execute(query)
             return result.scalar_one()
 
-    async def remove_bookmark(self, event_id: int, user_id: int) -> bool:
+    async def remove_bookmark(
+        self,
+        event_id: int,
+        user_id: Optional[int] = None,
+        public_user_id: Optional[int] = None,
+    ) -> bool:
         """Remove a bookmark for an event. Returns True if deleted, False if not found."""
-        result = await self.db.execute(
-            delete(EventBookmark)
-            .where(EventBookmark.event_id == event_id)
-            .where(EventBookmark.user_id == user_id)
-            .returning(EventBookmark.id)
-        )
+        query = delete(EventBookmark).where(EventBookmark.event_id == event_id)
+
+        if user_id:
+            query = query.where(EventBookmark.user_id == user_id)
+        if public_user_id:
+            query = query.where(EventBookmark.public_user_id == public_user_id)
+
+        result = await self.db.execute(query.returning(EventBookmark.id))
         await self.db.commit()
         return result.scalar_one_or_none() is not None
 
     async def get_bookmarked_events(
         self,
-        user_id: int,
+        user_id: Optional[int] = None,
+        public_user_id: Optional[int] = None,
         skip: int = 0,
         limit: int = 100,
     ) -> list[Event]:
@@ -154,19 +171,31 @@ class EventService:
         query = (
             select(Event)
             .join(EventBookmark, Event.id == EventBookmark.event_id)
-            .where(EventBookmark.user_id == user_id)
             .options(selectinload(Event.media))
             .offset(skip)
             .limit(limit)
         )
+
+        if user_id:
+            query = query.where(EventBookmark.user_id == user_id)
+        if public_user_id:
+            query = query.where(EventBookmark.public_user_id == public_user_id)
+
         result = await self.db.execute(query)
         return result.scalars().all()
 
-    async def is_bookmarked(self, event_id: int, user_id: int) -> bool:
+    async def is_bookmarked(
+        self,
+        event_id: int,
+        user_id: Optional[int] = None,
+        public_user_id: Optional[int] = None,
+    ) -> bool:
         """Check if an event is bookmarked by a user."""
-        result = await self.db.execute(
-            select(EventBookmark)
-            .where(EventBookmark.event_id == event_id)
-            .where(EventBookmark.user_id == user_id)
-        )
+        query = select(EventBookmark).where(EventBookmark.event_id == event_id)
+        if user_id:
+            query = query.where(EventBookmark.user_id == user_id)
+        if public_user_id:
+            query = query.where(EventBookmark.public_user_id == public_user_id)
+
+        result = await self.db.execute(query)
         return result.scalar_one_or_none() is not None
