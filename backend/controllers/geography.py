@@ -179,12 +179,14 @@ async def get_contractors_by_gp(
         raise HTTPException(status_code=404, detail="GramPanchayat not found")
 
     # Get contractors for this GP using ContractorService
+    # Note: Returns the first contractor for the GP (typically only one per GP)
     contractor_service = ContractorService(db)
     contractors = await contractor_service.list_contractors(gp_id=village_id, limit=1)
     
     if not contractors:
         raise HTTPException(status_code=404, detail="No contractors found for this village")
     
+    # Return the first (and typically only) contractor for this GP
     return contractors[0]
 
 
