@@ -178,43 +178,16 @@ async def get_contractors_by_gp(
     if not village:
         raise HTTPException(status_code=404, detail="GramPanchayat not found")
 
-    # Get contractors for this village with related data
-    query = select(Contractor).where(Contractor.gp_id == village_id)
-
-    result = await db.execute(query)
-    contractor = result.unique().scalar_one_or_none()
-    if not contractor:
+    # Get contractors for this GP using ContractorService
+    # Note: Returns the first contractor for the GP (typically only one per GP)
+    contractor_service = ContractorService(db)
+    contractors = await contractor_service.list_contractors(gp_id=village_id, limit=1)
+    
+    if not contractors:
         raise HTTPException(status_code=404, detail="No contractors found for this village")
-    agency: Agency = (
-        await db.execute(
-            select(Agency).where(
-                Agency.id == contractor.agency_id,
-            )
-        )
-    ).scalar_one()
-    contractor_service: ContractorService = ContractorService(db)
-
-    agency = await contractor_service.get_agency_by_id(contractor.agency_id)
-    return ContractorResponse(
-        id=contractor.id,
-        agency=AgencyResponse(
-            id=agency.id,
-            name=agency.name,
-            phone=agency.phone,
-            email=agency.email,
-            address=agency.address,
-        )
-        if agency
-        else None,
-        person_name=contractor.person_name,
-        person_phone=contractor.person_phone,
-        village_id=contractor.gp_id,
-        village_name=village.name if village else None,
-        block_name=village.block.name if village and village.block else None,
-        district_name=village.block.district.name if village and village.block else None,
-        contract_start_date=contractor.contract_start_date,
-        contract_end_date=contractor.contract_end_date,
-    )
+    
+    # Return the first (and typically only) contractor for this GP
+    return contractors[0]
 
 
 # Village endpoints
