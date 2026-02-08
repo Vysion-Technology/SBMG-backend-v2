@@ -101,6 +101,7 @@ class AnnualSurvey(Base):  # type: ignore
     vdo_id: Mapped[int] = mapped_column(  # type: ignore
         Integer, ForeignKey("authority_holder_persons.id"), nullable=False
     )
+    vdo_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True) # type: ignore
 
     # 2. Sarpanch Details
     sarpanch_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # type: ignore

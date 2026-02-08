@@ -53,6 +53,7 @@ def get_response_model_from_survey(
         gp_id=survey.gp_id,
         survey_date=survey.survey_date,
         vdo_id=survey.vdo_id,
+        vdo_name=survey.vdo_name,
         gp_name=survey.gp.name,
         block_name=survey.gp.block.name,
         district_name=survey.gp.district.name,
@@ -118,6 +119,7 @@ class AnnualSurveyService:
                     gp_id=request.gp_id,
                     survey_date=date.today(),
                     vdo_id=position.id,
+                    vdo_name=request.vdo_name,
                     sarpanch_name=request.sarpanch_name,
                     sarpanch_contact=request.sarpanch_contact,
                     num_ward_panchs=request.num_ward_panchs,
@@ -254,6 +256,7 @@ class AnnualSurveyService:
             gp_id=survey.gp_id,
             survey_date=survey.survey_date,
             vdo_id=survey.vdo_id,
+            vdo_name=survey.vdo_name,
             gp_name=gp.name,
             block_name=gp.block.name,
             district_name=gp.district.name,
@@ -285,6 +288,8 @@ class AnnualSurveyService:
             raise ValueError("Survey not found")
 
         # Update main survey fields
+        if request.vdo_name is not None:
+            survey.vdo_name = request.vdo_name
         if request.sarpanch_name is not None:
             survey.sarpanch_name = request.sarpanch_name
         if request.sarpanch_contact is not None:
@@ -556,6 +561,7 @@ class AnnualSurveyService:
             gp_id=survey.gp_id,
             survey_date=survey.survey_date,
             vdo_id=survey.vdo_id,
+            vdo_name=survey.vdo_name,
             gp_name=survey.gp.name,
             block_name=survey.gp.block.name,
             district_name=survey.gp.district.name,
@@ -719,6 +725,7 @@ class AnnualSurveyService:
                         "gp_id": gp_id,
                         "survey_date": date.today(),
                         "vdo_id": batch_vdo_ids[idx],
+                        "vdo_name": f"VDO {batch_vdo_ids[idx]}",
                         "sarpanch_name": f"Sarpanch {gp_id}",
                         "sarpanch_contact": f"90000000{gp_id % 10}",
                         "num_ward_panchs": random.randint(5, 15),

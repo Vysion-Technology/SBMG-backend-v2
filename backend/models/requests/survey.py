@@ -119,6 +119,7 @@ class CreateAnnualSurveyRequest(BaseModel):
 
     # 1. VDO Details
     vdo_id: int = Field(..., description="ID of the VDO")
+    vdo_name: Optional[str] = Field(None, description="Name of the VDO")
 
     # 2. Sarpanch Details
     sarpanch_name: str = Field(..., description="Name of the Sarpanch")
@@ -164,6 +165,9 @@ class CreateAnnualSurveyRequest(BaseModel):
 
 class UpdateAnnualSurveyRequest(BaseModel):
     """Request model for updating an annual survey."""
+
+    # 1. VDO Details
+    vdo_name: Optional[str] = None
 
     # 2. Sarpanch Details
     sarpanch_name: Optional[str] = None

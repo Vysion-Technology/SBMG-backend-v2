@@ -185,6 +185,7 @@ class AnnualSurveyResponse(BaseModel):
 
     # 1. VDO Details
     vdo_id: int
+    vdo_name: Optional[str]
 
     # 2. Sarpanch Details
     sarpanch_name: str
