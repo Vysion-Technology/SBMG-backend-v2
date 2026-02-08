@@ -421,7 +421,7 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
         )
         .where(Inspection.id == inspection_id)
     )
-    inspection = result.scalar_one_or_none()
+    inspection: Optional[Inspection] = result.scalar_one_or_none()
 
     if not inspection:
         return None

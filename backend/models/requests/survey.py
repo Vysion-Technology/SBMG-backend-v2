@@ -118,7 +118,7 @@ class CreateAnnualSurveyRequest(BaseModel):
     )
 
     # 1. VDO Details
-    vdo_id: int = Field(..., description="ID of the VDO")
+    vdo_id: Optional[int] = Field(None, description="ID of the VDO")
     vdo_name: Optional[str] = Field(None, description="Name of the VDO")
 
     # 2. Sarpanch Details
