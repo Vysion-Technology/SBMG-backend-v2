@@ -6,11 +6,13 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 
 from fastapi import HTTPException
+import httpx
 import requests
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import insert, select, distinct, func
 from sqlalchemy.orm import selectinload
 
+from config import settings
 from models.database.geography import Block, District, GramPanchayat
 from models.database.gps import GPSRecord, GPSTracking, Vehicle
 from models.response.gps import CoordinatesResponse, RunningVehiclesResponse
@@ -21,11 +23,13 @@ logger = logging.getLogger(__name__)
 class GPSTrackingService:
     """Service for GPS tracking operations."""
 
-    TRACKVERSE_API_URL = "https://api.trackverse.in/api/public/tracking/v0/device"
-    TRACKVERSE_API_KEY = "NT-20250001332338322F488A3E78AC07DD24BF"
-    TRACKVERSE_USERNAME = "deepakgupta"
-    TRACKVERSE_PASSWORD = "123456"
+    TRACKVERSE_API_URL = settings.trackverse_api_url
+    TRACKVERSE_API_KEY = settings.trackverse_api_key
+    TRACKVERSE_USERNAME = settings.trackverse_username
+    TRACKVERSE_PASSWORD = settings.trackverse_password
     FETCH_INTERVAL_SECONDS = 30  # Fetch GPS data every 30 seconds
+    _consecutive_failures = 0
+    _MAX_BACKOFF_SECONDS = 300  # Max 5 minutes between retries on persistent failures
 
     _background_task = None
     _should_stop = False
@@ -54,7 +58,7 @@ class GPSTrackingService:
             dict: Status of the operation
         """
         try:
-            # Fetch data from Trackverse API
+            # Fetch data from Trackverse API (async)
             headers = {
                 "accept": "application/json",
                 "api-key": GPSTrackingService.TRACKVERSE_API_KEY,
@@ -62,8 +66,9 @@ class GPSTrackingService:
                 "pass": GPSTrackingService.TRACKVERSE_PASSWORD,
             }
 
-            response = requests.get(GPSTrackingService.TRACKVERSE_API_URL, headers=headers, timeout=30)
-            response.raise_for_status()
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.get(GPSTrackingService.TRACKVERSE_API_URL, headers=headers)
+                response.raise_for_status()
 
             data = response.json()
 
@@ -113,8 +118,11 @@ class GPSTrackingService:
                 "records_saved": records_saved,
             }
 
-        except requests.RequestException as e:
-            logger.error("Error fetching GPS data from API: %s", e)
+        except (requests.RequestException, httpx.HTTPStatusError, httpx.RequestError) as e:
+            GPSTrackingService._consecutive_failures += 1
+            # Only log every 10th failure to avoid flooding logs
+            if GPSTrackingService._consecutive_failures <= 3 or GPSTrackingService._consecutive_failures % 10 == 0:
+                logger.error("Error fetching GPS data from API (failure #%d): %s", GPSTrackingService._consecutive_failures, e)
             return {"success": False, "message": f"Failed to fetch data from API: {str(e)}", "records_saved": 0}
         except Exception as e:  # pylint: disable=broad-except
             logger.error("Unexpected error in fetch_and_save_gps_data: %s", e)
@@ -131,12 +139,24 @@ class GPSTrackingService:
         while not GPSTrackingService._should_stop:
             try:
                 result = await self.fetch_and_save_gps_data()
-                logger.info("Periodic GPS fetch result: %s", result.get("message"))
+                if result.get("success"):
+                    GPSTrackingService._consecutive_failures = 0
+                    logger.info("Periodic GPS fetch result: %s", result.get("message"))
             except Exception as e:  # pylint: disable=broad-except
+                GPSTrackingService._consecutive_failures += 1
                 logger.error("Error in periodic GPS fetch: %s", e)
 
-            # Wait for the specified interval before next fetch
-            await asyncio.sleep(GPSTrackingService.FETCH_INTERVAL_SECONDS)
+            # Exponential backoff on persistent failures, capped at _MAX_BACKOFF_SECONDS
+            if GPSTrackingService._consecutive_failures > 3:
+                backoff = min(
+                    GPSTrackingService.FETCH_INTERVAL_SECONDS * (2 ** (GPSTrackingService._consecutive_failures - 3)),
+                    GPSTrackingService._MAX_BACKOFF_SECONDS
+                )
+                logger.warning("GPS API failing repeatedly (%d failures), backing off to %ds",
+                               GPSTrackingService._consecutive_failures, backoff)
+                await asyncio.sleep(backoff)
+            else:
+                await asyncio.sleep(GPSTrackingService.FETCH_INTERVAL_SECONDS)
 
     def stop_periodic_fetch(self):
         """Stop the periodic GPS data fetching."""
