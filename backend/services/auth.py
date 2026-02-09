@@ -230,9 +230,9 @@ class AuthService:
         position = PositionHolder(
             user_id=user_id,
             role_id=role_id,
-            first_name=first_name,
-            middle_name=middle_name,
-            last_name=last_name,
+            # first_name=first_name,
+            # middle_name=middle_name,
+            # last_name=last_name,
             village_id=village_id,
             block_id=block_id,
             district_id=district_id,
