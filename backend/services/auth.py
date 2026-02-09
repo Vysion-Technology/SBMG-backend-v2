@@ -233,7 +233,7 @@ class AuthService:
             # first_name=first_name,
             # middle_name=middle_name,
             # last_name=last_name,
-            village_id=village_id,
+            gp_id=village_id,
             block_id=block_id,
             district_id=district_id,
             start_date=start_date,
