@@ -40,6 +40,7 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
         # Convert environment variable names to uppercase
         case_sensitive = False
+        extra = "ignore"
 
 
 # Global settings instance
