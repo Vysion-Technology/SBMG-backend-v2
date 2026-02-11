@@ -940,10 +940,10 @@ class InspectionService:
             gps = gps_result.fetchall()
 
             # Get analytics and inspections for Gram Panchayats in batch
-            village_ids = [gp.id for gp in gps]
-            analytics_batch = await self.get_villages_inspection_analytics_batch(village_ids, start_date, end_date)
+            gp_ids = [gp.id for gp in gps]
+            analytics_batch = await self.get_villages_inspection_analytics_batch(gp_ids, start_date, end_date)
             inspections_batch = await self._get_total_inspections_batch(
-                GeoTypeEnum.GP, village_ids, start_date, end_date
+                GeoTypeEnum.GP, gp_ids, start_date, end_date
             )
 
             for gp_item in gps:
