@@ -854,62 +854,45 @@ class InspectionService:
         line_items: List[PerformanceReportLineItemResponse] = []
 
         if level == GeoTypeEnum.DISTRICT:
-            # Get analytics for all districts or specific district
+            # Get all districts or specific district
             if district_id:
-                analytics = await self.get_district_inspection_analytics(district_id, start_date, end_date)
-                if analytics:
-                    # Get district name
-                    result = await self.db.execute(select(District.name).where(District.id == district_id))
-                    name = result.scalar()
+                districts_result = await self.db.execute(
+                    select(District.id, District.name).where(District.id == district_id)
+                )
+                districts = districts_result.fetchall()
+                district_ids = [district_id]
+            else:
+                districts_result = await self.db.execute(select(District.id, District.name))
+                districts = districts_result.fetchall()
+                district_ids = [d.id for d in districts]
 
-                    # Calculate total inspections from the district (batch query for consistency)
-                    inspections_batch = await self._get_total_inspections_batch(
-                        GeoTypeEnum.DISTRICT, [district_id], start_date, end_date
-                    )
-                    total_inspections = inspections_batch.get(district_id, 0)
+            # Get analytics and inspections for districts in batch
+            analytics_batch = await self.get_districts_inspection_analytics_batch(
+                district_ids, start_date, end_date
+            )
+            inspections_batch = await self._get_total_inspections_batch(
+                GeoTypeEnum.DISTRICT, district_ids, start_date, end_date
+            )
 
+            for district in districts:
+                # Get analytics with defaults if not present
+                analytics = analytics_batch.get(district.id, {})
+                total_inspections = inspections_batch.get(district.id, 0)
+
+                # Only include if there's data (either analytics or inspections)
+                if analytics or total_inspections > 0:
                     line_items.append(
                         PerformanceReportLineItemResponse(
-                            geo_id=district_id,
-                            geo_name=name or "Unknown",
+                            geo_id=district.id,
+                            geo_name=district.name,
                             total_inspections=total_inspections,
                             average_score=round(analytics.get('average_score', 0.0), 2),
                             coverage_percentage=round(analytics.get('coverage_percentage', 0.0), 2),
                         )
                     )
-            else:
-                # Get all districts
-                districts_result = await self.db.execute(select(District.id, District.name))
-                districts = districts_result.fetchall()
-
-                # Get analytics for all districts in one batch query
-                district_ids = [d.id for d in districts]
-                analytics_batch = await self.get_districts_inspection_analytics_batch(
-                    district_ids, start_date, end_date
-                )
-
-                # Get total inspections for all districts in one batch query
-                inspections_batch = await self._get_total_inspections_batch(
-                    GeoTypeEnum.DISTRICT, district_ids, start_date, end_date
-                )
-
-                for district in districts:
-                    analytics = analytics_batch.get(district.id)
-                    if analytics:
-                        total_inspections = inspections_batch.get(district.id, 0)
-
-                        line_items.append(
-                            PerformanceReportLineItemResponse(
-                                geo_id=district.id,
-                                geo_name=district.name,
-                                total_inspections=total_inspections,
-                                average_score=round(analytics.get('average_score', 0.0), 2),
-                                coverage_percentage=round(analytics.get('coverage_percentage', 0.0), 2),
-                            )
-                        )
 
         elif level == GeoTypeEnum.BLOCK:
-            # Get analytics for blocks
+            # Get blocks based on filters
             query = select(Block.id, Block.name)
             if district_id:
                 query = query.where(Block.district_id == district_id)
@@ -919,20 +902,20 @@ class InspectionService:
             blocks_result = await self.db.execute(query)
             blocks = blocks_result.fetchall()
 
-            # Get analytics for all blocks in one batch query
+            # Get analytics and inspections for blocks in batch
             block_ids = [b.id for b in blocks]
             analytics_batch = await self.get_blocks_inspection_analytics_batch(block_ids, start_date, end_date)
-
-            # Get total inspections for all blocks in one batch query
             inspections_batch = await self._get_total_inspections_batch(
                 GeoTypeEnum.BLOCK, block_ids, start_date, end_date
             )
 
             for block_item in blocks:
-                analytics = analytics_batch.get(block_item.id)
-                if analytics:
-                    total_inspections = inspections_batch.get(block_item.id, 0)
+                # Get analytics with defaults if not present
+                analytics = analytics_batch.get(block_item.id, {})
+                total_inspections = inspections_batch.get(block_item.id, 0)
 
+                # Only include if there's data (either analytics or inspections)
+                if analytics or total_inspections > 0:
                     line_items.append(
                         PerformanceReportLineItemResponse(
                             geo_id=block_item.id,
@@ -944,33 +927,32 @@ class InspectionService:
                     )
 
         else:  # VILLAGE level
-            # Get analytics for villages (gram panchayats)
+            # Get villages based on filters
             query = select(GramPanchayat.id, GramPanchayat.name)
             if gp_id:
                 query = query.where(GramPanchayat.id == gp_id)
             elif block_id:
                 query = query.where(GramPanchayat.block_id == block_id)
             elif district_id:
-                # If district_id is provided, filter by district
                 query = query.where(GramPanchayat.district_id == district_id)
 
             gps_result = await self.db.execute(query)
             gps = gps_result.fetchall()
 
-            # Get analytics for all villages in one batch query
+            # Get analytics and inspections for villages in batch
             village_ids = [gp.id for gp in gps]
             analytics_batch = await self.get_villages_inspection_analytics_batch(village_ids, start_date, end_date)
-
-            # Get total inspections for all villages in one batch query
             inspections_batch = await self._get_total_inspections_batch(
                 GeoTypeEnum.GP, village_ids, start_date, end_date
             )
 
             for gp_item in gps:
-                analytics = analytics_batch.get(gp_item.id)
-                if analytics:
-                    total_inspections = inspections_batch.get(gp_item.id, 0)
+                # Get analytics with defaults if not present
+                analytics = analytics_batch.get(gp_item.id, {})
+                total_inspections = inspections_batch.get(gp_item.id, 0)
 
+                # Only include if there's data (either analytics or inspections)
+                if analytics or total_inspections > 0:
                     line_items.append(
                         PerformanceReportLineItemResponse(
                             geo_id=gp_item.id,
