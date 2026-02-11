@@ -813,8 +813,8 @@ class InspectionService:
                 )
                 .group_by(GramPanchayat.block_id)
             )
-        else:  # GeoTypeEnum.GP (village)
-            # For villages, we can directly query inspections
+        else:  # GeoTypeEnum.GP (Gram Panchayat)
+            # For Gram Panchayats, we can directly query inspections
             query = (
                 select(
                     Inspection.gp_id,
@@ -926,8 +926,8 @@ class InspectionService:
                         )
                     )
 
-        else:  # VILLAGE level
-            # Get villages based on filters
+        else:  # GP level (Gram Panchayat)
+            # Get Gram Panchayats based on filters
             query = select(GramPanchayat.id, GramPanchayat.name)
             if gp_id:
                 query = query.where(GramPanchayat.id == gp_id)
@@ -939,7 +939,7 @@ class InspectionService:
             gps_result = await self.db.execute(query)
             gps = gps_result.fetchall()
 
-            # Get analytics and inspections for villages in batch
+            # Get analytics and inspections for Gram Panchayats in batch
             village_ids = [gp.id for gp in gps]
             analytics_batch = await self.get_villages_inspection_analytics_batch(village_ids, start_date, end_date)
             inspections_batch = await self._get_total_inspections_batch(
