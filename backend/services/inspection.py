@@ -770,17 +770,17 @@ class InspectionService:
 
     async def _get_total_inspections_for_geographic_entity(
         self,
-        entity_type: str,
+        entity_type: GeoTypeEnum,
         entity_id: int,
         start_date: date,
         end_date: date,
     ) -> int:
         """Helper method to get total inspections count for a geographic entity."""
-        if entity_type == "district":
+        if entity_type == GeoTypeEnum.DISTRICT:
             subquery = select(GramPanchayat.id).where(GramPanchayat.district_id == entity_id)
-        elif entity_type == "block":
+        elif entity_type == GeoTypeEnum.BLOCK:
             subquery = select(GramPanchayat.id).where(GramPanchayat.block_id == entity_id)
-        else:  # village/gp
+        else:  # GeoTypeEnum.GP (village)
             subquery = select(GramPanchayat.id).where(GramPanchayat.id == entity_id)
 
         inspections_query = select(func.count(Inspection.id)).where(
@@ -793,7 +793,7 @@ class InspectionService:
 
     def _round_to_decimal_places(self, value: float, places: int = 2) -> float:
         """Helper method to round float values to specified decimal places."""
-        return float(f"{value:.{places}f}")
+        return round(value, places)
 
     async def get_performance_report(
         self,
@@ -825,7 +825,7 @@ class InspectionService:
 
                     # Calculate total inspections from the district
                     total_inspections = await self._get_total_inspections_for_geographic_entity(
-                        "district", district_id, start_date, end_date
+                        GeoTypeEnum.DISTRICT, district_id, start_date, end_date
                     )
 
                     line_items.append(
@@ -853,7 +853,7 @@ class InspectionService:
                     if analytics:
                         # Calculate total inspections for this district
                         total_inspections = await self._get_total_inspections_for_geographic_entity(
-                            "district", district.id, start_date, end_date
+                            GeoTypeEnum.DISTRICT, district.id, start_date, end_date
                         )
 
                         line_items.append(
@@ -886,7 +886,7 @@ class InspectionService:
                 if analytics:
                     # Calculate total inspections for this block
                     total_inspections = await self._get_total_inspections_for_geographic_entity(
-                        "block", block_item.id, start_date, end_date
+                        GeoTypeEnum.BLOCK, block_item.id, start_date, end_date
                     )
 
                     line_items.append(
@@ -920,8 +920,10 @@ class InspectionService:
             for gp_item in gps:
                 analytics = analytics_batch.get(gp_item.id)
                 if analytics:
-                    # Use total_inspections from analytics for consistency
-                    total_inspections = analytics.get("total_inspections", 0)
+                    # Calculate total inspections using the helper method for consistency
+                    total_inspections = await self._get_total_inspections_for_geographic_entity(
+                        GeoTypeEnum.GP, gp_item.id, start_date, end_date
+                    )
 
                     line_items.append(
                         PerformanceReportLineItemResponse(
