@@ -58,22 +58,21 @@ async def get_performance_report(
     Returns performance metrics for each geographic unit at the specified level.
 
     level: The geographic level to aggregate data at (district, block, gp)
+    
+    Filtering examples:
+    - level=district: Returns all districts (or specific district if district_id provided)
+    - level=block&district_id=1: Returns all blocks in district 1
+    - level=block&block_id=1: Returns specific block 1
+    - level=gp&district_id=1: Returns all GPs in district 1
+    - level=gp&block_id=1: Returns all GPs in block 1
+    - level=gp&gp_id=1: Returns specific GP 1
     """
-    # Validate query parameters - ensure only one filter is provided
-    if (district_id and block_id) or (district_id and gp_id) or (block_id and gp_id):
+    # Validate that only one filter is provided at a time
+    filters_provided = sum([district_id is not None, block_id is not None, gp_id is not None])
+    if filters_provided > 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Provide only one of district_id, block_id, or gp_id",
-        )
-    if level == GeoTypeEnum.DISTRICT and (district_id or block_id or gp_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Do not provide specific IDs when level is DISTRICT",
-        )
-    if level == GeoTypeEnum.BLOCK and (block_id or gp_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Do not provide block_id or gp_id when level is BLOCK",
         )
 
     inspection_service = InspectionService(db)
