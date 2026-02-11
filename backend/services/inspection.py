@@ -768,32 +768,71 @@ class InspectionService:
             )
         ]
 
-    async def _get_total_inspections_for_geographic_entity(
+    async def _get_total_inspections_batch(
         self,
         entity_type: GeoTypeEnum,
-        entity_id: int,
+        entity_ids: List[int],
         start_date: date,
         end_date: date,
-    ) -> int:
-        """Helper method to get total inspections count for a geographic entity."""
+    ) -> Dict[int, int]:
+        """
+        Helper method to get total inspections count for multiple geographic entities in batch.
+        Returns a dictionary mapping entity_id to inspection count.
+        """
+        if not entity_ids:
+            return {}
+
+        # Build subquery based on entity type
         if entity_type == GeoTypeEnum.DISTRICT:
-            subquery = select(GramPanchayat.id).where(GramPanchayat.district_id == entity_id)
+            # For districts, we need to join through gram panchayats
+            query = (
+                select(
+                    GramPanchayat.district_id,
+                    func.count(Inspection.id).label('count')
+                )
+                .join(Inspection, Inspection.gp_id == GramPanchayat.id)
+                .where(
+                    GramPanchayat.district_id.in_(entity_ids),
+                    Inspection.date >= start_date,
+                    Inspection.date <= end_date,
+                )
+                .group_by(GramPanchayat.district_id)
+            )
         elif entity_type == GeoTypeEnum.BLOCK:
-            subquery = select(GramPanchayat.id).where(GramPanchayat.block_id == entity_id)
+            # For blocks, we need to join through gram panchayats
+            query = (
+                select(
+                    GramPanchayat.block_id,
+                    func.count(Inspection.id).label('count')
+                )
+                .join(Inspection, Inspection.gp_id == GramPanchayat.id)
+                .where(
+                    GramPanchayat.block_id.in_(entity_ids),
+                    Inspection.date >= start_date,
+                    Inspection.date <= end_date,
+                )
+                .group_by(GramPanchayat.block_id)
+            )
         else:  # GeoTypeEnum.GP (village)
-            subquery = select(GramPanchayat.id).where(GramPanchayat.id == entity_id)
+            # For villages, we can directly query inspections
+            query = (
+                select(
+                    Inspection.gp_id,
+                    func.count(Inspection.id).label('count')
+                )
+                .where(
+                    Inspection.gp_id.in_(entity_ids),
+                    Inspection.date >= start_date,
+                    Inspection.date <= end_date,
+                )
+                .group_by(Inspection.gp_id)
+            )
 
-        inspections_query = select(func.count(Inspection.id)).where(
-            Inspection.gp_id.in_(subquery),
-            Inspection.date >= start_date,
-            Inspection.date <= end_date,
-        )
-        total_result = await self.db.execute(inspections_query)
-        return total_result.scalar() or 0
+        result = await self.db.execute(query)
+        rows = result.fetchall()
 
-    def _round_to_decimal_places(self, value: float, places: int = 2) -> float:
-        """Helper method to round float values to specified decimal places."""
-        return round(value, places)
+        # Build dictionary mapping entity_id to count
+        return {row[0]: row[1] for row in rows}
 
     async def get_performance_report(
         self,
@@ -823,18 +862,19 @@ class InspectionService:
                     result = await self.db.execute(select(District.name).where(District.id == district_id))
                     name = result.scalar()
 
-                    # Calculate total inspections from the district
-                    total_inspections = await self._get_total_inspections_for_geographic_entity(
-                        GeoTypeEnum.DISTRICT, district_id, start_date, end_date
+                    # Calculate total inspections from the district (batch query for consistency)
+                    inspections_batch = await self._get_total_inspections_batch(
+                        GeoTypeEnum.DISTRICT, [district_id], start_date, end_date
                     )
+                    total_inspections = inspections_batch.get(district_id, 0)
 
                     line_items.append(
                         PerformanceReportLineItemResponse(
                             geo_id=district_id,
                             geo_name=name or "Unknown",
                             total_inspections=total_inspections,
-                            average_score=self._round_to_decimal_places(analytics.get('average_score', 0.0)),
-                            coverage_percentage=self._round_to_decimal_places(analytics.get('coverage_percentage', 0.0)),
+                            average_score=round(analytics.get('average_score', 0.0), 2),
+                            coverage_percentage=round(analytics.get('coverage_percentage', 0.0), 2),
                         )
                     )
             else:
@@ -848,21 +888,23 @@ class InspectionService:
                     district_ids, start_date, end_date
                 )
 
+                # Get total inspections for all districts in one batch query
+                inspections_batch = await self._get_total_inspections_batch(
+                    GeoTypeEnum.DISTRICT, district_ids, start_date, end_date
+                )
+
                 for district in districts:
                     analytics = analytics_batch.get(district.id)
                     if analytics:
-                        # Calculate total inspections for this district
-                        total_inspections = await self._get_total_inspections_for_geographic_entity(
-                            GeoTypeEnum.DISTRICT, district.id, start_date, end_date
-                        )
+                        total_inspections = inspections_batch.get(district.id, 0)
 
                         line_items.append(
                             PerformanceReportLineItemResponse(
                                 geo_id=district.id,
                                 geo_name=district.name,
                                 total_inspections=total_inspections,
-                                average_score=self._round_to_decimal_places(analytics.get('average_score', 0.0)),
-                                coverage_percentage=self._round_to_decimal_places(analytics.get('coverage_percentage', 0.0)),
+                                average_score=round(analytics.get('average_score', 0.0), 2),
+                                coverage_percentage=round(analytics.get('coverage_percentage', 0.0), 2),
                             )
                         )
 
@@ -881,21 +923,23 @@ class InspectionService:
             block_ids = [b.id for b in blocks]
             analytics_batch = await self.get_blocks_inspection_analytics_batch(block_ids, start_date, end_date)
 
+            # Get total inspections for all blocks in one batch query
+            inspections_batch = await self._get_total_inspections_batch(
+                GeoTypeEnum.BLOCK, block_ids, start_date, end_date
+            )
+
             for block_item in blocks:
                 analytics = analytics_batch.get(block_item.id)
                 if analytics:
-                    # Calculate total inspections for this block
-                    total_inspections = await self._get_total_inspections_for_geographic_entity(
-                        GeoTypeEnum.BLOCK, block_item.id, start_date, end_date
-                    )
+                    total_inspections = inspections_batch.get(block_item.id, 0)
 
                     line_items.append(
                         PerformanceReportLineItemResponse(
                             geo_id=block_item.id,
                             geo_name=block_item.name,
                             total_inspections=total_inspections,
-                            average_score=self._round_to_decimal_places(analytics.get('average_score', 0.0)),
-                            coverage_percentage=self._round_to_decimal_places(analytics.get('coverage_percentage', 0.0)),
+                            average_score=round(analytics.get('average_score', 0.0), 2),
+                            coverage_percentage=round(analytics.get('coverage_percentage', 0.0), 2),
                         )
                     )
 
@@ -917,21 +961,23 @@ class InspectionService:
             village_ids = [gp.id for gp in gps]
             analytics_batch = await self.get_villages_inspection_analytics_batch(village_ids, start_date, end_date)
 
+            # Get total inspections for all villages in one batch query
+            inspections_batch = await self._get_total_inspections_batch(
+                GeoTypeEnum.GP, village_ids, start_date, end_date
+            )
+
             for gp_item in gps:
                 analytics = analytics_batch.get(gp_item.id)
                 if analytics:
-                    # Calculate total inspections using the helper method for consistency
-                    total_inspections = await self._get_total_inspections_for_geographic_entity(
-                        GeoTypeEnum.GP, gp_item.id, start_date, end_date
-                    )
+                    total_inspections = inspections_batch.get(gp_item.id, 0)
 
                     line_items.append(
                         PerformanceReportLineItemResponse(
                             geo_id=gp_item.id,
                             geo_name=gp_item.name,
                             total_inspections=total_inspections,
-                            average_score=self._round_to_decimal_places(analytics.get('average_score', 0.0)),
-                            coverage_percentage=self._round_to_decimal_places(analytics.get('coverage_percentage', 0.0)),
+                            average_score=round(analytics.get('average_score', 0.0), 2),
+                            coverage_percentage=round(analytics.get('coverage_percentage', 0.0), 2),
                         )
                     )
 
