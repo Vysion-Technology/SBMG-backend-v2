@@ -768,6 +768,72 @@ class InspectionService:
             )
         ]
 
+    async def _get_total_inspections_batch(
+        self,
+        entity_type: GeoTypeEnum,
+        entity_ids: List[int],
+        start_date: date,
+        end_date: date,
+    ) -> Dict[int, int]:
+        """
+        Helper method to get total inspections count for multiple geographic entities in batch.
+        Returns a dictionary mapping entity_id to inspection count.
+        """
+        if not entity_ids:
+            return {}
+
+        # Build subquery based on entity type
+        if entity_type == GeoTypeEnum.DISTRICT:
+            # For districts, we need to join through gram panchayats
+            query = (
+                select(
+                    GramPanchayat.district_id,
+                    func.count(Inspection.id).label('count')
+                )
+                .join(Inspection, Inspection.gp_id == GramPanchayat.id)
+                .where(
+                    GramPanchayat.district_id.in_(entity_ids),
+                    Inspection.date >= start_date,
+                    Inspection.date <= end_date,
+                )
+                .group_by(GramPanchayat.district_id)
+            )
+        elif entity_type == GeoTypeEnum.BLOCK:
+            # For blocks, we need to join through gram panchayats
+            query = (
+                select(
+                    GramPanchayat.block_id,
+                    func.count(Inspection.id).label('count')
+                )
+                .join(Inspection, Inspection.gp_id == GramPanchayat.id)
+                .where(
+                    GramPanchayat.block_id.in_(entity_ids),
+                    Inspection.date >= start_date,
+                    Inspection.date <= end_date,
+                )
+                .group_by(GramPanchayat.block_id)
+            )
+        else:  # GeoTypeEnum.GP (Gram Panchayat)
+            # For Gram Panchayats, we can directly query inspections
+            query = (
+                select(
+                    Inspection.gp_id,
+                    func.count(Inspection.id).label('count')
+                )
+                .where(
+                    Inspection.gp_id.in_(entity_ids),
+                    Inspection.date >= start_date,
+                    Inspection.date <= end_date,
+                )
+                .group_by(Inspection.gp_id)
+            )
+
+        result = await self.db.execute(query)
+        rows = result.fetchall()
+
+        # Build dictionary mapping entity_id to count
+        return {row[0]: row[1] for row in rows}
+
     async def get_performance_report(
         self,
         level: GeoTypeEnum,
@@ -779,24 +845,125 @@ class InspectionService:
     ) -> PerformanceReportResponse:
         """Get performance report aggregated by geographic level."""
 
-        # TODO: Implement the logic to fetch performance report based on the level and filters
+        # Default to current month if no dates provided
+        if not start_date:
+            start_date = date.today().replace(day=1)
+        if not end_date:
+            end_date = date.today()
+
+        line_items: List[PerformanceReportLineItemResponse] = []
+
+        if level == GeoTypeEnum.DISTRICT:
+            # Get all districts or specific district
+            if district_id:
+                districts_result = await self.db.execute(
+                    select(District.id, District.name).where(District.id == district_id)
+                )
+                districts = districts_result.fetchall()
+                district_ids = [district_id]
+            else:
+                districts_result = await self.db.execute(select(District.id, District.name))
+                districts = districts_result.fetchall()
+                district_ids = [d.id for d in districts]
+
+            # Get analytics and inspections for districts in batch
+            analytics_batch = await self.get_districts_inspection_analytics_batch(
+                district_ids, start_date, end_date
+            )
+            inspections_batch = await self._get_total_inspections_batch(
+                GeoTypeEnum.DISTRICT, district_ids, start_date, end_date
+            )
+
+            for district in districts:
+                # Get analytics with defaults if not present
+                analytics = analytics_batch.get(district.id, {})
+                total_inspections = inspections_batch.get(district.id, 0)
+
+                # Only include if there's data (either analytics or inspections)
+                if analytics or total_inspections > 0:
+                    line_items.append(
+                        PerformanceReportLineItemResponse(
+                            geo_id=district.id,
+                            geo_name=district.name,
+                            total_inspections=total_inspections,
+                            average_score=round(analytics.get('average_score', 0.0), 2),
+                            coverage_percentage=round(analytics.get('coverage_percentage', 0.0), 2),
+                        )
+                    )
+
+        elif level == GeoTypeEnum.BLOCK:
+            # Get blocks based on filters
+            query = select(Block.id, Block.name)
+            if district_id:
+                query = query.where(Block.district_id == district_id)
+            elif block_id:
+                query = query.where(Block.id == block_id)
+
+            blocks_result = await self.db.execute(query)
+            blocks = blocks_result.fetchall()
+
+            # Get analytics and inspections for blocks in batch
+            block_ids = [b.id for b in blocks]
+            analytics_batch = await self.get_blocks_inspection_analytics_batch(block_ids, start_date, end_date)
+            inspections_batch = await self._get_total_inspections_batch(
+                GeoTypeEnum.BLOCK, block_ids, start_date, end_date
+            )
+
+            for block_item in blocks:
+                # Get analytics with defaults if not present
+                analytics = analytics_batch.get(block_item.id, {})
+                total_inspections = inspections_batch.get(block_item.id, 0)
+
+                # Only include if there's data (either analytics or inspections)
+                if analytics or total_inspections > 0:
+                    line_items.append(
+                        PerformanceReportLineItemResponse(
+                            geo_id=block_item.id,
+                            geo_name=block_item.name,
+                            total_inspections=total_inspections,
+                            average_score=round(analytics.get('average_score', 0.0), 2),
+                            coverage_percentage=round(analytics.get('coverage_percentage', 0.0), 2),
+                        )
+                    )
+
+        else:  # GP level (Gram Panchayat)
+            # Get Gram Panchayats based on filters
+            query = select(GramPanchayat.id, GramPanchayat.name)
+            if gp_id:
+                query = query.where(GramPanchayat.id == gp_id)
+            elif block_id:
+                query = query.where(GramPanchayat.block_id == block_id)
+            elif district_id:
+                query = query.where(GramPanchayat.district_id == district_id)
+
+            gps_result = await self.db.execute(query)
+            gps = gps_result.fetchall()
+
+            # Get analytics and inspections for Gram Panchayats in batch
+            gp_ids = [gp.id for gp in gps]
+            analytics_batch = await self.get_villages_inspection_analytics_batch(gp_ids, start_date, end_date)
+            inspections_batch = await self._get_total_inspections_batch(
+                GeoTypeEnum.GP, gp_ids, start_date, end_date
+            )
+
+            for gp_item in gps:
+                # Get analytics with defaults if not present
+                analytics = analytics_batch.get(gp_item.id, {})
+                total_inspections = inspections_batch.get(gp_item.id, 0)
+
+                # Only include if there's data (either analytics or inspections)
+                if analytics or total_inspections > 0:
+                    line_items.append(
+                        PerformanceReportLineItemResponse(
+                            geo_id=gp_item.id,
+                            geo_name=gp_item.name,
+                            total_inspections=total_inspections,
+                            average_score=round(analytics.get('average_score', 0.0), 2),
+                            coverage_percentage=round(analytics.get('coverage_percentage', 0.0), 2),
+                        )
+                    )
 
         return PerformanceReportResponse(
             level=level,
-            line_items=[
-                PerformanceReportLineItemResponse(
-                    geo_id=1,
-                    geo_name="Sample Geo",
-                    total_inspections=150,
-                    average_score=85.5,
-                    coverage_percentage=90.0,
-                ),
-                PerformanceReportLineItemResponse(
-                    geo_id=2,
-                    geo_name="Sample Geo 2",
-                    total_inspections=120,
-                    average_score=80.0,
-                    coverage_percentage=85.0,
-                ),
-            ],
-        )  # Implementation goes here
+            line_items=line_items,
+        )
