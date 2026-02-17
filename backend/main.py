@@ -18,6 +18,7 @@ from controllers import position_holder
 from controllers import gps_tracking
 from controllers import feedback
 from controllers import formulae
+from controllers import contractor_analytics
 from database import AsyncSessionLocal, get_db
 from services.gps_tracking import GPSTrackingService
 
@@ -117,6 +118,11 @@ fastapi_app.include_router(
     formulae.router,
     prefix="/api/v1/formulae",
     tags=["Formulae"],
+)
+fastapi_app.include_router(
+    contractor_analytics.router,
+    prefix="/api/v1/contractor-analytics",
+    tags=["Contractor Analytics"],
 )
 # app.include_router(survey.router, prefix="/api/v1/surveys", tags=["Surveys"])
 
