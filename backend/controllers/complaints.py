@@ -5,7 +5,7 @@ import logging
 from typing import Any, Dict, List, Optional
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, Header
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, Header, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -213,8 +213,8 @@ async def update_complaint_for_public_user(
 async def get_my_complaints(
     db: AsyncSession = Depends(get_db),
     token: str = Header(..., description="Public user token"),
-    skip: Optional[int] = None,
-    limit: Optional[int] = 100,
+    skip: Optional[int] = Query(0, ge=0),
+    limit: Optional[int] = Query(100, ge=1, le=100),
     order_by: ComplaintOrderByEnum = ComplaintOrderByEnum.NEWEST,
 ) -> List[DetailedComplaintResponse]:
     """Get complaints created by the authenticated public user."""

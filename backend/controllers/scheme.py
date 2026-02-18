@@ -3,7 +3,7 @@
 from datetime import timezone
 from typing import List, Optional, Union
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from models.database.auth import User, PublicUser
 from controllers.auth import get_current_any_user
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -132,8 +132,8 @@ async def remove_scheme_media(
 
 @router.get("/", response_model=List[SchemeResponse])
 async def list_schemes(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     active: bool = True,
     db: AsyncSession = Depends(get_db),
 ) -> List[SchemeResponse]:
@@ -258,8 +258,8 @@ async def remove_scheme_bookmark(
 
 @router.get("/bookmarked/list", response_model=List[SchemeResponse])
 async def list_bookmarked_schemes(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     current_user: Union[User, PublicUser] = Depends(get_current_any_user),
     db: AsyncSession = Depends(get_db),
 ) -> List[SchemeResponse]:

@@ -1,7 +1,7 @@
 """Contractor related API endpoints."""
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from controllers.auth import get_current_active_user
@@ -20,8 +20,8 @@ router = APIRouter()
 @router.get("/agencies", response_model=List[AgencyResponse])
 async def list_agencies(
     db: AsyncSession = Depends(get_db),
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     name_like: Optional[str] = None,
 ) -> List[AgencyResponse]:
     """List all agencies with pagination."""
@@ -36,8 +36,8 @@ async def list_agencies(
 @router.get("/contractors", response_model=List[ContractorResponse])
 async def list_contractors(
     db: AsyncSession = Depends(get_db),
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     gp_id: Optional[int] = None,
     block_id: Optional[int] = None,
     district_id: Optional[int] = None,

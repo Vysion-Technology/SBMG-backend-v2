@@ -9,6 +9,7 @@ from fastapi import (
     HTTPException,
     status,
     Header,
+    Query,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -166,8 +167,8 @@ async def create_feedback(
 @router.get("/", response_model=list[FeedbackResponse])
 async def get_all_feedback(
     feedback_source: Optional[FeedbackFromEnum] = None,
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ) -> list[FeedbackResponse]:

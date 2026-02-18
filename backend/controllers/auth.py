@@ -5,7 +5,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from database import get_db
 from models.database.auth import PositionHolder, User, PublicUser
@@ -24,6 +24,8 @@ router = APIRouter()
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+    model_config = ConfigDict(extra='forbid')
 
 
 class TokenResponse(BaseModel):

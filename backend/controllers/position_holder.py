@@ -247,8 +247,8 @@ async def get_all_position_holders(
     district_id: Optional[int] = None,
     block_id: Optional[int] = None,
     gp_id: Optional[int] = None,
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -514,8 +514,8 @@ async def get_employee(
 
 @router.get("/employees", response_model=List[EmployeeResponse])
 async def get_all_employees(
-    skip: int = 0,
-    limit: int = Query(100, le=500),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     name: Optional[str] = None,
     mobile_number: Optional[str] = None,
     email: Optional[str] = None,

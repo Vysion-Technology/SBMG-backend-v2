@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
@@ -135,8 +135,8 @@ async def get_notice_types(
 
 @router.get("/sent", response_model=List[NoticeDetailResponse])
 async def get_sent_notices(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
 ):
@@ -214,8 +214,8 @@ async def get_sent_notices(
 
 @router.get("/received", response_model=List[NoticeDetailResponse])
 async def get_received_notices(
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
 ):

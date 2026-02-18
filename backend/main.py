@@ -62,10 +62,18 @@ fastapi_app = FastAPI(
     lifespan=lifespan,
 )
 
+# Add Security Headers Middleware
+from middleware.security import SecurityHeadersMiddleware
+fastapi_app.add_middleware(SecurityHeadersMiddleware)
+
 # Add CORS middleware
+# Read allowed origins from environment variable, default to "*" for dev
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "*")
+allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
+
 fastapi_app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this properly for production
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

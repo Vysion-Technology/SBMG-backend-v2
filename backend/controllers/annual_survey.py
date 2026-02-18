@@ -5,7 +5,7 @@ Handles API endpoints for annual survey management
 
 from datetime import date
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -146,8 +146,8 @@ async def delete_annual_survey(
 @router.get("/", response_model=list[AnnualSurveyResponse])
 async def list_annual_surveys(
     db: AsyncSession = Depends(get_db),
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     district_id: int | None = None,
     block_id: int | None = None,
     gp_id: int | None = None,

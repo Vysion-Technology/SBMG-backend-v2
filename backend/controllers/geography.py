@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -31,8 +31,8 @@ router = APIRouter()
 # List endpoints with pagination
 @router.get("/districts", response_model=List[DistrictResponse])
 async def list_districts(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
     """List all districts with pagination."""
@@ -52,8 +52,8 @@ async def list_districts(
 @router.get("/blocks", response_model=List[BlockResponse])
 async def list_blocks(
     district_id: Optional[int] = None,
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
     """List all blocks with pagination."""
@@ -81,8 +81,8 @@ async def list_blocks(
 async def list_grampanchayats(
     block_id: Optional[int] = None,
     district_id: Optional[int] = None,
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
     """List all Gram Panchayats with pagination."""
@@ -194,8 +194,8 @@ async def get_contractors_by_gp(
 @router.get("/villages", response_model=List[VillageResponse])
 async def list_villages(
     gp_id: Optional[int] = None,
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> List[VillageResponse]:
     """List all villages with pagination, optionally filtered by Gram Panchayat."""

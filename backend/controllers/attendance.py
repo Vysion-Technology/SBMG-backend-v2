@@ -4,7 +4,7 @@ import traceback
 from typing import List, Optional
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -205,8 +205,8 @@ async def end_attendance(
 async def get_my_attendance(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-    page: int = 1,
-    limit: int = 10,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -250,8 +250,8 @@ async def view_attendance(
     district_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-    skip: int = 0,
-    limit: int = 500,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(500, ge=1, le=500),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> AttendanceListResponse:
@@ -310,8 +310,8 @@ async def get_attendance_analytics(
     level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-    skip: Optional[int] = None,
-    limit: Optional[int] = 500,
+    skip: Optional[int] = Query(0, ge=0),
+    limit: Optional[int] = Query(500, ge=1, le=500),
 ) -> AttendanceAnalyticsResponse:
     """
     Get attendance analytics aggregated by geographic level.
@@ -383,8 +383,8 @@ async def get_attendance_for_day(
     block_id: Optional[int] = None,
     gp_id: Optional[int] = None,
     level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
-    skip: Optional[int] = None,
-    limit: Optional[int] = 500,
+    skip: Optional[int] = Query(None, ge=0),
+    limit: Optional[int] = Query(500, ge=1, le=500),
 ) -> DayAttendanceSummaryResponse:
     """
     Get detailed attendance summary for a specific day.
