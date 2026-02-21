@@ -296,6 +296,8 @@ class AnnualSurveyService:
             survey.sarpanch_contact = request.sarpanch_contact
         if request.num_ward_panchs is not None:
             survey.num_ward_panchs = request.num_ward_panchs
+        if request.agency_id is not None:
+            survey.agency_id = request.agency_id
 
         # Update or create work order details
         if request.work_order is not None:
