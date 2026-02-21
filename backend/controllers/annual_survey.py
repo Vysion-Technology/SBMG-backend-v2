@@ -184,32 +184,6 @@ async def list_annual_surveys(
     return surveys
 
 
-@router.get("/{survey_id}", response_model=AnnualSurveyResponse)
-async def get_annual_survey(
-    survey_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role),
-) -> AnnualSurveyResponse:
-    """
-    Get details of an annual survey.
-
-    Users can only view surveys within their jurisdiction.
-    """
-    service = AnnualSurveyService(db)
-
-    try:
-        survey = await service.get_survey_by_id(survey_id)
-        if not survey:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Survey not found",
-            )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-
-    return survey
-
-
 @router.get("/latest-for-gp/{gp_id}", response_model=AnnualSurveyResponse)
 async def get_gp_latest_survey(
     gp_id: int,
@@ -420,56 +394,28 @@ async def get_gp_analytics(
 
 @router.get("/analytics")
 async def get_annual_survey_analytics_deprecated(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role),
-    district_id: int | None = None,
-    block_id: int | None = None,
-    gp_id: int | None = None,
+    _current_user: User = Depends(require_staff_role),
 ):
     """
-    Get annual survey analytics (deprecated).
+    Get annual survey analytics (deprecated - use specific endpoints instead).
 
-    Please use the specific endpoints:
+    This endpoint has been replaced by:
     - GET /analytics/state - for state-level analytics
     - GET /analytics/district/{district_id} - for district-level analytics
     - GET /analytics/block/{block_id} - for block-level analytics
     - GET /analytics/gp/{gp_id} - for GP-level analytics
-
-    Users can only view analytics within their jurisdiction.
     """
-    geo_svc = GeographyService(db)
-    if district_id:
-        if not any([
-            not current_user.district_id,
-            current_user.district_id != district_id,
-        ]):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to view analytics for this district",
-            )
-    if block_id:
-        block = await geo_svc.get_block(block_id)
-        if not any([
-            not current_user.block_id and not current_user.district_id and not current_user.gp_id,
-            not current_user.block_id and current_user.district_id == block.district_id,
-            current_user.block_id != block_id,
-        ]):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to view analytics for this block",
-            )
-    if gp_id:
-        gp = await geo_svc.get_village(gp_id)
-        if not any([
-            not current_user.gp_id and not current_user.block_id and not current_user.district_id,
-            not current_user.gp_id and current_user.block_id == gp.block_id,
-            current_user.gp_id != gp_id,
-        ]):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to view analytics for this GP",
-            )
-    raise NotImplementedError("Analytics endpoint is not yet implemented.")
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=(
+            "This endpoint is deprecated. "
+            "Please use the specific analytics endpoints: "
+            "/analytics/state, "
+            "/analytics/district/{district_id}, "
+            "/analytics/block/{block_id}, or "
+            "/analytics/gp/{gp_id}."
+        ),
+    )
 
 
 @router.get("/fy/active", response_model=list[AnnualSurveyFYResponse])
@@ -489,3 +435,29 @@ async def get_active_financial_years(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
     return active_fy
+
+
+@router.get("/{survey_id}", response_model=AnnualSurveyResponse)
+async def get_annual_survey(
+    survey_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> AnnualSurveyResponse:
+    """
+    Get details of an annual survey.
+
+    Users can only view surveys within their jurisdiction.
+    """
+    service = AnnualSurveyService(db)
+
+    try:
+        survey = await service.get_survey_by_id(survey_id)
+        if not survey:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Survey not found",
+            )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    return survey
