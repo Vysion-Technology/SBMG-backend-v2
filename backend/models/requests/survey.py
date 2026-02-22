@@ -176,6 +176,9 @@ class UpdateAnnualSurveyRequest(BaseModel):
     # 3. No. of Ward Panchs
     num_ward_panchs: Optional[int] = None
 
+    # 4. Bidder Name (Sanitation activities)
+    agency_id: Optional[int] = None
+
     # 5. Work Order Details
     work_order: Optional[WorkOrderDetailsRequest] = None
 
