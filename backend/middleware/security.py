@@ -11,12 +11,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response: Response = await call_next(request)
 
         # Add Security Headers
-        # Allow Swagger UI resources from CDN and inline scripts
+        # Allow Swagger UI and ReDoc resources from CDNs
         csp = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
             "img-src 'self' data: https://fastapi.tiangolo.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
             "frame-ancestors 'none';"
         )
         response.headers["Content-Security-Policy"] = csp
