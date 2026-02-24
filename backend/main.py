@@ -70,23 +70,31 @@ fastapi_app = FastAPI(
 fastapi_app.add_middleware(SecurityHeadersMiddleware)
 
 # Add CORS middleware
-# Default allowed origins for development and production
+# Primary production origins
 default_origins = [
     "http://10.70.232.147",
     "http://139.59.34.99",
-    "http://localhost",
-    "http://127.0.0.1",
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8000",
+    "https://sbmg.rajasthan.gov.in",  # Placeholder for actual production domain if applicable
 ]
+
+# Only include development origins if DEBUG is enabled
+if os.getenv("DEBUG", "false").lower() == "true":
+    default_origins.extend(
+        [
+            "http://localhost",
+            "http://127.0.0.1",
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://localhost:8000",
+        ]
+    )
 
 # Read allowed origins from environment variable and merge with defaults
 allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "")
 env_origins = [
     origin.strip().rstrip("/")
     for origin in allowed_origins_str.split(",")
-    if origin.strip()
+    if origin.strip() and origin.strip() != "*"
 ]
 allowed_origins = list(set(default_origins + env_origins))
 
@@ -94,8 +102,18 @@ fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # Explicitly list methods to satisfy security audits
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    # Explicitly list common headers to satisfy security audits
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Accept",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+    ],
 )
 
 
