@@ -18,6 +18,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
             "img-src 'self' data: https://fastapi.tiangolo.com; "
             "font-src 'self' https://fonts.gstatic.com; "
+            "object-src 'none'; "
             "frame-ancestors 'none';"
         )
         response.headers["Content-Security-Policy"] = csp
