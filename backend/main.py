@@ -3,8 +3,10 @@
 import os
 import logging
 import asyncio
+import uuid
 from contextlib import asynccontextmanager
 
+import traceback
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -187,15 +189,50 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @fastapi_app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):  # pylint: disable=unused-argument
-    """Handle general exceptions."""
-    # Log the full error for debugging
-    import traceback
+    """Handle general exceptions, log to file, and return a UUID for tracking."""
+    error_id = str(uuid.uuid4())
+    error_type = type(exc).__name__
+    error_msg = str(exc)
 
-    traceback.print_exc()
+    # Extract filename and line number from traceback
+    tb_list = traceback.extract_tb(exc.__traceback__)
+    if tb_list:
+        last_frame = tb_list[-1]
+        filename = os.path.basename(last_frame.filename)
+        line_number = last_frame.lineno
+        location = f"{filename}:{line_number}"
+    else:
+        location = "unknown"
+
+    # Save full traceback to a file
+    try:
+        os.makedirs("logs", exist_ok=True)
+        log_file_path = os.path.join("logs", f"error-{error_id}.txt")
+        with open(log_file_path, "w", encoding="utf-8") as f:
+            f.write(f"Error ID: {error_id}\n")
+            f.write(f"Type: {error_type}\n")
+            f.write(f"Message: {error_msg}\n")
+            f.write(f"Location: {location}\n")
+            f.write("-" * 20 + " TRACEBACK " + "-" * 20 + "\n")
+            f.write(traceback.format_exc())
+    except Exception as log_exc:
+        logger.error(f"Failed to save error log to file: {str(log_exc)}")
+
+    # Log the full error for debugging on the server
+    logger.error(
+        f"Unhandled exception [{error_id}]: {error_type}: {error_msg} at {location}",
+        exc_info=True,
+    )
 
     return JSONResponse(
         status_code=500,
-        content={"message": "Internal server error", "status_code": 500},
+        content={
+            "message": "Internal server error occurred.",
+            "error_id": error_id,
+            "error_type": error_type,
+            "error_trace": f"{error_msg} (at {location})",
+            "status_code": 500,
+        },
     )
 
 
