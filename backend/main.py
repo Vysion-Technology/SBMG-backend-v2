@@ -70,14 +70,25 @@ fastapi_app = FastAPI(
 fastapi_app.add_middleware(SecurityHeadersMiddleware)
 
 # Add CORS middleware
-# Read allowed origins from environment variable, default to "*" for dev
-# Read allowed origins from environment variable, default to empty list (secure)
+# Default allowed origins for development and production
+default_origins = [
+    "http://10.70.232.147",
+    "http://139.59.34.99",
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:8000",
+]
+
+# Read allowed origins from environment variable and merge with defaults
 allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "")
-allowed_origins = (
-    [origin.strip() for origin in allowed_origins_str.split(",")]
-    if allowed_origins_str
-    else []
-)
+env_origins = [
+    origin.strip().rstrip("/")
+    for origin in allowed_origins_str.split(",")
+    if origin.strip()
+]
+allowed_origins = list(set(default_origins + env_origins))
 
 fastapi_app.add_middleware(
     CORSMiddleware,
