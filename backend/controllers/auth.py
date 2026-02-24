@@ -25,7 +25,7 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
 
 
 class TokenResponse(BaseModel):
@@ -68,6 +68,7 @@ class UserResponse(BaseModel):
 
 class AuthController:
     """Controller for authentication-related operations."""
+
     def __init__(self, db: AsyncSession):
         self.auth_service = AuthService(db)
 
@@ -75,7 +76,9 @@ class AuthController:
         """Get user by username."""
         return await self.auth_service.get_user_by_username(username)
 
-    async def get_all_users(self, username_like: str = "", skip: int = 0, limit: int = 100) -> list[User]:
+    async def get_all_users(
+        self, username_like: str = "", skip: int = 0, limit: int = 100
+    ) -> list[User]:
         """Get all users with optional username filter and pagination."""
         return await self.auth_service.get_all_users(username_like, skip, limit)
 
@@ -88,7 +91,9 @@ class AuthController:
         limit: int = 100,
     ) -> List[PositionHolder]:
         """Get users filtered by geography with pagination."""
-        return await self.auth_service.get_users_by_geography(district_id, block_id, village_id, skip, limit)
+        return await self.auth_service.get_users_by_geography(
+            district_id, block_id, village_id, skip, limit
+        )
 
 
 # Dependency to get current user from token
@@ -157,16 +162,23 @@ async def login(login_request: LoginRequest, db: AsyncSession = Depends(get_db))
     """Authenticate user and return JWT token."""
     auth_service = AuthService(db)
 
-    user = await auth_service.authenticate_user(login_request.username, login_request.password)
+    try:
+        user = await auth_service.authenticate_user(
+            login_request.username, login_request.password
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User does not exist",
+            detail="User does not exist or invalid password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     access_token_expires = timedelta(minutes=settings.jwt_access_token_expire_minutes)
-    access_token = auth_service.create_access_token(data={"sub": user.username}, expires_delta=access_token_expires)
+    access_token = auth_service.create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
 
     return TokenResponse(access_token=access_token, token_type="bearer")
 
@@ -230,7 +242,9 @@ async def get_user_info(
 
 
 @router.post("/password-reset/send-otp")
-async def send_password_reset_otp(request: PasswordResetOTPRequest, db: AsyncSession = Depends(get_db)):
+async def send_password_reset_otp(
+    request: PasswordResetOTPRequest, db: AsyncSession = Depends(get_db)
+):
     """Send OTP to user for password reset."""
     auth_service = AuthService(db)
     try:
@@ -243,11 +257,15 @@ async def send_password_reset_otp(request: PasswordResetOTPRequest, db: AsyncSes
 
 
 @router.post("/password-reset/verify-otp")
-async def verify_password_reset_otp(request: PasswordResetVerifyRequest, db: AsyncSession = Depends(get_db)):
+async def verify_password_reset_otp(
+    request: PasswordResetVerifyRequest, db: AsyncSession = Depends(get_db)
+):
     """Verify OTP and update user's password."""
     auth_service = AuthService(db)
     try:
-        success = await auth_service.verify_password_reset_otp(request.user_id, request.otp, request.new_password)
+        success = await auth_service.verify_password_reset_otp(
+            request.user_id, request.otp, request.new_password
+        )
         if not success:
             raise HTTPException(status_code=500, detail="Failed to reset password")
         return {"detail": "Password reset successfully"}

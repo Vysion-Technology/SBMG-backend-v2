@@ -6,7 +6,15 @@ from typing import List, Optional
 from datetime import date, datetime
 
 from sqlalchemy.orm import mapped_column, relationship, Mapped
-from sqlalchemy import String, Integer, Boolean, ForeignKey, Date, DateTime, UniqueConstraint
+from sqlalchemy import (
+    String,
+    Integer,
+    Boolean,
+    ForeignKey,
+    Date,
+    DateTime,
+    UniqueConstraint,
+)
 
 from models.database.geography import District, Block, GramPanchayat
 from database import Base  # type: ignore
@@ -24,14 +32,16 @@ class Role(Base):  # type: ignore
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)  # type: ignore
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
 
-    positions: Mapped[List["PositionHolder"]] = relationship("PositionHolder", back_populates="role")
+    positions: Mapped[List["PositionHolder"]] = relationship(
+        "PositionHolder", back_populates="role"
+    )
 
 
 #    _   _   _ _____ _   _  ___  ____  ___ _______   __
 #   / \ | | | |_   _| | | |/ _ \|  _ \|_ _|_   _\ \ / /
 #  / _ \| | | | | | | |_| | | | | |_) || |  | |  \ V /
 # / ___ \ |_| | | | |  _  | |_| |  _ < | |  | |   | |
-#/_/   \_\___/  |_| |_| |_|\___/|_| \_\___| |_|   |_|
+# /_/   \_\___/  |_| |_| |_|\___/|_| \_\___| |_|   |_|
 
 
 def generate_employee_id() -> str:
@@ -50,7 +60,9 @@ class User(Base):  # type: ignore
     __tablename__ = "authority_users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # type: ignore
-    username: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)  # type: ignore
+    username: Mapped[str] = mapped_column(
+        String, unique=True, nullable=False, index=True
+    )  # type: ignore
     email: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)  # type: ignore
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)  # type: ignore
@@ -72,9 +84,15 @@ class User(Base):  # type: ignore
         nullable=True,
         index=True,
     )
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)  # type: ignore
+    lockout_until: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )  # type: ignore
 
     # Relationships
-    positions: Mapped[List["PositionHolder"]] = relationship("PositionHolder", back_populates="user")
+    positions: Mapped[List["PositionHolder"]] = relationship(
+        "PositionHolder", back_populates="user"
+    )
     complaint_assignments = relationship("ComplaintAssignment", back_populates="user")
     complaint_comments = relationship("ComplaintComment", back_populates="user")
     district: Mapped[Optional[District]] = relationship("District")
@@ -86,7 +104,9 @@ class User(Base):  # type: ignore
         # i.e., only one VDO per village, one BDO per block, etc.
         # Note: This does not prevent a user from holding multiple roles or positions in different areas
         # but prevents role duplication in the same area.
-        UniqueConstraint("gp_id", "block_id", "district_id", "username", name="uix_user_geo"),
+        UniqueConstraint(
+            "gp_id", "block_id", "district_id", "username", name="uix_user_geo"
+        ),
     )
 
     @property
@@ -139,7 +159,9 @@ class UserPasswordResetOTP(Base):  # type: ignore
     )
     otp: Mapped[str] = mapped_column(String, nullable=False)  # type: ignore
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)  # type: ignore
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)  # type: ignore
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )  # type: ignore
 
     # Relationships
     user = relationship("User")

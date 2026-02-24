@@ -31,18 +31,18 @@ async def lifespan(app: FastAPI):
     # Startup: Start periodic GPS data fetching
     logger.info("Application starting up...")
     logger.info("Starting GPS data periodic fetch task...")
-    
+
     # Create background task for periodic GPS fetching
     async for db in get_db():
         gps_task = asyncio.create_task(GPSTrackingService(db).start_periodic_fetch())
-        
+
         yield
-        
+
         # Shutdown: Stop GPS fetching task
         logger.info("Application shutting down...")
         logger.info("Stopping GPS data periodic fetch task...")
         GPSTrackingService(db).stop_periodic_fetch()
-    
+
     # Wait for the task to complete (with timeout)
     try:
         await asyncio.wait_for(gps_task, timeout=5.0)
@@ -64,12 +64,18 @@ fastapi_app = FastAPI(
 
 # Add Security Headers Middleware
 from middleware.security import SecurityHeadersMiddleware
+
 fastapi_app.add_middleware(SecurityHeadersMiddleware)
 
 # Add CORS middleware
 # Read allowed origins from environment variable, default to "*" for dev
-allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "*")
-allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
+# Read allowed origins from environment variable, default to empty list (secure)
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "")
+allowed_origins = (
+    [origin.strip() for origin in allowed_origins_str.split(",")]
+    if allowed_origins_str
+    else []
+)
 
 fastapi_app.add_middleware(
     CORSMiddleware,
@@ -95,17 +101,31 @@ async def health_check():
 # Include routers
 fastapi_app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 fastapi_app.include_router(citizen.router, prefix="/api/v1/citizen", tags=["Citizen"])
-fastapi_app.include_router(geography.router, prefix="/api/v1/geography", tags=["Geography"])
+fastapi_app.include_router(
+    geography.router, prefix="/api/v1/geography", tags=["Geography"]
+)
 fastapi_app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
-fastapi_app.include_router(position_holder.router, prefix="/api/v1/position-holders", tags=["Position Holders"])
-fastapi_app.include_router(complaints.router, prefix="/api/v1/complaints", tags=["Complaints"])
+fastapi_app.include_router(
+    position_holder.router, prefix="/api/v1/position-holders", tags=["Position Holders"]
+)
+fastapi_app.include_router(
+    complaints.router, prefix="/api/v1/complaints", tags=["Complaints"]
+)
 fastapi_app.include_router(event.router, prefix="/api/v1/events", tags=["Events"])
 fastapi_app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
-fastapi_app.include_router(attendance.router, prefix="/api/v1/attendance", tags=["DailyAttendance"])
+fastapi_app.include_router(
+    attendance.router, prefix="/api/v1/attendance", tags=["DailyAttendance"]
+)
 fastapi_app.include_router(scheme.router, prefix="/api/v1/schemes", tags=["Schemes"])
-fastapi_app.include_router(fcm_device.router, prefix="/api/v1/notifications", tags=["FCM Notifications"])
-fastapi_app.include_router(inspection.router, prefix="/api/v1/inspections", tags=["Inspections"])
-fastapi_app.include_router(annual_survey.router, prefix="/api/v1/annual-surveys", tags=["Annual Surveys"])
+fastapi_app.include_router(
+    fcm_device.router, prefix="/api/v1/notifications", tags=["FCM Notifications"]
+)
+fastapi_app.include_router(
+    inspection.router, prefix="/api/v1/inspections", tags=["Inspections"]
+)
+fastapi_app.include_router(
+    annual_survey.router, prefix="/api/v1/annual-surveys", tags=["Annual Surveys"]
+)
 fastapi_app.include_router(notice.router, prefix="/api/v1/notices", tags=["Notices"])
 fastapi_app.include_router(
     contractor.router,
