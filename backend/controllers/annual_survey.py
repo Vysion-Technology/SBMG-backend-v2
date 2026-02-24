@@ -29,14 +29,19 @@ from models.response.annual_survey_analytics import (
 
 from services.geography import GeographyService
 from services.annual_survey import AnnualSurveyService
+
 # from services.annual_survey_analytics import AnnualSurveyAnalyticsService
-from services.annual_survey_analytics_optimized import AnnualSurveyAnalyticsServiceOptimized as AnnualSurveyAnalyticsService
+from services.annual_survey_analytics_optimized import (
+    AnnualSurveyAnalyticsServiceOptimized as AnnualSurveyAnalyticsService,
+)
 
 
 router = APIRouter()
 
 
-@router.post("/fill", response_model=AnnualSurveyResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/fill", response_model=AnnualSurveyResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_annual_survey(
     survey_request: CreateAnnualSurveyRequest,
     db: AsyncSession = Depends(get_db),
@@ -63,7 +68,9 @@ async def create_annual_survey(
             )
         survey = await service.vdo_fills_the_survey(current_user, survey_request)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
     return survey
 
@@ -106,7 +113,9 @@ async def update_annual_survey(
 
         updated_survey = await service.update_survey(survey_id, survey_request)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
     return updated_survey
 
@@ -138,7 +147,9 @@ async def delete_annual_survey(
             )
         await service.delete_survey(survey_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
     return None
 
@@ -146,8 +157,8 @@ async def delete_annual_survey(
 @router.get("/", response_model=list[AnnualSurveyResponse])
 async def list_annual_surveys(
     db: AsyncSession = Depends(get_db),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
+    skip: int = Query(0, ge=0, le=1000000),
+    limit: int = Query(100, ge=1, le=1000),
     district_id: int | None = None,
     block_id: int | None = None,
     gp_id: int | None = None,
@@ -179,7 +190,9 @@ async def list_annual_surveys(
             skip=skip,
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
     return surveys
 
@@ -205,7 +218,9 @@ async def get_annual_survey(
                 detail="Survey not found",
             )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
     return survey
 
@@ -234,7 +249,9 @@ async def get_gp_latest_survey(
                 else "Survey not found for your Gram Panchayat",
             )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
     return survey
 
@@ -243,7 +260,7 @@ async def get_gp_latest_survey(
 async def get_state_analytics(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_staff_role),
-    fy_id: Optional[int] = None,
+    fy_id: Optional[int] = Query(None, ge=1, le=1000000),
 ) -> StateAnalytics:
     """
     Get state-level annual survey analytics.
@@ -262,7 +279,9 @@ async def get_state_analytics(
     try:
         analytics = await service.get_state_analytics(fy_id=fy_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
     return analytics
 
@@ -298,9 +317,13 @@ async def get_district_analytics(
     service = AnnualSurveyAnalyticsService(db)
 
     try:
-        analytics = await service.get_district_analytics(district_id=district_id, fy_id=fy_id)
+        analytics = await service.get_district_analytics(
+            district_id=district_id, fy_id=fy_id
+        )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
     return analytics
 
@@ -354,7 +377,9 @@ async def get_block_analytics(
     try:
         analytics = await service.get_block_analytics(block_id=block_id, fy_id=fy_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
     return analytics
 
@@ -413,7 +438,9 @@ async def get_gp_analytics(
     try:
         analytics = await service.get_gp_analytics(gp_id=gp_id, fy_id=fy_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
     return analytics
 
@@ -439,32 +466,43 @@ async def get_annual_survey_analytics_deprecated(
     """
     geo_svc = GeographyService(db)
     if district_id:
-        if not any([
-            not current_user.district_id,
-            current_user.district_id != district_id,
-        ]):
+        if not any(
+            [
+                not current_user.district_id,
+                current_user.district_id != district_id,
+            ]
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to view analytics for this district",
             )
     if block_id:
         block = await geo_svc.get_block(block_id)
-        if not any([
-            not current_user.block_id and not current_user.district_id and not current_user.gp_id,
-            not current_user.block_id and current_user.district_id == block.district_id,
-            current_user.block_id != block_id,
-        ]):
+        if not any(
+            [
+                not current_user.block_id
+                and not current_user.district_id
+                and not current_user.gp_id,
+                not current_user.block_id
+                and current_user.district_id == block.district_id,
+                current_user.block_id != block_id,
+            ]
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to view analytics for this block",
             )
     if gp_id:
         gp = await geo_svc.get_village(gp_id)
-        if not any([
-            not current_user.gp_id and not current_user.block_id and not current_user.district_id,
-            not current_user.gp_id and current_user.block_id == gp.block_id,
-            current_user.gp_id != gp_id,
-        ]):
+        if not any(
+            [
+                not current_user.gp_id
+                and not current_user.block_id
+                and not current_user.district_id,
+                not current_user.gp_id and current_user.block_id == gp.block_id,
+                current_user.gp_id != gp_id,
+            ]
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to view analytics for this GP",
@@ -486,6 +524,8 @@ async def get_active_financial_years(
     try:
         active_fy = await service.get_active_financial_years()
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
     return active_fy

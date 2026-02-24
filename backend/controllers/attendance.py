@@ -60,7 +60,9 @@ async def get_contractor_from_user(user: User, db: AsyncSession) -> Contractor:
     contractor = result.scalar_one_or_none()
 
     if not contractor:
-        raise NoContractorForVillageError("There is no contractor associated with the village.")
+        raise NoContractorForVillageError(
+            "There is no contractor associated with the village."
+        )
 
     return contractor
 
@@ -78,7 +80,9 @@ async def log_attendance(
     try:
         # Get contractor record for this user
         if not request.village_id == current_user.gp_id:
-            raise AttemptingToLogAttendanceForAnotherUserError("You can only log attendance for your own village.")
+            raise AttemptingToLogAttendanceForAnotherUserError(
+                "You can only log attendance for your own village."
+            )
         contractor = await get_contractor_from_user(current_user, db)
 
         # Log attendance
@@ -103,10 +107,14 @@ async def log_attendance(
         return AttendanceResponse(
             id=full_attendance.id,
             contractor_id=full_attendance.contractor_id,
-            contractor_name=contractor.person_name if full_attendance.contractor else None,
+            contractor_name=contractor.person_name
+            if full_attendance.contractor
+            else None,
             village_id=gp.id,
             village_name=gp.name,
-            block_name=gp.block.name if full_attendance.contractor and gp and gp.block else None,
+            block_name=gp.block.name
+            if full_attendance.contractor and gp and gp.block
+            else None,
             district_name=gp.block.district.name
             if full_attendance.contractor and gp and gp.block and gp.block.district
             else None,
@@ -123,7 +131,9 @@ async def log_attendance(
     except AttemptingToLogAttendanceForAnotherUserError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
     except AssertionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except NoContractorForVillageError as e:
@@ -172,11 +182,15 @@ async def end_attendance(
         return AttendanceResponse(
             id=full_attendance.id,
             contractor_id=full_attendance.contractor_id,
-            contractor_name=contractor.person_name if full_attendance.contractor else None,
+            contractor_name=contractor.person_name
+            if full_attendance.contractor
+            else None,
             village_id=gp.id,
             village_name=gp.name,
             block_name=gp.block.name if gp.block else None,
-            district_name=gp.block.district.name if gp.block and gp.block.district else None,
+            district_name=gp.block.district.name
+            if gp.block and gp.block.district
+            else None,
             date=full_attendance.date,
             start_time=full_attendance.start_time,
             start_lat=full_attendance.start_lat or "",
@@ -188,7 +202,9 @@ async def end_attendance(
         )
 
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
     except AssertionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except NoContractorForVillageError as e:
@@ -205,7 +221,7 @@ async def end_attendance(
 async def get_my_attendance(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=10000),
     limit: int = Query(10, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -265,10 +281,12 @@ async def view_attendance(
         if user_role == UserRole.WORKER:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=" ".join([
-                    "Workers cannot view attendance records of others. ",
-                    "Use the other API to get your attendance records.",
-                ]),
+                detail=" ".join(
+                    [
+                        "Workers cannot view attendance records of others. ",
+                        "Use the other API to get your attendance records.",
+                    ]
+                ),
             )
 
         if not any(role in ["VDO", "BDO", "CEO", "ADMIN"] for role in [user_role]):
@@ -310,8 +328,8 @@ async def get_attendance_analytics(
     level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-    skip: Optional[int] = Query(0, ge=0),
-    limit: Optional[int] = Query(500, ge=1, le=500),
+    skip: int = Query(0, ge=0, le=1000000),
+    limit: int = Query(500, ge=1, le=1000),
 ) -> AttendanceAnalyticsResponse:
     """
     Get attendance analytics aggregated by geographic level.
@@ -338,7 +356,11 @@ async def get_attendance_analytics(
             )
 
         # Validate query parameters
-        if (district_id and block_id) or (district_id and gp_id) or (block_id and gp_id):
+        if (
+            (district_id and block_id)
+            or (district_id and gp_id)
+            or (block_id and gp_id)
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Provide only one of district_id, block_id, or gp_id",
@@ -528,7 +550,9 @@ async def get_attendance_by_id(
         return AttendanceResponse(
             id=attendance.id,
             contractor_id=attendance.contractor_id,
-            contractor_name=attendance.contractor.person_name if attendance.contractor else None,
+            contractor_name=attendance.contractor.person_name
+            if attendance.contractor
+            else None,
             village_id=gp.id,
             village_name=gp.name,
             block_name=gp.block.name,
@@ -636,7 +660,7 @@ async def get_annual_geo_performance(
 
 @router.get("/aggregated/monthly", response_model=List[MonthlyAggregation])
 async def get_monthly_aggregated_geo_performance(
-    year: int,
+    year: int = Query(..., ge=2000, le=2100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
 ) -> List[MonthlyAggregation]:
@@ -646,8 +670,10 @@ async def get_monthly_aggregated_geo_performance(
     assert current_user is not None, "User must be authenticated"
     try:
         attendance_service = AttendanceService(db)
-        monthly_aggregated_performance = await attendance_service.get_monthly_aggregated_geo_performance(
-            year=year,
+        monthly_aggregated_performance = (
+            await attendance_service.get_monthly_aggregated_geo_performance(
+                year=year,
+            )
         )
         return monthly_aggregated_performance
 
