@@ -6,6 +6,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -19,7 +20,8 @@ from controllers import gps_tracking
 from controllers import feedback
 from controllers import formulae
 from controllers import contractor_analytics
-from database import AsyncSessionLocal, get_db
+from database import get_db
+from middleware.security import SecurityHeadersMiddleware
 from services.gps_tracking import GPSTrackingService
 
 logger = logging.getLogger(__name__)
@@ -63,8 +65,6 @@ fastapi_app = FastAPI(
 )
 
 # Add Security Headers Middleware
-from middleware.security import SecurityHeadersMiddleware
-
 fastapi_app.add_middleware(SecurityHeadersMiddleware)
 
 # Add CORS middleware
@@ -155,6 +155,7 @@ fastapi_app.include_router(
 # app.include_router(survey.router, prefix="/api/v1/surveys", tags=["Surveys"])
 
 
+# Include routers
 @fastapi_app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):  # pylint: disable=unused-argument
     """Handle HTTP exceptions."""
@@ -164,9 +165,34 @@ async def http_exception_handler(request: Request, exc: HTTPException):  # pylin
     )
 
 
+@fastapi_app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):  # pylint: disable=unused-argument
+    """Handle validation errors without exposing internal Pydantic details."""
+    simplified_errors = []
+    for error in exc.errors():
+        # Get a clean path to the field (e.g., "query -> limit")
+        field = " -> ".join([str(loc) for loc in error.get("loc", [])])
+        message = error.get("msg", "Invalid value")
+        simplified_errors.append({"field": field, "message": message})
+
+    return JSONResponse(
+        status_code=422,
+        content={
+            "message": "Validation error",
+            "errors": simplified_errors,
+            "status_code": 422,
+        },
+    )
+
+
 @fastapi_app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):  # pylint: disable=unused-argument
     """Handle general exceptions."""
+    # Log the full error for debugging
+    import traceback
+
+    traceback.print_exc()
+
     return JSONResponse(
         status_code=500,
         content={"message": "Internal server error", "status_code": 500},
@@ -184,4 +210,5 @@ if __name__ == "__main__":
         host=host,
         port=port,
         reload=os.getenv("DEBUG", "false").lower() == "true",
+        server_header=False,
     )
