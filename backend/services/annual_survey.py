@@ -89,7 +89,9 @@ class AnnualSurveyService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def vdo_fills_the_survey(self, user: User, request: CreateAnnualSurveyRequest) -> AnnualSurveyResponse:
+    async def vdo_fills_the_survey(
+        self, user: User, request: CreateAnnualSurveyRequest
+    ) -> AnnualSurveyResponse:
         """Create a new annual survey."""
         # Get active position
         position = await AuthService.get_user_active_position(user)
@@ -123,7 +125,7 @@ class AnnualSurveyService:
                     sarpanch_name=request.sarpanch_name,
                     sarpanch_contact=request.sarpanch_contact,
                     num_ward_panchs=request.num_ward_panchs,
-                    agency_id=1,
+                    agency_id=request.agency_id,
                 )
                 .returning(AnnualSurvey)
             )
@@ -343,7 +345,9 @@ class AnnualSurveyService:
         # Update or create door to door collection details
         if request.door_to_door_collection is not None:
             dtd_result = await self.db.execute(
-                select(DoorToDoorCollectionDetails).where(DoorToDoorCollectionDetails.id == survey_id)
+                select(DoorToDoorCollectionDetails).where(
+                    DoorToDoorCollectionDetails.id == survey_id
+                )
             )
             dtd = dtd_result.scalar_one_or_none()
             if dtd:
@@ -352,7 +356,9 @@ class AnnualSurveyService:
                 if request.door_to_door_collection.num_shops is not None:
                     dtd.num_shops = request.door_to_door_collection.num_shops
                 if request.door_to_door_collection.collection_frequency is not None:
-                    dtd.collection_frequency = request.door_to_door_collection.collection_frequency
+                    dtd.collection_frequency = (
+                        request.door_to_door_collection.collection_frequency
+                    )
             else:
                 dtd = DoorToDoorCollectionDetails(
                     id=survey.id,
@@ -521,7 +527,7 @@ class AnnualSurveyService:
             await self.db.execute(
                 delete(VillageData).where(VillageData.survey_id == survey_id)
             )
-            
+
             for village_req in request.village_data:
                 village = VillageData(
                     survey_id=survey.id,
@@ -594,15 +600,20 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.csc_details),
                 selectinload(AnnualSurvey.swm_assets),
                 selectinload(AnnualSurvey.sbmg_targets),
-                selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
-                selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
+                selectinload(AnnualSurvey.village_data).selectinload(
+                    VillageData.sbmg_assets
+                ),
+                selectinload(AnnualSurvey.village_data).selectinload(
+                    VillageData.gwm_assets
+                ),
             )
             .where(AnnualSurvey.id == survey_id)
         )
         survey = result.scalar_one_or_none()
         if not survey:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Annual Survey has not been filled for this GP yet."
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Annual Survey has not been filled for this GP yet.",
             )
         resp = get_response_model_from_survey(survey)
         return resp
@@ -633,8 +644,12 @@ class AnnualSurveyService:
             selectinload(AnnualSurvey.csc_details),
             selectinload(AnnualSurvey.swm_assets),
             selectinload(AnnualSurvey.sbmg_targets),
-            selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
-            selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
+            selectinload(AnnualSurvey.village_data).selectinload(
+                VillageData.sbmg_assets
+            ),
+            selectinload(AnnualSurvey.village_data).selectinload(
+                VillageData.gwm_assets
+            ),
         )
 
         if gp_id:
@@ -667,11 +682,15 @@ class AnnualSurveyService:
 
     async def get_active_financial_years(self) -> List[AnnualSurveyFYResponse]:
         """Get list of active financial years from surveys."""
-        result = await self.db.execute(select(AnnualSurveyFY).where(AnnualSurveyFY.active.is_(True)))
+        result = await self.db.execute(
+            select(AnnualSurveyFY).where(AnnualSurveyFY.active.is_(True))
+        )
         fys = result.scalars().all()
         return [AnnualSurveyFYResponse.model_validate(fy) for fy in fys]
 
-    async def get_latest_survey_by_gp(self, gp_id: int) -> Optional[AnnualSurveyResponse]:
+    async def get_latest_survey_by_gp(
+        self, gp_id: int
+    ) -> Optional[AnnualSurveyResponse]:
         """Get the latest survey for a given Gram Panchayat."""
         result = await self.db.execute(
             select(AnnualSurvey)
@@ -689,8 +708,12 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.csc_details),
                 selectinload(AnnualSurvey.swm_assets),
                 selectinload(AnnualSurvey.sbmg_targets),
-                selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
-                selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
+                selectinload(AnnualSurvey.village_data).selectinload(
+                    VillageData.sbmg_assets
+                ),
+                selectinload(AnnualSurvey.village_data).selectinload(
+                    VillageData.gwm_assets
+                ),
             )
             .where(AnnualSurvey.gp_id == gp_id)
             .order_by(AnnualSurvey.survey_date.desc())
@@ -712,7 +735,9 @@ class AnnualSurveyService:
         vdo_list = sorted(vdo_list, key=lambda vdo: vdo.gp_id or 0)
         vdo_ids = [vdo.id for vdo in vdo_list]
 
-        assert len(gp_ids) == len(vdo_ids), "Number of GPs and VDOs must be the same for bulk filling."
+        assert len(gp_ids) == len(vdo_ids), (
+            "Number of GPs and VDOs must be the same for bulk filling."
+        )
 
         batch_size = 100
         for i in range(0, len(gp_ids), batch_size):
@@ -721,20 +746,22 @@ class AnnualSurveyService:
             surveys = await self.db.execute(
                 insert(AnnualSurvey)
                 .returning(AnnualSurvey)
-                .values([
-                    {
-                        "fy_id": fy_id,
-                        "gp_id": gp_id,
-                        "survey_date": date.today(),
-                        "vdo_id": batch_vdo_ids[idx],
-                        "vdo_name": f"VDO {batch_vdo_ids[idx]}",
-                        "sarpanch_name": f"Sarpanch {gp_id}",
-                        "sarpanch_contact": f"90000000{gp_id % 10}",
-                        "num_ward_panchs": random.randint(5, 15),
-                        "agency_id": 1,
-                    }
-                    for idx, gp_id in enumerate(batch_gp_ids)
-                ])
+                .values(
+                    [
+                        {
+                            "fy_id": fy_id,
+                            "gp_id": gp_id,
+                            "survey_date": date.today(),
+                            "vdo_id": batch_vdo_ids[idx],
+                            "vdo_name": f"VDO {batch_vdo_ids[idx]}",
+                            "sarpanch_name": f"Sarpanch {gp_id}",
+                            "sarpanch_contact": f"90000000{gp_id % 10}",
+                            "num_ward_panchs": random.randint(5, 15),
+                            "agency_id": 1,
+                        }
+                        for idx, gp_id in enumerate(batch_gp_ids)
+                    ]
+                )
             )
             await self.db.commit()
             # Fill other related data as well for all related tables compulsorily
@@ -743,11 +770,15 @@ class AnnualSurveyService:
             # Concurrent operations on the same AsyncSession are not permitted and were causing
             # `InvalidRequestError: This session is provisioning a new connection; concurrent operations are not permitted`.
             for survey in surveys_list:
-                await self._fill_related_survey_data(survey, gp_villages_map[survey.gp_id])
+                await self._fill_related_survey_data(
+                    survey, gp_villages_map[survey.gp_id]
+                )
             # Ensure any remaining pending changes are committed
             await self.db.commit()
 
-    async def _fill_related_survey_data(self, survey: AnnualSurvey, village_ids: List[int]) -> None:
+    async def _fill_related_survey_data(
+        self, survey: AnnualSurvey, village_ids: List[int]
+    ) -> None:
         """Fill related data for a given survey."""
         work_order = WorkOrderDetails(
             id=survey.id,
