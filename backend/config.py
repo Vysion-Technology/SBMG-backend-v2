@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     max_login_attempts: int = 5
     lockout_duration_minutes: int = 15
 
+    # RSA Encryption (for payload-level credential encryption)
+    rsa_private_key_pem: str = ""
+    rsa_public_key_pem: str = ""
+
     # S3/MinIO Settings
     s3_endpoint_url: Optional[str] = os.getenv("S3_ENDPOINT_URL")
     s3_access_key: Optional[str] = os.getenv("S3_ACCESS_KEY")

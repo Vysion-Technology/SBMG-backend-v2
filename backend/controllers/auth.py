@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from database import get_db
 from models.database.auth import PositionHolder, User, PublicUser
 from services.auth import AuthService
+from services.encryption import EncryptionService
 from config import settings
 
 
@@ -22,8 +23,14 @@ router = APIRouter()
 
 # Pydantic models for request/response
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    """Login request with RSA-OAEP encrypted fields.
+
+    Both `username` and `password` must be individually encrypted with the
+    server's RSA public key (OAEP/SHA-256) and sent as base64 strings.
+    """
+
+    username: str  # base64 RSA-OAEP encrypted
+    password: str  # base64 RSA-OAEP encrypted
 
     model_config = ConfigDict(extra="forbid")
 
@@ -38,9 +45,15 @@ class PasswordResetOTPRequest(BaseModel):
 
 
 class PasswordResetVerifyRequest(BaseModel):
+    """Password reset request with RSA-OAEP encrypted new_password.
+
+    The `new_password` field must be encrypted with the server's RSA public
+    key (OAEP/SHA-256) and sent as a base64 string.
+    """
+
     user_id: int
     otp: str
-    new_password: str
+    new_password: str  # base64 RSA-OAEP encrypted
 
 
 class PositionInfo(BaseModel):
@@ -157,15 +170,40 @@ async def get_current_any_user(
 
 
 # Route handlers
+@router.get("/public-key")
+async def get_public_key():
+    """Return the RSA public key in PEM format for frontend encryption."""
+    try:
+        public_key_pem = EncryptionService.get_public_key_pem()
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e),
+        )
+    return {"public_key": public_key_pem}
+
+
 @router.post("/login", response_model=TokenResponse)
 async def login(login_request: LoginRequest, db: AsyncSession = Depends(get_db)):
-    """Authenticate user and return JWT token."""
+    """Authenticate user and return JWT token.
+
+    Both `username` and `password` fields are RSA-OAEP/SHA-256 encrypted
+    (base64-encoded). Use the public key from GET /auth/public-key.
+    """
+    # Decrypt individual fields
+    try:
+        username = EncryptionService.decrypt_field(login_request.username)
+        password = EncryptionService.decrypt_field(login_request.password)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to decrypt credentials: {e}",
+        )
+
     auth_service = AuthService(db)
 
     try:
-        user = await auth_service.authenticate_user(
-            login_request.username, login_request.password
-        )
+        user = await auth_service.authenticate_user(username, password)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     if not user:
@@ -260,11 +298,23 @@ async def send_password_reset_otp(
 async def verify_password_reset_otp(
     request: PasswordResetVerifyRequest, db: AsyncSession = Depends(get_db)
 ):
-    """Verify OTP and update user's password."""
+    """Verify OTP and update user's password.
+
+    The `new_password` field must be RSA-OAEP/SHA-256 encrypted (base64).
+    """
+    # Decrypt the new password
+    try:
+        new_password = EncryptionService.decrypt_field(request.new_password)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to decrypt new password: {e}",
+        ) from e
+
     auth_service = AuthService(db)
     try:
         success = await auth_service.verify_password_reset_otp(
-            request.user_id, request.otp, request.new_password
+            request.user_id, request.otp, new_password
         )
         if not success:
             raise HTTPException(status_code=500, detail="Failed to reset password")
