@@ -4,7 +4,7 @@ Request Models for Annual Survey Management
 
 from typing import Optional, List
 from datetime import date
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from models.database.survey_master import (
     FundHead,
     CollectionFrequency,
@@ -162,6 +162,21 @@ class CreateAnnualSurveyRequest(BaseModel):
         None, description="List of village data"
     )
 
+    @model_validator(mode="after")
+    def validate_amounts(self):
+        """Validate that work order amount is less than or equal to fund sanctioned amount."""
+        if (
+            self.work_order
+            and self.work_order.work_order_amount is not None
+            and self.fund_sanctioned
+            and self.fund_sanctioned.amount is not None
+        ):
+            if self.work_order.work_order_amount > self.fund_sanctioned.amount:
+                raise ValueError(
+                    "Work order amount cannot be greater than the fund sanctioned amount"
+                )
+        return self
+
 
 class UpdateAnnualSurveyRequest(BaseModel):
     """Request model for updating an annual survey."""
@@ -205,3 +220,18 @@ class UpdateAnnualSurveyRequest(BaseModel):
 
     # 13. Village Data (multiple villages)
     village_data: Optional[List[VillageDataRequest]] = None
+
+    @model_validator(mode="after")
+    def validate_amounts(self):
+        """Validate that work order amount is less than or equal to fund sanctioned amount."""
+        if (
+            self.work_order
+            and self.work_order.work_order_amount is not None
+            and self.fund_sanctioned
+            and self.fund_sanctioned.amount is not None
+        ):
+            if self.work_order.work_order_amount > self.fund_sanctioned.amount:
+                raise ValueError(
+                    "Work order amount cannot be greater than the fund sanctioned amount"
+                )
+        return self

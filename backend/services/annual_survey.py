@@ -301,12 +301,20 @@ class AnnualSurveyService:
         if request.agency_id is not None:
             survey.agency_id = request.agency_id
 
+        # Get existing work order and fund for validation
+        work_order_result = await self.db.execute(
+            select(WorkOrderDetails).where(WorkOrderDetails.id == survey_id)
+        )
+        existing_work_order = work_order_result.scalar_one_or_none()
+
+        fund_result = await self.db.execute(
+            select(FundSanctioned).where(FundSanctioned.id == survey_id)
+        )
+        existing_fund = fund_result.scalar_one_or_none()
+
         # Update or create work order details
         if request.work_order is not None:
-            work_order_result = await self.db.execute(
-                select(WorkOrderDetails).where(WorkOrderDetails.id == survey_id)
-            )
-            work_order = work_order_result.scalar_one_or_none()
+            work_order = existing_work_order
             if work_order:
                 if request.work_order.work_order_no is not None:
                     work_order.work_order_no = request.work_order.work_order_no
@@ -322,13 +330,11 @@ class AnnualSurveyService:
                     work_order_amount=request.work_order.work_order_amount,
                 )
                 self.db.add(work_order)
+            existing_work_order = work_order
 
         # Update or create fund sanctioned
         if request.fund_sanctioned is not None:
-            fund_result = await self.db.execute(
-                select(FundSanctioned).where(FundSanctioned.id == survey_id)
-            )
-            fund = fund_result.scalar_one_or_none()
+            fund = existing_fund
             if fund:
                 if request.fund_sanctioned.amount is not None:
                     fund.amount = request.fund_sanctioned.amount
@@ -341,6 +347,19 @@ class AnnualSurveyService:
                     head=request.fund_sanctioned.head,
                 )
                 self.db.add(fund)
+            existing_fund = fund
+
+        # Final amount validation
+        if (
+            existing_work_order
+            and existing_work_order.work_order_amount is not None
+            and existing_fund
+            and existing_fund.amount is not None
+        ):
+            if existing_work_order.work_order_amount > existing_fund.amount:
+                raise ValueError(
+                    "Work order amount cannot be greater than the fund sanctioned amount"
+                )
 
         # Update or create door to door collection details
         if request.door_to_door_collection is not None:
