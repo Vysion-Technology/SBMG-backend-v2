@@ -196,6 +196,7 @@ class AnnualSurveyResponse(BaseModel):
 
     # 4. Bidder Name
     agency_id: int
+    agency_name: str
 
     # Sub-sections (optional - only included if they exist)
     vdo: Optional[PositionHolderResponse] = None

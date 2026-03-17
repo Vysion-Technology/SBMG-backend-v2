@@ -51,14 +51,21 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 func.count(distinct(AnnualSurvey.id)).label("total_surveys"),  # type: ignore
                 func.count(distinct(AnnualSurvey.gp_id)).label("gps_with_data"),  # type: ignore
                 func.coalesce(func.sum(FundSanctioned.amount), 0).label("total_funds"),  # type: ignore
-                func.coalesce(func.sum(WorkOrderDetails.work_order_amount), 0).label("total_work_orders"),  # type: ignore
-                func.coalesce(func.sum(DoorToDoorCollectionDetails.num_households), 0).label("total_households_d2d"),  # type: ignore
+                func.coalesce(func.sum(WorkOrderDetails.work_order_amount), 0).label(
+                    "total_work_orders"
+                ),  # type: ignore
+                func.coalesce(
+                    func.sum(DoorToDoorCollectionDetails.num_households), 0
+                ).label("total_households_d2d"),  # type: ignore
                 func.count(distinct(AnnualSurvey.agency_id)).label("unique_agencies"),  # type: ignore
             )
             .select_from(AnnualSurvey)
             .outerjoin(FundSanctioned, AnnualSurvey.id == FundSanctioned.id)
             .outerjoin(WorkOrderDetails, AnnualSurvey.id == WorkOrderDetails.id)
-            .outerjoin(DoorToDoorCollectionDetails, AnnualSurvey.id == DoorToDoorCollectionDetails.id)
+            .outerjoin(
+                DoorToDoorCollectionDetails,
+                AnnualSurvey.id == DoorToDoorCollectionDetails.id,
+            )
         )
 
         if base_filter:
@@ -75,7 +82,9 @@ class AnnualSurveyAnalyticsServiceOptimized:
 
         # Calculate coverage percentage
         gps_with_data = row.gps_with_data or 0
-        coverage_percentage = (gps_with_data / total_gps * 100) if total_gps > 0 else 0.0
+        coverage_percentage = (
+            (gps_with_data / total_gps * 100) if total_gps > 0 else 0.0
+        )
 
         # Convert to Crores
         total_funds_sanctioned = (row.total_funds or 0) / 10000000
@@ -87,11 +96,15 @@ class AnnualSurveyAnalyticsServiceOptimized:
         # Calculate overall achievement rate
         total_target = sum(s.target for s in scheme_data)
         total_achievement = sum(s.achievement for s in scheme_data)
-        sbmg_target_achievement_rate = (total_achievement / total_target * 100) if total_target > 0 else 0.0
+        sbmg_target_achievement_rate = (
+            (total_achievement / total_target * 100) if total_target > 0 else 0.0
+        )
 
         # Calculate annual overview metrics
         fund_utilization_rate = (
-            (row.total_work_orders / row.total_funds * 100) if row.total_funds and row.total_funds > 0 else 0.0
+            (row.total_work_orders / row.total_funds * 100)
+            if row.total_funds and row.total_funds > 0
+            else 0.0
         )
 
         avg_cost_per_household = (
@@ -105,7 +118,9 @@ class AnnualSurveyAnalyticsServiceOptimized:
 
         annual_overview = AnnualOverview(
             fund_utilization_rate=round(fund_utilization_rate, 2),
-            average_cost_per_household_d2d=round(avg_cost_per_household, 2) if avg_cost_per_household else None,
+            average_cost_per_household_d2d=round(avg_cost_per_household, 2)
+            if avg_cost_per_household
+            else None,
             households_covered_d2d=row.total_households_d2d or 0,
             gps_with_asset_gaps=gps_with_gaps,
             active_sanitation_bidders=row.unique_agencies or 0,
@@ -125,11 +140,15 @@ class AnnualSurveyAnalyticsServiceOptimized:
             district_wise_coverage=district_wise_coverage,
         )
 
-    async def get_district_analytics(self, district_id: int, fy_id: Optional[int] = None) -> DistrictAnalytics:
+    async def get_district_analytics(
+        self, district_id: int, fy_id: Optional[int] = None
+    ) -> DistrictAnalytics:
         """Get district-level analytics for annual surveys."""
 
         # Get district info
-        district_result = await self.db.execute(select(District).where(District.id == district_id))
+        district_result = await self.db.execute(
+            select(District).where(District.id == district_id)
+        )
         district = district_result.scalar_one_or_none()
         if not district:
             raise ValueError("District not found")
@@ -145,15 +164,22 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 func.count(distinct(AnnualSurvey.id)).label("total_surveys"),  # type: ignore
                 func.count(distinct(AnnualSurvey.gp_id)).label("gps_with_data"),  # type: ignore
                 func.coalesce(func.sum(FundSanctioned.amount), 0).label("total_funds"),  # type: ignore
-                func.coalesce(func.sum(WorkOrderDetails.work_order_amount), 0).label("total_work_orders"),  # type: ignore
-                func.coalesce(func.sum(DoorToDoorCollectionDetails.num_households), 0).label("total_households_d2d"),  # type: ignore
+                func.coalesce(func.sum(WorkOrderDetails.work_order_amount), 0).label(
+                    "total_work_orders"
+                ),  # type: ignore
+                func.coalesce(
+                    func.sum(DoorToDoorCollectionDetails.num_households), 0
+                ).label("total_households_d2d"),  # type: ignore
                 func.count(distinct(AnnualSurvey.agency_id)).label("unique_agencies"),  # type: ignore
             )
             .select_from(AnnualSurvey)
             .join(GramPanchayat, AnnualSurvey.gp_id == GramPanchayat.id)
             .outerjoin(FundSanctioned, AnnualSurvey.id == FundSanctioned.id)
             .outerjoin(WorkOrderDetails, AnnualSurvey.id == WorkOrderDetails.id)
-            .outerjoin(DoorToDoorCollectionDetails, AnnualSurvey.id == DoorToDoorCollectionDetails.id)
+            .outerjoin(
+                DoorToDoorCollectionDetails,
+                AnnualSurvey.id == DoorToDoorCollectionDetails.id,
+            )
             .where(and_(*filters))
         )
 
@@ -172,21 +198,29 @@ class AnnualSurveyAnalyticsServiceOptimized:
 
         # Calculate metrics
         gps_with_data = row.gps_with_data or 0
-        coverage_percentage = (gps_with_data / total_gps * 100) if total_gps > 0 else 0.0
+        coverage_percentage = (
+            (gps_with_data / total_gps * 100) if total_gps > 0 else 0.0
+        )
 
         total_funds_sanctioned = (row.total_funds or 0) / 10000000
         total_work_order_amount = (row.total_work_orders or 0) / 10000000
 
         # Get scheme-wise aggregations
-        scheme_data = await self._get_scheme_aggregations(fy_id, district_id=district_id)
+        scheme_data = await self._get_scheme_aggregations(
+            fy_id, district_id=district_id
+        )
 
         total_target = sum(s.target for s in scheme_data)
         total_achievement = sum(s.achievement for s in scheme_data)
-        sbmg_target_achievement_rate = (total_achievement / total_target * 100) if total_target > 0 else 0.0
+        sbmg_target_achievement_rate = (
+            (total_achievement / total_target * 100) if total_target > 0 else 0.0
+        )
 
         # Annual overview
         fund_utilization_rate = (
-            (row.total_work_orders / row.total_funds * 100) if row.total_funds and row.total_funds > 0 else 0.0
+            (row.total_work_orders / row.total_funds * 100)
+            if row.total_funds and row.total_funds > 0
+            else 0.0
         )
 
         avg_cost_per_household = (
@@ -195,11 +229,15 @@ class AnnualSurveyAnalyticsServiceOptimized:
             else None
         )
 
-        gps_with_gaps = await self._count_gps_with_asset_gaps(fy_id, district_id=district_id)
+        gps_with_gaps = await self._count_gps_with_asset_gaps(
+            fy_id, district_id=district_id
+        )
 
         annual_overview = AnnualOverview(
             fund_utilization_rate=round(fund_utilization_rate, 2),
-            average_cost_per_household_d2d=round(avg_cost_per_household, 2) if avg_cost_per_household else None,
+            average_cost_per_household_d2d=round(avg_cost_per_household, 2)
+            if avg_cost_per_household
+            else None,
             households_covered_d2d=row.total_households_d2d or 0,
             gps_with_asset_gaps=gps_with_gaps,
             active_sanitation_bidders=row.unique_agencies or 0,
@@ -221,12 +259,16 @@ class AnnualSurveyAnalyticsServiceOptimized:
             block_wise_coverage=block_wise_coverage,
         )
 
-    async def get_block_analytics(self, block_id: int, fy_id: Optional[int] = None) -> BlockAnalytics:
+    async def get_block_analytics(
+        self, block_id: int, fy_id: Optional[int] = None
+    ) -> BlockAnalytics:
         """Get block-level analytics for annual surveys."""
 
         # Get block info
         block_result = await self.db.execute(
-            select(Block).options(selectinload(Block.district)).where(Block.id == block_id)
+            select(Block)
+            .options(selectinload(Block.district))
+            .where(Block.id == block_id)
         )
         block = block_result.scalar_one_or_none()
         if not block:
@@ -243,15 +285,22 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 func.count(distinct(AnnualSurvey.id)).label("total_surveys"),  # type: ignore
                 func.count(distinct(AnnualSurvey.gp_id)).label("gps_with_data"),  # type: ignore
                 func.coalesce(func.sum(FundSanctioned.amount), 0).label("total_funds"),  # type: ignore
-                func.coalesce(func.sum(WorkOrderDetails.work_order_amount), 0).label("total_work_orders"),  # type: ignore
-                func.coalesce(func.sum(DoorToDoorCollectionDetails.num_households), 0).label("total_households_d2d"),  # type: ignore
+                func.coalesce(func.sum(WorkOrderDetails.work_order_amount), 0).label(
+                    "total_work_orders"
+                ),  # type: ignore
+                func.coalesce(
+                    func.sum(DoorToDoorCollectionDetails.num_households), 0
+                ).label("total_households_d2d"),  # type: ignore
                 func.count(distinct(AnnualSurvey.agency_id)).label("unique_agencies"),  # type: ignore
             )
             .select_from(AnnualSurvey)
             .join(GramPanchayat, AnnualSurvey.gp_id == GramPanchayat.id)
             .outerjoin(FundSanctioned, AnnualSurvey.id == FundSanctioned.id)
             .outerjoin(WorkOrderDetails, AnnualSurvey.id == WorkOrderDetails.id)
-            .outerjoin(DoorToDoorCollectionDetails, AnnualSurvey.id == DoorToDoorCollectionDetails.id)
+            .outerjoin(
+                DoorToDoorCollectionDetails,
+                AnnualSurvey.id == DoorToDoorCollectionDetails.id,
+            )
             .where(and_(*filters))
         )
 
@@ -270,7 +319,9 @@ class AnnualSurveyAnalyticsServiceOptimized:
 
         # Calculate metrics
         gps_with_data = row.gps_with_data or 0
-        coverage_percentage = (gps_with_data / total_gps * 100) if total_gps > 0 else 0.0
+        coverage_percentage = (
+            (gps_with_data / total_gps * 100) if total_gps > 0 else 0.0
+        )
 
         total_funds_sanctioned = (row.total_funds or 0) / 10000000
         total_work_order_amount = (row.total_work_orders or 0) / 10000000
@@ -280,11 +331,15 @@ class AnnualSurveyAnalyticsServiceOptimized:
 
         total_target = sum(s.target for s in scheme_data)
         total_achievement = sum(s.achievement for s in scheme_data)
-        sbmg_target_achievement_rate = (total_achievement / total_target * 100) if total_target > 0 else 0.0
+        sbmg_target_achievement_rate = (
+            (total_achievement / total_target * 100) if total_target > 0 else 0.0
+        )
 
         # Annual overview
         fund_utilization_rate = (
-            (row.total_work_orders / row.total_funds * 100) if row.total_funds and row.total_funds > 0 else 0.0
+            (row.total_work_orders / row.total_funds * 100)
+            if row.total_funds and row.total_funds > 0
+            else 0.0
         )
 
         avg_cost_per_household = (
@@ -297,7 +352,9 @@ class AnnualSurveyAnalyticsServiceOptimized:
 
         annual_overview = AnnualOverview(
             fund_utilization_rate=round(fund_utilization_rate, 2),
-            average_cost_per_household_d2d=round(avg_cost_per_household, 2) if avg_cost_per_household else None,
+            average_cost_per_household_d2d=round(avg_cost_per_household, 2)
+            if avg_cost_per_household
+            else None,
             households_covered_d2d=row.total_households_d2d or 0,
             gps_with_asset_gaps=gps_with_gaps,
             active_sanitation_bidders=row.unique_agencies or 0,
@@ -321,13 +378,17 @@ class AnnualSurveyAnalyticsServiceOptimized:
             gp_wise_coverage=gp_wise_coverage,
         )
 
-    async def get_gp_analytics(self, gp_id: int, fy_id: Optional[int] = None) -> GPAnalytics:
+    async def get_gp_analytics(
+        self, gp_id: int, fy_id: Optional[int] = None
+    ) -> GPAnalytics:
         """Get GP-level analytics for annual surveys."""
 
         # Get GP info
         gp_result = await self.db.execute(
             select(GramPanchayat)
-            .options(selectinload(GramPanchayat.block), selectinload(GramPanchayat.district))
+            .options(
+                selectinload(GramPanchayat.block), selectinload(GramPanchayat.district)
+            )
             .where(GramPanchayat.id == gp_id)
         )
         gp = gp_result.scalar_one_or_none()
@@ -360,7 +421,9 @@ class AnnualSurveyAnalyticsServiceOptimized:
             "district_id": gp.district.id,
             "district_name": gp.district.name,
             "has_master_data": has_master_data,
-            "master_data_available": "Available" if has_master_data else "Not Available",
+            "master_data_available": "Available"
+            if has_master_data
+            else "Not Available",
         }
 
         if survey:
@@ -379,22 +442,32 @@ class AnnualSurveyAnalyticsServiceOptimized:
 
             # Calculate utilization rate (with division by zero protection)
             fund_amount = survey.fund_sanctioned.amount if survey.fund_sanctioned else 0
-            work_order_amount = survey.work_order.work_order_amount if survey.work_order else 0
-            fund_utilization_rate = (work_order_amount / fund_amount * 100) if fund_amount > 0 else None
+            work_order_amount = (
+                survey.work_order.work_order_amount if survey.work_order else 0
+            )
+            fund_utilization_rate = (
+                (work_order_amount / fund_amount * 100) if fund_amount > 0 else None
+            )
 
-            response_data.update({
-                "survey_id": survey.id,
-                "survey_date": survey.survey_date.isoformat(),
-                "total_funds_sanctioned": fund_amount / 10000000,
-                "total_work_order_amount": work_order_amount / 10000000,
-                "scheme_wise_target_achievement": scheme_data,
-                "fund_utilization_rate": round(fund_utilization_rate, 2) if fund_utilization_rate else None,
-                "households_covered_d2d": (
-                    survey.door_to_door_collection.num_households if survey.door_to_door_collection else None
-                ),
-                "num_villages": village_count,
-                "active_agency_name": survey.agency.name if survey.agency else None,
-            })
+            response_data.update(
+                {
+                    "survey_id": survey.id,
+                    "survey_date": survey.survey_date.isoformat(),
+                    "total_funds_sanctioned": fund_amount / 10000000,
+                    "total_work_order_amount": work_order_amount / 10000000,
+                    "scheme_wise_target_achievement": scheme_data,
+                    "fund_utilization_rate": round(fund_utilization_rate, 2)
+                    if fund_utilization_rate
+                    else None,
+                    "households_covered_d2d": (
+                        survey.door_to_door_collection.num_households
+                        if survey.door_to_door_collection
+                        else None
+                    ),
+                    "num_villages": village_count,
+                    "active_agency_name": survey.agency.name if survey.agency else None,
+                }
+            )
         else:
             response_data["scheme_wise_target_achievement"] = []
 
@@ -427,11 +500,19 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 func.coalesce(func.sum(SBMGYearTargets.csc), 0).label("csc_target"),  # type: ignore
                 func.coalesce(func.sum(SBMGYearTargets.rrc), 0).label("rrc_target"),  # type: ignore
                 func.coalesce(func.sum(SBMGYearTargets.pwmu), 0).label("pwmu_target"),  # type: ignore
-                func.coalesce(func.sum(SBMGYearTargets.soak_pit), 0).label("soak_pit_target"),  # type: ignore
-                func.coalesce(func.sum(SBMGYearTargets.magic_pit), 0).label("magic_pit_target"),  # type: ignore
-                func.coalesce(func.sum(SBMGYearTargets.leach_pit), 0).label("leach_pit_target"),  # type: ignore
+                func.coalesce(func.sum(SBMGYearTargets.soak_pit), 0).label(
+                    "soak_pit_target"
+                ),  # type: ignore
+                func.coalesce(func.sum(SBMGYearTargets.magic_pit), 0).label(
+                    "magic_pit_target"
+                ),  # type: ignore
+                func.coalesce(func.sum(SBMGYearTargets.leach_pit), 0).label(
+                    "leach_pit_target"
+                ),  # type: ignore
                 func.coalesce(func.sum(SBMGYearTargets.wsp), 0).label("wsp_target"),  # type: ignore
-                func.coalesce(func.sum(SBMGYearTargets.dewats), 0).label("dewats_target"),  # type: ignore
+                func.coalesce(func.sum(SBMGYearTargets.dewats), 0).label(
+                    "dewats_target"
+                ),  # type: ignore
             )
             .select_from(AnnualSurvey)
             .join(GramPanchayat, AnnualSurvey.gp_id == GramPanchayat.id)
@@ -447,13 +528,27 @@ class AnnualSurveyAnalyticsServiceOptimized:
         # Query for achievements (from village data)
         achievements_query = (
             select(
-                func.coalesce(func.sum(VillageSBMGAssets.ihhl), 0).label("ihhl_achievement"),  # type: ignore
-                func.coalesce(func.sum(VillageSBMGAssets.csc), 0).label("csc_achievement"),  # type: ignore
-                func.coalesce(func.sum(VillageGWMAssets.soak_pit), 0).label("soak_pit_achievement"),  # type: ignore
-                func.coalesce(func.sum(VillageGWMAssets.magic_pit), 0).label("magic_pit_achievement"),  # type: ignore
-                func.coalesce(func.sum(VillageGWMAssets.leach_pit), 0).label("leach_pit_achievement"),  # type: ignore
-                func.coalesce(func.sum(VillageGWMAssets.wsp), 0).label("wsp_achievement"),  # type: ignore
-                func.coalesce(func.sum(VillageGWMAssets.dewats), 0).label("dewats_achievement"),  # type: ignore
+                func.coalesce(func.sum(VillageSBMGAssets.ihhl), 0).label(
+                    "ihhl_achievement"
+                ),  # type: ignore
+                func.coalesce(func.sum(VillageSBMGAssets.csc), 0).label(
+                    "csc_achievement"
+                ),  # type: ignore
+                func.coalesce(func.sum(VillageGWMAssets.soak_pit), 0).label(
+                    "soak_pit_achievement"
+                ),  # type: ignore
+                func.coalesce(func.sum(VillageGWMAssets.magic_pit), 0).label(
+                    "magic_pit_achievement"
+                ),  # type: ignore
+                func.coalesce(func.sum(VillageGWMAssets.leach_pit), 0).label(
+                    "leach_pit_achievement"
+                ),  # type: ignore
+                func.coalesce(func.sum(VillageGWMAssets.wsp), 0).label(
+                    "wsp_achievement"
+                ),  # type: ignore
+                func.coalesce(func.sum(VillageGWMAssets.dewats), 0).label(
+                    "dewats_achievement"
+                ),  # type: ignore
             )
             .select_from(AnnualSurvey)
             .join(GramPanchayat, AnnualSurvey.gp_id == GramPanchayat.id)
@@ -470,15 +565,45 @@ class AnnualSurveyAnalyticsServiceOptimized:
 
         # Build scheme data with division by zero protection
         schemes = [
-            ("IHHL", "IHHL", targets_row.ihhl_target, achievements_row.ihhl_achievement),
+            (
+                "IHHL",
+                "IHHL",
+                targets_row.ihhl_target,
+                achievements_row.ihhl_achievement,
+            ),
             ("CSC", "CSC", targets_row.csc_target, achievements_row.csc_achievement),
             ("RRC", "RRC", targets_row.rrc_target, 0),  # No achievement data for RRC
-            ("PWMU", "PWMU", targets_row.pwmu_target, 0),  # No achievement data for PWMU
-            ("Soak_pit", "Soak pit", targets_row.soak_pit_target, achievements_row.soak_pit_achievement),
-            ("Magic_pit", "Magic pit", targets_row.magic_pit_target, achievements_row.magic_pit_achievement),
-            ("Leach_pit", "Leach pit", targets_row.leach_pit_target, achievements_row.leach_pit_achievement),
+            (
+                "PWMU",
+                "PWMU",
+                targets_row.pwmu_target,
+                0,
+            ),  # No achievement data for PWMU
+            (
+                "Soak_pit",
+                "Soak pit",
+                targets_row.soak_pit_target,
+                achievements_row.soak_pit_achievement,
+            ),
+            (
+                "Magic_pit",
+                "Magic pit",
+                targets_row.magic_pit_target,
+                achievements_row.magic_pit_achievement,
+            ),
+            (
+                "Leach_pit",
+                "Leach pit",
+                targets_row.leach_pit_target,
+                achievements_row.leach_pit_achievement,
+            ),
             ("WSP", "WSP", targets_row.wsp_target, achievements_row.wsp_achievement),
-            ("DEWATS", "DEWATS", targets_row.dewats_target, achievements_row.dewats_achievement),
+            (
+                "DEWATS",
+                "DEWATS",
+                targets_row.dewats_target,
+                achievements_row.dewats_achievement,
+            ),
         ]
 
         return [
@@ -487,7 +612,9 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 scheme_name=name,
                 target=target or 0,
                 achievement=achievement or 0,
-                achievement_percentage=((achievement / target * 100) if target and target > 0 else 0.0),
+                achievement_percentage=(
+                    (achievement / target * 100) if target and target > 0 else 0.0
+                ),
             )
             for code, name, target, achievement in schemes
         ]
@@ -562,14 +689,22 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 func.count().label("gap_count")  # type: ignore
             )
             .select_from(targets_subq)
-            .outerjoin(achievements_subq, targets_subq.c.survey_id == achievements_subq.c.village_id)
-            .where(targets_subq.c.total_target > func.coalesce(achievements_subq.c.total_achievement, 0))
+            .outerjoin(
+                achievements_subq,
+                targets_subq.c.survey_id == achievements_subq.c.village_id,
+            )
+            .where(
+                targets_subq.c.total_target
+                > func.coalesce(achievements_subq.c.total_achievement, 0)
+            )
         )
 
         result = await self.db.execute(count_query)
         return result.scalar() or 0
 
-    async def _get_district_coverage(self, fy_id: Optional[int] = None) -> List[VillageMasterDataCoverage]:
+    async def _get_district_coverage(
+        self, fy_id: Optional[int] = None
+    ) -> List[VillageMasterDataCoverage]:
         """Get district-wise coverage using database aggregation."""
 
         # Subquery for GPs with surveys
@@ -605,9 +740,14 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 total_gps=row.total_gps or 0,
                 gps_with_data=row.gps_with_data or 0,
                 coverage_percentage=round(
-                    (row.gps_with_data / row.total_gps * 100) if row.total_gps and row.total_gps > 0 else 0.0, 2
+                    (row.gps_with_data / row.total_gps * 100)
+                    if row.total_gps and row.total_gps > 0
+                    else 0.0,
+                    2,
                 ),
-                master_data_status="Available" if row.gps_with_data and row.gps_with_data > 0 else "Not Available",
+                master_data_status="Available"
+                if row.gps_with_data and row.gps_with_data > 0
+                else "Not Available",
             )
             for row in rows
         ]
@@ -618,8 +758,7 @@ class AnnualSurveyAnalyticsServiceOptimized:
         """Get block-wise coverage using database aggregation."""
 
         filters = [Block.district_id == district_id]
-        if fy_id:
-            filters.append(AnnualSurvey.fy_id == fy_id)
+        fy_filter = [AnnualSurvey.fy_id == fy_id] if fy_id else []
 
         coverage_query = (
             select(
@@ -630,7 +769,9 @@ class AnnualSurveyAnalyticsServiceOptimized:
             )
             .select_from(Block)
             .join(GramPanchayat, Block.id == GramPanchayat.block_id)
-            .outerjoin(AnnualSurvey, AnnualSurvey.gp_id == GramPanchayat.id)
+            .outerjoin(
+                AnnualSurvey, and_(AnnualSurvey.gp_id == GramPanchayat.id, *fy_filter)
+            )
             .where(and_(*filters))
             .group_by(Block.id, Block.name)
         )
@@ -645,19 +786,25 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 total_gps=row.total_gps or 0,
                 gps_with_data=row.gps_with_data or 0,
                 coverage_percentage=round(
-                    (row.gps_with_data / row.total_gps * 100) if row.total_gps and row.total_gps > 0 else 0.0, 2
+                    (row.gps_with_data / row.total_gps * 100)
+                    if row.total_gps and row.total_gps > 0
+                    else 0.0,
+                    2,
                 ),
-                master_data_status="Available" if row.gps_with_data and row.gps_with_data > 0 else "Not Available",
+                master_data_status="Available"
+                if row.gps_with_data and row.gps_with_data > 0
+                else "Not Available",
             )
             for row in rows
         ]
 
-    async def _get_gp_coverage(self, block_id: int, fy_id: Optional[int] = None) -> List[VillageMasterDataCoverage]:
+    async def _get_gp_coverage(
+        self, block_id: int, fy_id: Optional[int] = None
+    ) -> List[VillageMasterDataCoverage]:
         """Get GP-wise coverage using database aggregation."""
 
         filters = [GramPanchayat.block_id == block_id]
-        if fy_id:
-            filters.append(AnnualSurvey.fy_id == fy_id)
+        fy_filter = [AnnualSurvey.fy_id == fy_id] if fy_id else []
 
         coverage_query = (
             select(
@@ -666,7 +813,9 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 func.count(distinct(AnnualSurvey.id)).label("survey_count"),  # type: ignore
             )
             .select_from(GramPanchayat)
-            .outerjoin(AnnualSurvey, AnnualSurvey.gp_id == GramPanchayat.id)
+            .outerjoin(
+                AnnualSurvey, and_(AnnualSurvey.gp_id == GramPanchayat.id, *fy_filter)
+            )
             .where(and_(*filters))
             .group_by(GramPanchayat.id, GramPanchayat.name)
         )
@@ -680,8 +829,12 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 geography_name=row.gp_name,
                 total_gps=1,
                 gps_with_data=1 if row.survey_count and row.survey_count > 0 else 0,
-                coverage_percentage=100.0 if row.survey_count and row.survey_count > 0 else 0.0,
-                master_data_status="Available" if row.survey_count and row.survey_count > 0 else "Not Available",
+                coverage_percentage=100.0
+                if row.survey_count and row.survey_count > 0
+                else 0.0,
+                master_data_status="Available"
+                if row.survey_count and row.survey_count > 0
+                else "Not Available",
             )
             for row in rows
         ]

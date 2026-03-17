@@ -65,27 +65,56 @@ class AuthService:
         user = await self.get_user_by_username(username)
         if not user:
             return None
-        if not self.verify_password(password, user.hashed_password):
-            return None
+
+        # Check if account is locked
+        if user.lockout_until and user.lockout_until > datetime.now(timezone.utc):
+            raise ValueError(f"Account is locked. Try again after {user.lockout_until}")
+
         if not user.is_active:
             return None
+
+        if not self.verify_password(password, user.hashed_password):
+            # Increment failed attempts
+            user.failed_login_attempts += 1
+            if user.failed_login_attempts >= settings.max_login_attempts:
+                user.lockout_until = datetime.now(timezone.utc) + timedelta(
+                    minutes=settings.lockout_duration_minutes
+                )
+
+            await self.db.commit()
+            return None
+
+        # Reset failed attempts on successful login
+        if user.failed_login_attempts > 0 or user.lockout_until:
+            user.failed_login_attempts = 0
+            user.lockout_until = None
+            await self.db.commit()
+
         return user
 
-    def create_access_token(self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    def create_access_token(
+        self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None
+    ) -> str:
         """Create JWT access token."""
         to_encode: Dict[str, Any] = data.copy()  # type: ignore
         if expires_delta:
             expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_token_expire_minutes)
+            expire = datetime.now(timezone.utc) + timedelta(
+                minutes=settings.jwt_access_token_expire_minutes
+            )
         to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+        encoded_jwt = jwt.encode(
+            to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+        )
         return encoded_jwt
 
     async def get_current_user_from_token(self, token: str) -> Optional[User]:
         """Get current user from JWT token."""
         try:
-            payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+            payload = jwt.decode(
+                token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
+            )
             username: str = payload.get("sub")  # type: ignore
             if username is None:  # type: ignore
                 return None
@@ -151,9 +180,13 @@ class AuthService:
         await self.db.refresh(user)
         return user
 
-    async def get_all_users(self, username_like: str = "", skip: int = 0, limit: int = 100) -> List[User]:
+    async def get_all_users(
+        self, username_like: str = "", skip: int = 0, limit: int = 100
+    ) -> List[User]:
         """Get all users with optional username filtering."""
-        query = select(User).options(selectinload(User.positions).selectinload(PositionHolder.role))
+        query = select(User).options(
+            selectinload(User.positions).selectinload(PositionHolder.role)
+        )
 
         if username_like:
             query = query.where(User.username.ilike(f"%{username_like}%"))
@@ -253,7 +286,9 @@ class AuthService:
         # Check if the OTP exists for the phone number
         existing_otp = (
             await self.db.execute(
-                select(PublicUserOTP).where(PublicUserOTP.public_user.has(mobile_number=mobile_number))
+                select(PublicUserOTP).where(
+                    PublicUserOTP.public_user.has(mobile_number=mobile_number)
+                )
             )
         ).scalar_one_or_none()
         if existing_otp:
@@ -261,17 +296,27 @@ class AuthService:
 
         print(f"Sending OTP {otp} to phone number {mobile_number}")
         # Check if phone number exists in PublicUser table
-        public_user = await self.db.execute(select(PublicUser).where(PublicUser.mobile_number == mobile_number))
+        public_user = await self.db.execute(
+            select(PublicUser).where(PublicUser.mobile_number == mobile_number)
+        )
         public_user = public_user.scalar_one_or_none()
         if not public_user:
-            await self.db.execute(insert(PublicUser).values(mobile_number=mobile_number))
+            await self.db.execute(
+                insert(PublicUser).values(mobile_number=mobile_number)
+            )
             await self.db.commit()
-            public_user = await self.db.execute(select(PublicUser).where(PublicUser.mobile_number == mobile_number))
+            public_user = await self.db.execute(
+                select(PublicUser).where(PublicUser.mobile_number == mobile_number)
+            )
             public_user = public_user.scalar_one_or_none()
         # Insert OTP into PublicUserOTP table
         # Delete all the existing OTPs for this user
-        assert public_user is not None, "The user could not be created due to internal errors"
-        await self.db.execute(delete(PublicUserOTP).where(PublicUserOTP.public_user_id == public_user.id))
+        assert public_user is not None, (
+            "The user could not be created due to internal errors"
+        )
+        await self.db.execute(
+            delete(PublicUserOTP).where(PublicUserOTP.public_user_id == public_user.id)
+        )
         await self.db.execute(
             insert(PublicUserOTP).values(
                 id=public_user.id,
@@ -292,17 +337,23 @@ class AuthService:
         # Placeholder implementation - in real scenario, verify against stored OTP
         print(f"Verifying OTP {otp} for phone number {mobile_number}")
         # Get the OTP from the database and compare
-        public_user = await self.db.execute(select(PublicUser).where(PublicUser.mobile_number == mobile_number))
+        public_user = await self.db.execute(
+            select(PublicUser).where(PublicUser.mobile_number == mobile_number)
+        )
         public_user = public_user.scalar_one_or_none()
         if not public_user:
             raise ValueError("Phone number not registered")
-        stored_otp = await self.db.execute(select(PublicUserOTP).where(PublicUserOTP.public_user_id == public_user.id))
+        stored_otp = await self.db.execute(
+            select(PublicUserOTP).where(PublicUserOTP.public_user_id == public_user.id)
+        )
         stored_otp = stored_otp.scalar_one_or_none()
         if not stored_otp or stored_otp.otp != otp:
             raise ValueError("You had not requested an OTP earlier or OTP is incorrect")
         # Check if a token already exists for this public user
         existing_token = await self.db.execute(
-            select(PublicUserToken).where(PublicUserToken.public_user_id == public_user.id)
+            select(PublicUserToken).where(
+                PublicUserToken.public_user_id == public_user.id
+            )
         )
         existing_token = existing_token.scalar_one_or_none()
         if existing_token:
@@ -320,7 +371,11 @@ class AuthService:
             .returning(PublicUserToken.token)
         )
         # Change the OTP to verified
-        await self.db.execute(update(PublicUserOTP).where(PublicUserOTP.id == stored_otp.id).values(is_verified=True))
+        await self.db.execute(
+            update(PublicUserOTP)
+            .where(PublicUserOTP.id == stored_otp.id)
+            .values(is_verified=True)
+        )
         token = token.scalar_one()
         await self.db.commit()
         return token
@@ -350,12 +405,16 @@ class AuthService:
 
     async def get_public_user_by_token(self, token: str) -> Optional[PublicUser]:
         """Retrieve a public user based on the provided token."""
-        result = await self.db.execute(select(PublicUserToken).where(PublicUserToken.token == token))
+        result = await self.db.execute(
+            select(PublicUserToken).where(PublicUserToken.token == token)
+        )
         public_user_token = result.scalar_one_or_none()
         if not public_user_token:
             return None
 
-        result = await self.db.execute(select(PublicUser).where(PublicUser.id == public_user_token.public_user_id))
+        result = await self.db.execute(
+            select(PublicUser).where(PublicUser.id == public_user_token.public_user_id)
+        )
         public_user = result.scalar_one_or_none()
         return public_user
 
@@ -369,7 +428,9 @@ class AuthService:
         result: Optional[Any] = None
         if gp_id is not None:
             result = await self.db.execute(
-                select(PositionHolder).where(PositionHolder.gp_id == gp_id, PositionHolder.end_date.is_(None))
+                select(PositionHolder).where(
+                    PositionHolder.gp_id == gp_id, PositionHolder.end_date.is_(None)
+                )
             )
         elif block_id is not None:
             result = await self.db.execute(
@@ -397,7 +458,9 @@ class AuthService:
                     PositionHolder.end_date.is_(None),
                 )
             )
-        assert result is not None, "Database query failed in get_current_position_holder"
+        assert result is not None, (
+            "Database query failed in get_current_position_holder"
+        )
         position_holder = result.scalar_one_or_none()
         return position_holder
 
@@ -412,7 +475,9 @@ class AuthService:
         otp = "123456"
 
         # Delete any existing OTPs for this user
-        await self.db.execute(delete(UserPasswordResetOTP).where(UserPasswordResetOTP.user_id == user_id))
+        await self.db.execute(
+            delete(UserPasswordResetOTP).where(UserPasswordResetOTP.user_id == user_id)
+        )
 
         # Create new OTP entry
         await self.db.execute(
@@ -430,7 +495,9 @@ class AuthService:
 
         return True
 
-    async def verify_password_reset_otp(self, user_id: int, otp: str, new_password: str) -> bool:
+    async def verify_password_reset_otp(
+        self, user_id: int, otp: str, new_password: str
+    ) -> bool:
         """Verify OTP and update user's password."""
         # Get the OTP from database
         result = await self.db.execute(
@@ -449,18 +516,29 @@ class AuthService:
             raise ValueError("Invalid OTP")
 
         # Check if OTP has expired
-        print("Expires at:", stored_otp.expires_at, "Current time:", datetime.now(tz=timezone.utc))
+        print(
+            "Expires at:",
+            stored_otp.expires_at,
+            "Current time:",
+            datetime.now(tz=timezone.utc),
+        )
 
         if stored_otp.expires_at < datetime.now(tz=timezone.utc):
             raise ValueError("OTP has expired")
 
         # Update user's password
         hashed_password = self.get_password_hash(new_password)
-        await self.db.execute(update(User).where(User.id == user_id).values(hashed_password=hashed_password))
+        await self.db.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(hashed_password=hashed_password)
+        )
 
         # Mark OTP as verified
         await self.db.execute(
-            update(UserPasswordResetOTP).where(UserPasswordResetOTP.id == stored_otp.id).values(is_verified=True)
+            update(UserPasswordResetOTP)
+            .where(UserPasswordResetOTP.id == stored_otp.id)
+            .values(is_verified=True)
         )
 
         await self.db.commit()
@@ -470,8 +548,7 @@ class AuthService:
     async def get_ceo_users(self) -> List[User]:
         """Get all users with CEO role."""
         result = await self.db.execute(
-            select(User)
-            .where(
+            select(User).where(
                 User.district_id.is_not(None),
                 User.block_id.is_(None),
                 User.gp_id.is_(None),
@@ -483,8 +560,7 @@ class AuthService:
     async def get_bdo_users(self) -> List[User]:
         """Get all users with BDO role."""
         result = await self.db.execute(
-            select(User)
-            .where(
+            select(User).where(
                 User.block_id.is_not(None),
                 User.gp_id.is_(None),
             )
@@ -495,8 +571,7 @@ class AuthService:
     async def get_vdo_users(self) -> List[User]:
         """Get all users with VDO role."""
         result = await self.db.execute(
-            select(User)
-            .where(
+            select(User).where(
                 User.gp_id.is_not(None),
                 User.username.notilike("%contractor%"),
             )
@@ -507,9 +582,9 @@ class AuthService:
     async def get_all_active_vdo_position_holders(self) -> List[PositionHolder]:
         """Get all position holders with VDO role."""
         result = await self.db.execute(
-            select(PositionHolder).options(
-                selectinload(PositionHolder.user),
-                selectinload(PositionHolder.role)
+            select(PositionHolder)
+            .options(
+                selectinload(PositionHolder.user), selectinload(PositionHolder.role)
             )
             .where(
                 PositionHolder.gp_id.is_not(None),
@@ -535,16 +610,19 @@ class AuthService:
     async def get_smd_position_holder(self) -> PositionHolder:
         """Get all users with SMD role."""
         result = await self.db.execute(
-            select(PositionHolder).options(
+            select(PositionHolder)
+            .options(
                 selectinload(PositionHolder.user),
                 selectinload(PositionHolder.role),
-            ).join(Role)
+            )
+            .join(Role)
             .where(
                 Role.name == UserRole.ADMIN.value,
             )
         )
         position_holder = result.scalar_one()
         return position_holder
+
 
 def send_otp(mobile_number: str, otp: int | str) -> bool:
     """Send OTP to the given phone number."""
@@ -575,7 +653,6 @@ def send_otp(mobile_number: str, otp: int | str) -> bool:
     return True
 
 
-
 class PublicUserService:
     """Service for managing public users."""
 
@@ -584,7 +661,9 @@ class PublicUserService:
 
     async def get_or_create_public_user_by_phone(self, phone_number: str) -> PublicUser:
         """Get or create a public user by phone number."""
-        result = await self.db.execute(select(PublicUser).where(PublicUser.mobile_number == phone_number))
+        result = await self.db.execute(
+            select(PublicUser).where(PublicUser.mobile_number == phone_number)
+        )
         public_user = result.scalar_one_or_none()
         if not public_user:
             new_user = PublicUser(mobile_number=phone_number)
@@ -596,6 +675,7 @@ class PublicUserService:
 
     async def get_public_user_by_id(self, user_id: int) -> Optional[PublicUser]:
         """Get a public user by ID."""
-        result = await self.db.execute(select(PublicUser).where(PublicUser.id == user_id))
+        result = await self.db.execute(
+            select(PublicUser).where(PublicUser.id == user_id)
+        )
         return result.scalar_one_or_none()
-

@@ -5,7 +5,17 @@ import logging
 from typing import Any, Dict, List, Optional
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, Header, Query
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+    File,
+    UploadFile,
+    Form,
+    Header,
+    Query,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -76,7 +86,9 @@ async def create_complaint_for_public_user(
 
     # Check if the public user exists, if not create one
     public_user_service = PublicUserService(db)
-    public_user = await public_user_service.get_or_create_public_user_by_phone(phone_number)
+    public_user = await public_user_service.get_or_create_public_user_by_phone(
+        phone_number
+    )
 
     # Create the complaint
     complaint_service = ComplaintService(db)
@@ -93,7 +105,10 @@ async def create_complaint_for_public_user(
     # Re-fetch complaint with all relationships loaded
     complaint_with_relations = await complaint_service.get_complaint_by_id(complaint.id)
     if not complaint_with_relations:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found after creation")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Complaint not found after creation",
+        )
 
     return DetailedComplaintResponse(
         id=complaint_with_relations.id,
@@ -109,12 +124,24 @@ async def create_complaint_for_public_user(
         resolved_at=complaint_with_relations.resolved_at,
         verified_at=complaint_with_relations.verified_at,
         closed_at=complaint_with_relations.closed_at,
-        complaint_type=complaint_with_relations.complaint_type.name if complaint_with_relations.complaint_type else None,
-        status=complaint_with_relations.status.name if complaint_with_relations.status else None,
-        village_name=complaint_with_relations.gp.name if complaint_with_relations.gp else None,
-        block_name=complaint_with_relations.block.name if complaint_with_relations.block else None,
-        district_name=complaint_with_relations.district.name if complaint_with_relations.district else None,
-        media_urls=[media.media_url for media in complaint_with_relations.media] if complaint_with_relations.media else [],
+        complaint_type=complaint_with_relations.complaint_type.name
+        if complaint_with_relations.complaint_type
+        else None,
+        status=complaint_with_relations.status.name
+        if complaint_with_relations.status
+        else None,
+        village_name=complaint_with_relations.gp.name
+        if complaint_with_relations.gp
+        else None,
+        block_name=complaint_with_relations.block.name
+        if complaint_with_relations.block
+        else None,
+        district_name=complaint_with_relations.district.name
+        if complaint_with_relations.district
+        else None,
+        media_urls=[media.media_url for media in complaint_with_relations.media]
+        if complaint_with_relations.media
+        else [],
         media=[
             MediaResponse(
                 id=media.id,
@@ -122,7 +149,9 @@ async def create_complaint_for_public_user(
                 uploaded_at=media.uploaded_at,
             )
             for media in complaint_with_relations.media
-        ] if complaint_with_relations.media else [],
+        ]
+        if complaint_with_relations.media
+        else [],
         comments=[
             ComplaintCommentResponse(
                 id=comment.id,
@@ -132,7 +161,9 @@ async def create_complaint_for_public_user(
                 user_name=comment.user.name if comment.user else "",
             )
             for comment in complaint_with_relations.comments
-        ] if complaint_with_relations.comments else [],
+        ]
+        if complaint_with_relations.comments
+        else [],
     )
 
 
@@ -158,12 +189,17 @@ async def update_complaint_for_public_user(
         status_id=dstatus_id,
     )
     if not complaint:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
+        )
 
     # Re-fetch complaint with all relationships loaded
     complaint_with_relations = await complaint_service.get_complaint_by_id(complaint.id)
     if not complaint_with_relations:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found after update")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Complaint not found after update",
+        )
 
     return DetailedComplaintResponse(
         id=complaint_with_relations.id,
@@ -179,12 +215,24 @@ async def update_complaint_for_public_user(
         resolved_at=complaint_with_relations.resolved_at,
         verified_at=complaint_with_relations.verified_at,
         closed_at=complaint_with_relations.closed_at,
-        complaint_type=complaint_with_relations.complaint_type.name if complaint_with_relations.complaint_type else None,
-        status=complaint_with_relations.status.name if complaint_with_relations.status else None,
-        village_name=complaint_with_relations.gp.name if complaint_with_relations.gp else None,
-        block_name=complaint_with_relations.block.name if complaint_with_relations.block else None,
-        district_name=complaint_with_relations.district.name if complaint_with_relations.district else None,
-        media_urls=[media.media_url for media in complaint_with_relations.media] if complaint_with_relations.media else [],
+        complaint_type=complaint_with_relations.complaint_type.name
+        if complaint_with_relations.complaint_type
+        else None,
+        status=complaint_with_relations.status.name
+        if complaint_with_relations.status
+        else None,
+        village_name=complaint_with_relations.gp.name
+        if complaint_with_relations.gp
+        else None,
+        block_name=complaint_with_relations.block.name
+        if complaint_with_relations.block
+        else None,
+        district_name=complaint_with_relations.district.name
+        if complaint_with_relations.district
+        else None,
+        media_urls=[media.media_url for media in complaint_with_relations.media]
+        if complaint_with_relations.media
+        else [],
         media=[
             MediaResponse(
                 id=media.id,
@@ -192,7 +240,9 @@ async def update_complaint_for_public_user(
                 uploaded_at=media.uploaded_at,
             )
             for media in complaint_with_relations.media
-        ] if complaint_with_relations.media else [],
+        ]
+        if complaint_with_relations.media
+        else [],
         comments=[
             ComplaintCommentResponse(
                 id=comment.id,
@@ -202,7 +252,9 @@ async def update_complaint_for_public_user(
                 user_name=comment.user.name if comment.user else "",
             )
             for comment in complaint_with_relations.comments
-        ] if complaint_with_relations.comments else [],
+        ]
+        if complaint_with_relations.comments
+        else [],
     )
 
 
@@ -213,8 +265,8 @@ async def update_complaint_for_public_user(
 async def get_my_complaints(
     db: AsyncSession = Depends(get_db),
     token: str = Header(..., description="Public user token"),
-    skip: Optional[int] = Query(0, ge=0),
-    limit: Optional[int] = Query(100, ge=1, le=100),
+    skip: int = Query(0, ge=0, le=10000),
+    limit: int = Query(100, ge=1, le=1000),
     order_by: ComplaintOrderByEnum = ComplaintOrderByEnum.NEWEST,
 ) -> List[DetailedComplaintResponse]:
     """Get complaints created by the authenticated public user."""
@@ -282,12 +334,16 @@ async def get_my_complaints(
             resolved_at=complaint.resolved_at,
             verified_at=complaint.verified_at,
             closed_at=complaint.closed_at,
-            complaint_type=complaint.complaint_type.name if complaint.complaint_type else None,
+            complaint_type=complaint.complaint_type.name
+            if complaint.complaint_type
+            else None,
             status=complaint.status.name if complaint.status else None,
             village_name=complaint.gp.name if complaint.gp else None,
             block_name=complaint.block.name if complaint.block else None,
             district_name=complaint.district.name if complaint.district else None,
-            media_urls=[media.media_url for media in complaint.media] if complaint.media else [],
+            media_urls=[media.media_url for media in complaint.media]
+            if complaint.media
+            else [],
             media=[
                 MediaResponse(
                     id=media.id,
@@ -326,14 +382,22 @@ async def update_complaint_status(
     complaint = result.scalar_one_or_none()
 
     if not complaint:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
+        )
 
     # Get status
-    status_result = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == status_request.status_name))
+    status_result = await db.execute(
+        select(ComplaintStatus).where(
+            ComplaintStatus.name == status_request.status_name
+        )
+    )
     new_status = status_result.scalar_one_or_none()
 
     if not new_status:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Status not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Status not found"
+        )
 
     # Update complaint
     complaint.status_id = new_status.id
@@ -362,18 +426,26 @@ async def add_complaint_comment(
 ):
     """Add a comment to a complaint (Workers and VDOs only, within their village)."""
     # Check if user is a Worker or VDO
-    if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER, UserRole.VDO]):
+    if not PermissionChecker.user_has_role(
+        current_user, [UserRole.WORKER, UserRole.VDO]
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only Workers and VDOs can comment on complaints",
         )
 
     # Get complaint with village information
-    result = await db.execute(select(Complaint).options(selectinload(Complaint.gp)).where(Complaint.id == complaint_id))
+    result = await db.execute(
+        select(Complaint)
+        .options(selectinload(Complaint.gp))
+        .where(Complaint.id == complaint_id)
+    )
     complaint = result.scalar_one_or_none()
 
     if not complaint:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
+        )
 
     if complaint.gp_id != current_user.gp_id:
         raise HTTPException(
@@ -382,7 +454,9 @@ async def add_complaint_comment(
         )
 
     # Create comment
-    comment = ComplaintComment(complaint_id=complaint_id, user_id=current_user.id, comment=comment_text)
+    comment = ComplaintComment(
+        complaint_id=complaint_id, user_id=current_user.id, comment=comment_text
+    )
 
     db.add(comment)
     await db.commit()
@@ -444,18 +518,26 @@ async def upload_complaint_media(
 ):
     """Upload media to a complaint (Workers and VDOs only, within their village)."""
     # Check if user is a Worker or VDO
-    if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER, UserRole.VDO]):
+    if not PermissionChecker.user_has_role(
+        current_user, [UserRole.WORKER, UserRole.VDO]
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only Workers and VDOs can upload media to complaints",
         )
 
     # Get complaint with village information
-    result = await db.execute(select(Complaint).options(selectinload(Complaint.gp)).where(Complaint.id == complaint_id))
+    result = await db.execute(
+        select(Complaint)
+        .options(selectinload(Complaint.gp))
+        .where(Complaint.id == complaint_id)
+    )
     complaint = result.scalar_one_or_none()
 
     if not complaint:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
+        )
 
     # Check village access
     if complaint.gp_id != current_user.gp_id:
@@ -491,7 +573,9 @@ async def upload_complaint_media(
         await db.commit()
         await db.refresh(media)
 
-        return MediaResponse(id=media.id, media_url=media.media_url, uploaded_at=media.uploaded_at)
+        return MediaResponse(
+            id=media.id, media_url=media.media_url, uploaded_at=media.uploaded_at
+        )
     except HTTPException as e:
         raise e
     except Exception as e:
@@ -517,11 +601,17 @@ async def resolve_complaint(
         )
 
     # Get complaint with village information
-    result = await db.execute(select(Complaint).options(selectinload(Complaint.gp)).where(Complaint.id == complaint_id))
+    result = await db.execute(
+        select(Complaint)
+        .options(selectinload(Complaint.gp))
+        .where(Complaint.id == complaint_id)
+    )
     complaint = result.scalar_one_or_none()
 
     if not complaint:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
+        )
 
     # Check if the user has access to the complaint's village
     if current_user.gp_id != complaint.gp_id:
@@ -530,7 +620,9 @@ async def resolve_complaint(
             detail="You can only resolve complaints in your assigned village",
         )
     # Get or create "RESOLVED" status
-    status_result = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "RESOLVED"))
+    status_result = await db.execute(
+        select(ComplaintStatus).where(ComplaintStatus.name == "RESOLVED")
+    )
     resolved_status = status_result.scalar_one_or_none()
     assert resolved_status is not None, "Resolved status should not be None"
     if complaint.status_id == resolved_status.id:
@@ -539,7 +631,9 @@ async def resolve_complaint(
             detail="Complaint is already resolved",
         )
     if not resolved_status:
-        resolved_status = ComplaintStatus(name="RESOLVED", description="Complaint has been resolved")
+        resolved_status = ComplaintStatus(
+            name="RESOLVED", description="Complaint has been resolved"
+        )
         db.add(resolved_status)
         await db.commit()
         await db.refresh(resolved_status)
@@ -560,7 +654,9 @@ async def resolve_complaint(
 
     await db.commit()
 
-    return ResolveComplaintResponse(message="Complaint resolved successfully", complaint_id=complaint_id)
+    return ResolveComplaintResponse(
+        message="Complaint resolved successfully", complaint_id=complaint_id
+    )
 
 
 # VDO-specific endpoints
@@ -580,7 +676,11 @@ async def verify_complaint(
             detail="Only VDOs can verify complaints",
         )
 
-    query = select(Complaint).options(selectinload(Complaint.status)).where(Complaint.id == complaint_id)
+    query = (
+        select(Complaint)
+        .options(selectinload(Complaint.status))
+        .where(Complaint.id == complaint_id)
+    )
     result = await db.execute(query)
     complaint = result.scalar_one_or_none()
 
@@ -651,7 +751,9 @@ async def verify_complaint(
                 media_url = s3_key
             else:
                 # Fallback to local path
-                media_url = f"/media/complaints/{complaint_id}/verification/{media.filename}"
+                media_url = (
+                    f"/media/complaints/{complaint_id}/verification/{media.filename}"
+                )
 
             # Create media record
             verification_media = ComplaintMedia(
@@ -668,7 +770,9 @@ async def verify_complaint(
             await db.commit()
         except HTTPException as e:
             # If S3 upload fails, continue without media
-            logging.warning("Failed to upload verification media, continuing without it.")
+            logging.warning(
+                "Failed to upload verification media, continuing without it."
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to upload verification media",
@@ -743,7 +847,9 @@ async def get_complaint_counts_by_status(
         )
         if start_date
         else None,
-        end_date=datetime(end_date.year, end_date.month, end_date.day, 23, 59, 59, tzinfo=timezone.utc)
+        end_date=datetime(
+            end_date.year, end_date.month, end_date.day, 23, 59, 59, tzinfo=timezone.utc
+        )
         if end_date
         else None,
         level=level,
@@ -791,7 +897,9 @@ async def get_complaint_counts_by_date(
         )
         if start_date
         else None,
-        end_date=datetime(end_date.year, end_date.month, end_date.day, 23, 59, 59, tzinfo=timezone.utc)
+        end_date=datetime(
+            end_date.year, end_date.month, end_date.day, 23, 59, 59, tzinfo=timezone.utc
+        )
         if end_date
         else None,
     )
@@ -871,10 +979,10 @@ async def get_all_complaints(
     block_id: Optional[int] = None,
     gp_id: Optional[int] = None,
     complaint_status_id: Optional[int] = None,
-    skip: Optional[int] = None,
+    skip: int = Query(0, ge=0, le=1000000),
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-    limit: Optional[int] = 500,
+    limit: int = Query(500, ge=1, le=1000),
     order_by: ComplaintOrderByEnum = ComplaintOrderByEnum.NEWEST,
 ) -> List[DetailedComplaintResponse]:
     """Get all complaints (Staff only)."""
@@ -894,7 +1002,9 @@ async def get_all_complaints(
         )
         if start_date
         else None,
-        end_date=datetime(end_date.year, end_date.month, end_date.day, 23, 59, 59, tzinfo=timezone.utc)
+        end_date=datetime(
+            end_date.year, end_date.month, end_date.day, 23, 59, 59, tzinfo=timezone.utc
+        )
         if end_date
         else None,
         skip=skip,

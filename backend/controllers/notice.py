@@ -10,7 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 
 from models.database.auth import User
-from models.requests.notice import CreateNoticeRequest, CreateNoticeTypeRequest, CreateNoticeReplyRequest
+from models.requests.notice import (
+    CreateNoticeRequest,
+    CreateNoticeTypeRequest,
+    CreateNoticeReplyRequest,
+)
 from models.response.notice import (
     NoticeDetailResponse,
     NoticeMediaResponse,
@@ -32,7 +36,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/", response_model=NoticeDetailResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=NoticeDetailResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_notice(
     request: CreateNoticeRequest,
     db: AsyncSession = Depends(get_db),
@@ -71,12 +77,15 @@ async def create_notice(
             title=request.title,
             text=request.text,
         )
-        
+
         # Re-fetch notice with all relationships to include media
         notice_with_relations = await notice_service.get_notice_by_id(notice.id)
         if not notice_with_relations:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Notice created but not found")
-        
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Notice created but not found",
+            )
+
         return NoticeDetailResponse(
             id=notice_with_relations.id,
             sender_id=notice_with_relations.sender_id,
@@ -91,11 +100,15 @@ async def create_notice(
                     media_url=m.media_url,
                 )
                 for m in notice_with_relations.media
-            ] if notice_with_relations.media else [],
+            ]
+            if notice_with_relations.media
+            else [],
         )
     except HTTPException as e:
         logger.error("Database error while creating notice: %s", e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        ) from e
 
 
 @router.post("/types")
@@ -135,13 +148,15 @@ async def get_notice_types(
 
 @router.get("/sent", response_model=List[NoticeDetailResponse])
 async def get_sent_notices(
-    skip: int = Query(0, ge=0),
+    skip: int = Query(0, ge=0, le=1000000),
     limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
 ):
     """Get all notices sent by the current user."""
-    current_user_position_ids = await PositionHolderService(db).get_position_holder_ids_by_user(user_id=current_user.id)
+    current_user_position_ids = await PositionHolderService(
+        db
+    ).get_position_holder_ids_by_user(user_id=current_user.id)
 
     notices = await NoticeService(db).get_notices_sent_by_user(
         sender_ids=current_user_position_ids, skip=skip, limit=limit
@@ -161,7 +176,9 @@ async def get_sent_notices(
                     media_url=m.media_url,
                 )
                 for m in notice.media
-            ] if notice.media else [],
+            ]
+            if notice.media
+            else [],
             sender=PositionHolderBasicInfo(
                 id=notice.sender.id,
                 user_id=notice.sender.user_id,
@@ -206,7 +223,7 @@ async def get_sent_notices(
                 id=notice.type_id,
                 name=notice.type.name,
                 description=notice.type.description,
-            )
+            ),
         )
         for notice in notices
     ]
@@ -214,14 +231,16 @@ async def get_sent_notices(
 
 @router.get("/received", response_model=List[NoticeDetailResponse])
 async def get_received_notices(
-    skip: int = Query(0, ge=0),
+    skip: int = Query(0, ge=0, le=1000000),
     limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
 ):
     """Get all notices received by the current user."""
     # Position Holder IDs of the current user
-    current_user_position_ids = await PositionHolderService(db).get_position_holder_ids_by_user(user_id=current_user.id)
+    current_user_position_ids = await PositionHolderService(
+        db
+    ).get_position_holder_ids_by_user(user_id=current_user.id)
     print(current_user_position_ids)
     notices = await NoticeService(db).get_notices_received_by_user(
         receiver_ids=current_user_position_ids, skip=skip, limit=limit
@@ -241,7 +260,9 @@ async def get_received_notices(
                     media_url=m.media_url,
                 )
                 for m in notice.media
-            ] if notice.media else [],
+            ]
+            if notice.media
+            else [],
             sender=PositionHolderBasicInfo(
                 id=notice.sender.id,
                 user_id=notice.sender.user_id,
@@ -290,7 +311,7 @@ async def get_received_notices(
                 id=notice.type_id,
                 name=notice.type.name,
                 description=notice.type.description,
-            )
+            ),
         )
         for notice in notices
     ]
@@ -304,7 +325,9 @@ async def get_notice_by_id(
     """Get a specific notice by ID."""
     notice = await NoticeService(db).get_notice_by_id(notice_id=notice_id)
     if not notice:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found"
+        )
     return NoticeDetailResponse(
         id=notice.id,
         sender_id=notice.sender_id,
@@ -319,7 +342,9 @@ async def get_notice_by_id(
                 media_url=m.media_url,
             )
             for m in notice.media
-        ] if notice.media else [],
+        ]
+        if notice.media
+        else [],
         sender=PositionHolderBasicInfo(
             id=notice.sender.id,
             user_id=notice.sender.user_id,
@@ -374,7 +399,11 @@ async def get_notice_by_id(
     )
 
 
-@router.post("/{notice_id}/reply", response_model=NoticeReplyResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{notice_id}/reply",
+    response_model=NoticeReplyResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def reply_to_notice(
     notice_id: int,
     request: CreateNoticeReplyRequest,
@@ -390,10 +419,16 @@ async def reply_to_notice(
     # Get the notice
     notice = await notice_service.get_notice_by_id(notice_id)
     if not notice:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found"
+        )
 
     # Get current user's position holder IDs
-    current_user_position_ids = await position_holder_service.get_position_holder_ids_by_user(user_id=current_user.id)
+    current_user_position_ids = (
+        await position_holder_service.get_position_holder_ids_by_user(
+            user_id=current_user.id
+        )
+    )
 
     # Check if the current user is the receiver of this notice
     if notice.receiver_id not in current_user_position_ids:
@@ -425,7 +460,9 @@ async def reply_to_notice(
     # Fetch the reply with replier info
     reply_with_info = await notice_service.get_notice_reply_by_id(reply.id)
     if not reply_with_info:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reply not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Reply not found"
+        )
 
     return NoticeReplyResponse(
         id=reply_with_info.id,
@@ -456,7 +493,9 @@ async def delete_notice(
     svc = NoticeService(db)
     notice = await svc.get_notice_by_id(notice_id)
     if not notice:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found"
+        )
     if notice.sender_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -479,7 +518,9 @@ async def upload_notice_media(
     await NoticeService(db).upload_notice_media(notice_id=notice_id, media_url=file_url)
     notice = await NoticeService(db).get_notice_by_id(notice_id)
     if not notice:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found"
+        )
     return NoticeDetailResponse(
         id=notice.id,
         sender_id=notice.sender_id,
