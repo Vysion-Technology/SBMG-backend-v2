@@ -41,6 +41,7 @@ from models.requests.survey import (
     CreateAnnualSurveyRequest,
     UpdateAnnualSurveyRequest,
 )
+from models.database.contractor import Agency
 
 
 def get_response_model_from_survey(
@@ -61,6 +62,7 @@ def get_response_model_from_survey(
         sarpanch_contact=survey.sarpanch_contact or "",
         num_ward_panchs=survey.num_ward_panchs or 0,
         agency_id=survey.agency_id,
+        agency_name=survey.agency.name if getattr(survey, "agency", None) else "",
         vdo=PositionHolderResponse(
             id=survey.vdo.id,
             user_id=survey.vdo.user_id,
@@ -252,6 +254,9 @@ class AnnualSurveyService:
         await self.db.commit()
         await self.db.refresh(survey)
 
+        agency = await self.db.get(Agency, request.agency_id)
+        agency_name = agency.name if agency else ""
+
         return AnnualSurveyResponse(
             id=survey.id,
             fy_id=survey.fy_id,
@@ -266,6 +271,7 @@ class AnnualSurveyService:
             sarpanch_contact=survey.sarpanch_contact or "",
             num_ward_panchs=survey.num_ward_panchs or 0,
             agency_id=survey.agency_id,
+            agency_name=agency_name,
             vdo=None,
             created_at=survey.created_at,
             updated_at=survey.updated_at,
@@ -282,6 +288,7 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
                 selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
+                selectinload(AnnualSurvey.agency),
             )
             .where(AnnualSurvey.id == survey_id)
         )
@@ -582,6 +589,12 @@ class AnnualSurveyService:
         await self.db.commit()
         await self.db.refresh(survey)
 
+        agency_name = survey.agency.name if getattr(survey, "agency", None) else ""
+        if request.agency_id is not None:
+            agency = await self.db.get(Agency, request.agency_id)
+            if agency:
+                agency_name = agency.name
+
         return AnnualSurveyResponse(
             id=survey.id,
             fy_id=survey.fy_id,
@@ -596,6 +609,7 @@ class AnnualSurveyService:
             sarpanch_contact=survey.sarpanch_contact or "",
             num_ward_panchs=survey.num_ward_panchs or 0,
             agency_id=survey.agency_id,
+            agency_name=agency_name,
             vdo=None,
             created_at=survey.created_at,
             updated_at=survey.updated_at,
@@ -611,6 +625,7 @@ class AnnualSurveyService:
                 # eager-load both the linked User and Employee for the VDO/position holder
                 selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
                 selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.employee),
+                selectinload(AnnualSurvey.agency),
                 selectinload(AnnualSurvey.work_order),
                 selectinload(AnnualSurvey.fund_sanctioned),
                 selectinload(AnnualSurvey.door_to_door_collection),
@@ -655,6 +670,7 @@ class AnnualSurveyService:
             # eager-load both the linked User and Employee for the VDO/position holder
             selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
             selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.employee),
+            selectinload(AnnualSurvey.agency),
             selectinload(AnnualSurvey.work_order),
             selectinload(AnnualSurvey.fund_sanctioned),
             selectinload(AnnualSurvey.door_to_door_collection),
@@ -719,6 +735,7 @@ class AnnualSurveyService:
                 # eager-load both the linked User and Employee for the VDO/position holder
                 selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
                 selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.employee),
+                selectinload(AnnualSurvey.agency),
                 selectinload(AnnualSurvey.work_order),
                 selectinload(AnnualSurvey.fund_sanctioned),
                 selectinload(AnnualSurvey.door_to_door_collection),
