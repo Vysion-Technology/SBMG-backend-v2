@@ -24,6 +24,7 @@ from controllers import formulae
 from controllers import contractor_analytics
 from database import get_db
 from middleware.security import SecurityHeadersMiddleware
+from middleware.auth import JWTSlidingWindowMiddleware
 from services.gps_tracking import GPSTrackingService
 
 logger = logging.getLogger(__name__)
@@ -68,6 +69,7 @@ fastapi_app = FastAPI(
 
 # Add Security Headers Middleware
 fastapi_app.add_middleware(SecurityHeadersMiddleware)
+fastapi_app.add_middleware(JWTSlidingWindowMiddleware)
 
 # Add CORS middleware
 # Primary production origins
@@ -114,6 +116,7 @@ fastapi_app.add_middleware(
         "Access-Control-Request-Method",
         "Access-Control-Request-Headers",
     ],
+    expose_headers=["X-Refresh-Token"],
 )
 
 
