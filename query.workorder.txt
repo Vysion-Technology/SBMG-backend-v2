@@ -5,6 +5,16 @@ echo "Full database backup created in the current directory."
 
 # -----------------------------------------------------------------------------
 
+# 1b. RESTORE: Run this command to restore the database from a specific backup file.
+# Backup file: full_db_backup_2026-03-15_095743.sql
+# Clean the public schema first to ensure a clean restore
+docker exec -i sbm_postgres psql -U sbm_user -d sbm_rajasthan -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+cat full_db_backup_2026-03-15_095743.sql | docker exec -i sbm_postgres psql -U sbm_user -d sbm_rajasthan
+
+echo "Database restored from full_db_backup_2026-03-15_095743.sql"
+
+# -----------------------------------------------------------------------------
+
 # 2. CHECK & EXPORT: Run this command to export violations to a CSV file named 'survey_violations.csv'
 docker exec -it sbm_postgres psql -U sbm_user -d sbm_rajasthan -c "
 COPY (
