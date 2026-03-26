@@ -4,7 +4,7 @@ import traceback
 from typing import List, Optional
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -260,13 +260,13 @@ async def get_my_attendance(
 
 @router.get("/view", response_model=AttendanceListResponse)
 async def view_attendance(
-    contractor_id: Optional[int] = None,
-    village_id: Optional[int] = None,
-    block_id: Optional[int] = None,
-    district_id: Optional[int] = None,
+    contractor_id: Optional[int] = Query(None, le=2147483647),
+    village_id: Optional[int] = Query(None, le=2147483647),
+    block_id: Optional[int] = Query(None, le=2147483647),
+    district_id: Optional[int] = Query(None, le=2147483647),
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-    skip: int = Query(0, ge=0),
+    skip: int = Query(0, ge=0, le=10000),
     limit: int = Query(500, ge=1, le=500),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -322,9 +322,9 @@ async def view_attendance(
 async def get_attendance_analytics(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    district_id: Optional[int] = None,
-    block_id: Optional[int] = None,
-    gp_id: Optional[int] = None,
+    district_id: Optional[int] = Query(None, le=2147483647),
+    block_id: Optional[int] = Query(None, le=2147483647),
+    gp_id: Optional[int] = Query(None, le=2147483647),
     level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
@@ -401,11 +401,11 @@ async def get_attendance_for_day(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     attendance_date: date = date.today(),
-    district_id: Optional[int] = None,
-    block_id: Optional[int] = None,
-    gp_id: Optional[int] = None,
+    district_id: Optional[int] = Query(None, le=2147483647),
+    block_id: Optional[int] = Query(None, le=2147483647),
+    gp_id: Optional[int] = Query(None, le=2147483647),
     level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
-    skip: Optional[int] = Query(None, ge=0),
+    skip: Optional[int] = Query(None, ge=0, le=10000),
     limit: Optional[int] = Query(500, ge=1, le=500),
 ) -> DayAttendanceSummaryResponse:
     """
@@ -452,9 +452,9 @@ async def attendance_overview(
     end_date: date,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
-    district_id: Optional[int] = None,
-    block_id: Optional[int] = None,
-    gp_id: Optional[int] = None,
+    district_id: Optional[int] = Query(None, le=2147483647),
+    block_id: Optional[int] = Query(None, le=2147483647),
+    gp_id: Optional[int] = Query(None, le=2147483647),
 ) -> AttendanceOverviewResponse:
     """
     Get attendance overview including total contractors, attendance rate, present and absent counts.
@@ -487,9 +487,9 @@ async def get_top_n_geo_attendance(
     level: GeoTypeEnum,
     start_date: date,
     end_date: date,
-    n: int = 3,
-    district_id: Optional[int] = None,
-    block_id: Optional[int] = None,
+    n: int = Query(3, le=10000),
+    district_id: Optional[int] = Query(None, le=2147483647),
+    block_id: Optional[int] = Query(None, le=2147483647),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
 ) -> list[TopNGeoAttendanceResponse]:
@@ -522,7 +522,7 @@ async def get_top_n_geo_attendance(
 
 @router.get("/{attendance_id}", response_model=AttendanceResponse)
 async def get_attendance_by_id(
-    attendance_id: int,
+    attendance_id: int = Path(..., le=2147483647),
     # current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -589,9 +589,9 @@ async def get_monthly_attendance_performance(
     level: GeoTypeEnum,
     start_date: date,
     end_date: date,
-    district_id: Optional[int] = None,
-    block_id: Optional[int] = None,
-    gp_id: Optional[int] = None,
+    district_id: Optional[int] = Query(None, le=2147483647),
+    block_id: Optional[int] = Query(None, le=2147483647),
+    gp_id: Optional[int] = Query(None, le=2147483647),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
 ) -> List[MonthlyAttendanceTrendResponse]:
@@ -625,10 +625,10 @@ async def get_monthly_attendance_performance(
 @router.get("/performance/annual", response_model=List[AnnualGeoPerformanceResponse])
 async def get_annual_geo_performance(
     level: GeoTypeEnum,
-    year: int,
-    district_id: Optional[int] = None,
-    block_id: Optional[int] = None,
-    gp_id: Optional[int] = None,
+    year: int = Query(..., le=2147483647),
+    district_id: Optional[int] = Query(None, le=2147483647),
+    block_id: Optional[int] = Query(None, le=2147483647),
+    gp_id: Optional[int] = Query(None, le=2147483647),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
 ) -> List[AnnualGeoPerformanceResponse]:

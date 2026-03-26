@@ -3,7 +3,8 @@
 from datetime import timezone
 from typing import List, Optional, Union
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Path
+
 from models.database.auth import User, PublicUser
 from controllers.auth import get_current_any_user
 
@@ -57,7 +58,7 @@ async def create_event(
 
 @router.get("/{event_id}", response_model=Optional[EventResponse])
 async def get_event(
-    event_id: int,
+    event_id: int = Path(..., le=2147483647),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[EventResponse]:
     """Get an event by ID."""
@@ -70,7 +71,7 @@ async def get_event(
 
 @router.post("/{event_id}/media", response_model=Optional[EventResponse])
 async def add_event_media(
-    event_id: int,
+    event_id: int = Path(..., le=2147483647),
     media: UploadFile = File(...),
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
@@ -94,8 +95,8 @@ async def add_event_media(
 
 @router.delete("/{event_id}/media/{event_media_id}", response_model=Optional[EventResponse])
 async def remove_event_media(
-    event_id: int,
-    event_media_id: int,
+    event_id: int = Path(..., le=2147483647),
+    event_media_id: int = Path(..., le=2147483647),
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[EventResponse]:
@@ -115,7 +116,7 @@ async def remove_event_media(
 
 @router.get("/", response_model=List[EventResponse])
 async def list_events(
-    skip: int = Query(0, ge=0),
+    skip: int = Query(0, ge=0, le=10000),
     limit: int = Query(100, ge=1, le=100),
     active: bool = True,
     db: AsyncSession = Depends(get_db),
@@ -142,8 +143,8 @@ async def list_events(
 
 @router.put("/{event_id}", response_model=Optional[EventResponse])
 async def update_event(
-    event_id: int,
     event_update: EventUpdateRequest,
+    event_id: int = Path(..., le=2147483647),
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[EventResponse]:
@@ -174,7 +175,7 @@ async def update_event(
 
 @router.delete("/{event_id}", response_model=DeletionResponse, status_code=200)
 async def delete_event(
-    event_id: int,
+    event_id: int = Path(..., le=2147483647),
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> DeletionResponse:
@@ -193,7 +194,7 @@ async def delete_event(
 
 @router.post("/{event_id}/bookmark", status_code=201)
 async def add_event_bookmark(
-    event_id: int,
+    event_id: int = Path(..., le=2147483647),
     current_user: Union[User, PublicUser] = Depends(get_current_any_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -212,7 +213,7 @@ async def add_event_bookmark(
 
 @router.delete("/{event_id}/bookmark", status_code=200)
 async def remove_event_bookmark(
-    event_id: int,
+    event_id: int = Path(..., le=2147483647),
     current_user: Union[User, PublicUser] = Depends(get_current_any_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -232,7 +233,7 @@ async def remove_event_bookmark(
 
 @router.get("/bookmarked/list", response_model=List[EventResponse])
 async def list_bookmarked_events(
-    skip: int = Query(0, ge=0),
+    skip: int = Query(0, ge=0, le=10000),
     limit: int = Query(100, ge=1, le=100),
     current_user: Union[User, PublicUser] = Depends(get_current_any_user),
     db: AsyncSession = Depends(get_db),

@@ -3,7 +3,8 @@
 from datetime import timezone
 from typing import List, Optional, Union
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Path
+
 from models.database.auth import User, PublicUser
 from controllers.auth import get_current_any_user
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,7 +68,7 @@ async def create_scheme(
 
 @router.get("/{scheme_id}", response_model=Optional[SchemeResponse])
 async def get_scheme(
-    scheme_id: int,
+    scheme_id: int = Path(..., le=2147483647),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[SchemeResponse]:
     """Get scheme details by ID."""
@@ -80,7 +81,7 @@ async def get_scheme(
 
 @router.post("/{scheme_id}/media", response_model=Optional[SchemeResponse])
 async def add_scheme_media(
-    scheme_id: int,
+    scheme_id: int = Path(..., le=2147483647),
     media: UploadFile = File(...),
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
@@ -108,8 +109,8 @@ async def add_scheme_media(
 
 @router.delete("/{scheme_id}/media/{scheme_media_id}", response_model=Optional[SchemeResponse])
 async def remove_scheme_media(
-    scheme_id: int,
-    scheme_media_id: int,
+    scheme_id: int = Path(..., le=2147483647),
+    scheme_media_id: int = Path(..., le=2147483647),
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[SchemeResponse]:
@@ -132,7 +133,7 @@ async def remove_scheme_media(
 
 @router.get("/", response_model=List[SchemeResponse])
 async def list_schemes(
-    skip: int = Query(0, ge=0),
+    skip: int = Query(0, ge=0, le=10000),
     limit: int = Query(100, ge=1, le=100),
     active: bool = True,
     db: AsyncSession = Depends(get_db),
@@ -160,8 +161,8 @@ async def list_schemes(
 
 @router.put("/{scheme_id}", response_model=Optional[SchemeResponse])
 async def update_scheme(
-    scheme_id: int,
     scheme_update: SchemeUpdateRequest,
+    scheme_id: int = Path(..., le=2147483647),
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[SchemeResponse]:
@@ -198,7 +199,7 @@ async def update_scheme(
 
 @router.delete("/{scheme_id}", response_model=DeletionResponse)
 async def delete_scheme(
-    scheme_id: int,
+    scheme_id: int = Path(..., le=2147483647),
     is_admin: bool = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> DeletionResponse:
@@ -217,7 +218,7 @@ async def delete_scheme(
 
 @router.post("/{scheme_id}/bookmark", status_code=201)
 async def add_scheme_bookmark(
-    scheme_id: int,
+    scheme_id: int = Path(..., le=2147483647),
     current_user: Union[User, PublicUser] = Depends(get_current_any_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -238,7 +239,7 @@ async def add_scheme_bookmark(
 
 @router.delete("/{scheme_id}/bookmark", status_code=200)
 async def remove_scheme_bookmark(
-    scheme_id: int,
+    scheme_id: int = Path(..., le=2147483647),
     current_user: Union[User, PublicUser] = Depends(get_current_any_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -258,7 +259,7 @@ async def remove_scheme_bookmark(
 
 @router.get("/bookmarked/list", response_model=List[SchemeResponse])
 async def list_bookmarked_schemes(
-    skip: int = Query(0, ge=0),
+    skip: int = Query(0, ge=0, le=10000),
     limit: int = Query(100, ge=1, le=100),
     current_user: Union[User, PublicUser] = Depends(get_current_any_user),
     db: AsyncSession = Depends(get_db),
