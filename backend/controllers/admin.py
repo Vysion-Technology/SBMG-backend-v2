@@ -26,8 +26,9 @@ from models.requests.admin import (
     CreateRoleRequest,
 )
 from models.response.admin import UserResponse, RoleResponse
+from middleware.xss_protection import XSSProtectionRoute
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 # User Management

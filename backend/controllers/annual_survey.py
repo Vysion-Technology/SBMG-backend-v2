@@ -34,9 +34,10 @@ from services.annual_survey import AnnualSurveyService
 from services.annual_survey_analytics_optimized import (
     AnnualSurveyAnalyticsServiceOptimized as AnnualSurveyAnalyticsService,
 )
+from middleware.xss_protection import XSSProtectionRoute
 
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 @router.post(

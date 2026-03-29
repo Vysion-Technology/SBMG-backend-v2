@@ -18,8 +18,10 @@ from services.scheme import SchemeService
 from models.requests.scheme import CreateSchemeRequest, SchemeUpdateRequest
 from models.response.scheme import SchemeResponse
 from models.response.deletion import DeletionResponse
+from middleware.xss_protection import XSSProtectionRoute
+from middleware.file_validation import validate_secure_file
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 @router.post("/", response_model=SchemeResponse)
@@ -89,6 +91,9 @@ async def add_scheme_media(
     """Add media to a scheme."""
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
+
+    # Security: Validate file content via magic bytes and size
+    await validate_secure_file(media)
 
     service = SchemeService(db)
     scheme = await service.get_scheme_by_id(scheme_id)

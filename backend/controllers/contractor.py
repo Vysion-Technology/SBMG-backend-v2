@@ -13,8 +13,9 @@ from services.permission import PermissionService
 from models.database.auth import User
 from models.requests.contractor import CreateAgencyRequest, CreateContractorRequest, UpdateContractorRequest
 from models.response.contractor import AgencyResponse, ContractorResponse
+from middleware.xss_protection import XSSProtectionRoute
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 @router.get("/agencies", response_model=List[AgencyResponse])

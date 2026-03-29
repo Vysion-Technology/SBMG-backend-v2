@@ -58,8 +58,10 @@ from services.auth import AuthService
 from services.fcm_notification_service import notify_user_on_complaint_status_update
 from services.complaints import ComplaintOrderByEnum, ComplaintService
 from services.auth import PublicUserService
+from middleware.xss_protection import XSSProtectionRoute
+from middleware.file_validation import validate_secure_file
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 # Helper function to get public user by token
@@ -518,6 +520,9 @@ async def upload_complaint_media(
     current_user: User = Depends(require_worker_role),
 ):
     """Upload media to a complaint (Workers and VDOs only, within their village)."""
+    # Security: Validate file content via magic bytes and size
+    await validate_secure_file(file)
+
     # Check if user is a Worker or VDO
     if not PermissionChecker.user_has_role(
         current_user, [UserRole.WORKER, UserRole.VDO]
@@ -1011,4 +1016,4 @@ async def get_all_complaints(
         skip=skip,
         limit=limit,
         order_by=order_by,
-    )
+        )

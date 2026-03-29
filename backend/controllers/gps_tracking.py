@@ -17,8 +17,9 @@ from models.response.gps import (
 )
 from services.geography import GeographyService
 from services.gps_tracking import GPSTrackingService
+from middleware.xss_protection import XSSProtectionRoute
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 @router.post("/vehicles", response_model=VehicleResponse)

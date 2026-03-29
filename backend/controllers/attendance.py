@@ -47,7 +47,9 @@ from exceptions.attendance import (
 security = HTTPBearer()
 
 # Router
-router = APIRouter()
+from middleware.xss_protection import XSSProtectionRoute
+
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 async def get_contractor_from_user(user: User, db: AsyncSession) -> Contractor:

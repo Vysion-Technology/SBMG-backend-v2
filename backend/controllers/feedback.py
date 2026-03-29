@@ -22,10 +22,11 @@ from models.requests.feedback import FeedbackCreateRequest, FeedbackUpdateReques
 from models.response.feedback import FeedbackResponse, FeedbackStatsResponse
 from models.internal import FeedbackFromEnum
 from controllers.auth import get_current_active_user
+from middleware.xss_protection import XSSProtectionRoute
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 async def get_user_type(

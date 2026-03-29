@@ -11,9 +11,10 @@ from controllers.auth import get_current_active_user
 from auth_utils import require_admin
 from models.database.auth import User
 from models.response.survey import FormResponse, FilledFormResponse, AssignmentResponse
+from middleware.xss_protection import XSSProtectionRoute
 
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 class CreateFormRequest(BaseModel):

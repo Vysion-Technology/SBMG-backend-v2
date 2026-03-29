@@ -18,8 +18,10 @@ from models.response.deletion import DeletionResponse
 
 from services.event import EventService
 from services.s3_service import s3_service
+from middleware.xss_protection import XSSProtectionRoute
+from middleware.file_validation import validate_secure_file
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 @router.post("/", response_model=EventResponse)
@@ -79,6 +81,9 @@ async def add_event_media(
     """Add media to an event."""
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin privileges required")
+
+    # Security: Validate file content via magic bytes and size
+    await validate_secure_file(media)
 
     service = EventService(db)
     event = await service.get_event_by_id(event_id)

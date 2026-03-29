@@ -23,9 +23,10 @@ from services.geography import GeographyService
 from services.contractor import ContractorService
 from services.permission import PermissionService
 from controllers.auth import get_current_user
+from middleware.xss_protection import XSSProtectionRoute
 
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 # List endpoints with pagination

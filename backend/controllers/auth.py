@@ -12,13 +12,14 @@ from models.database.auth import PositionHolder, User, PublicUser
 from services.auth import AuthService
 from services.encryption import EncryptionService
 from config import settings
+from middleware.xss_protection import XSSProtectionRoute
 
 
 # Security
 security = HTTPBearer()
 
 # Router
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 # Pydantic models for request/response
