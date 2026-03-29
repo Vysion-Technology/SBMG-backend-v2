@@ -87,17 +87,105 @@ class CSCDetailsResponse(BaseModel):
         from_attributes = True
 
 
-class SWMAssetsResponse(BaseModel):
-    """Response model for SWM assets."""
+# --- New Asset Category Response Models ---
 
+class ODFSustainabilityResponse(BaseModel):
+    """Response model for ODF sustainability details."""
     id: int
-    rrc: Optional[int]
-    pwmu: Optional[int]
-    compost_pit: Optional[int]
-    collection_vehicle: Optional[int]
+    ihhl: int
+    retrofitting: int
+    csc: int
+    csc_shala_darpan: int
 
     class Config:
         from_attributes = True
+
+
+class SWMAssetsCategoryResponse(BaseModel):
+    """Response model for SWM assets details."""
+    id: int
+    bins_hh_level: int
+    bins_public_places: int
+    community_compost_pits: int
+    segregation_sheds: int
+    tricycles_manual: int
+    e_rickshaws: int
+    motorized_vehicles: int
+
+    class Config:
+        from_attributes = True
+
+
+class LWMAssetsResponse(BaseModel):
+    """Response model for LWM assets details."""
+    id: int
+    pits_hh_level: int
+    community_pits: int
+    wsp: int
+    dewats: int
+    wetlands: int
+    other_treatments: int
+    drainage_channels: int
+
+    class Config:
+        from_attributes = True
+
+
+class PWMUDetailsResponse(BaseModel):
+    """Response model for PWMU details."""
+    id: int
+    established_pwmu: int
+    blocks_covered_pwmu: int
+    urban_mrfs: int
+    blocks_covered_urban_mrf: int
+
+    class Config:
+        from_attributes = True
+
+
+class FSMDetailsResponse(BaseModel):
+    """Response model for FSM details."""
+    id: int
+    twin_pit_toilets: int
+    single_pit_toilets: int
+    septic_tank_toilets: int
+    retrofitted_toilets: int
+    mechanized_desludging: int
+    fstps_rural: int
+    fstps_urban: int
+
+    class Config:
+        from_attributes = True
+
+
+class GobardhanProjectResponse(BaseModel):
+    """Response model for Gobar-dhan project details."""
+    id: int
+    total_projects: int
+
+    class Config:
+        from_attributes = True
+
+
+class D2DActivitiesResponse(BaseModel):
+    """Response model for D2D activities details."""
+    id: int
+    sanctioned_tender: int
+    sanctioned_self_gp: int
+    sanctioned_csr_ngo: int
+    sanctioned_shg: int
+    total_expenditure: float
+    vehicles_deployed: int
+    persons_deployed: int
+    households_covered: int
+    status_start: int
+    status_running: int
+    status_completed: int
+
+    class Config:
+        from_attributes = True
+
+# --- End of New Asset Category Response Models ---
 
 
 class SBMGYearTargetsResponse(BaseModel):
@@ -186,6 +274,7 @@ class AnnualSurveyResponse(BaseModel):
     # 1. VDO Details
     vdo_id: int
     vdo_name: Optional[str]
+    vdo_contact_number: Optional[str]
 
     # 2. Sarpanch Details
     sarpanch_name: str
@@ -206,7 +295,16 @@ class AnnualSurveyResponse(BaseModel):
     road_sweeping: Optional[RoadSweepingDetailsResponse] = None
     drain_cleaning: Optional[DrainCleaningDetailsResponse] = None
     csc_details: Optional[CSCDetailsResponse] = None
-    swm_assets: Optional[SWMAssetsResponse] = None
+    
+    # Categorized assets
+    odf_sustainability: Optional[ODFSustainabilityResponse] = None
+    swm_assets: Optional[SWMAssetsCategoryResponse] = None
+    lwm_assets: Optional[LWMAssetsResponse] = None
+    pwmu_details: Optional[PWMUDetailsResponse] = None
+    fsm_details: Optional[FSMDetailsResponse] = None
+    gobardhan_projects: Optional[GobardhanProjectResponse] = None
+    d2d_activities: Optional[D2DActivitiesResponse] = None
+    
     sbmg_targets: Optional[SBMGYearTargetsResponse] = None
 
     # Village data (list)
