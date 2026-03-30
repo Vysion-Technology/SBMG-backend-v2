@@ -25,6 +25,7 @@ from models.response.annual_survey_analytics import (
     DistrictAnalytics,
     BlockAnalytics,
     GPAnalytics,
+    AssetsDashboardResponse,
 )
 
 from services.geography import GeographyService
@@ -254,6 +255,28 @@ async def get_gp_latest_survey(
         ) from e
 
     return survey
+
+
+@router.get("/analytics/assets", response_model=AssetsDashboardResponse)
+async def get_assets_dashboard_totals(
+    db: AsyncSession = Depends(get_db),
+    fy_id: Optional[int] = Query(None, description="Financial Year ID"),
+    current_user: User = Depends(require_staff_role),
+) -> AssetsDashboardResponse:
+    """
+    Get aggregated totals for all asset categories for the dashboard.
+    Only authorized staff can view these totals.
+    """
+    service = AnnualSurveyAnalyticsService(db)
+
+    try:
+        analytics = await service.get_assets_dashboard_totals(fy_id=fy_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
+
+    return analytics
 
 
 @router.get("/analytics/state", response_model=StateAnalytics)

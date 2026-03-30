@@ -273,8 +273,8 @@ class AnnualSurveyResponse(BaseModel):
 
     # 1. VDO Details
     vdo_id: int
-    vdo_name: Optional[str]
-    vdo_contact_number: Optional[str]
+    vdo_name: Optional[str] = None
+    vdo_contact_number: Optional[str] = None
 
     # 2. Sarpanch Details
     sarpanch_name: str
