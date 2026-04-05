@@ -1011,7 +1011,3 @@ class AnnualSurveyAnalyticsServiceOptimized:
             )
             for row in rows
         ]
-",
-            )
-            for row in rows
-        ]

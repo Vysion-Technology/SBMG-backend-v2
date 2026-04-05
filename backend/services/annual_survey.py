@@ -818,8 +818,3 @@ class AnnualSurveyService:
 
         self.db.add(targets)
         await self.db.commit()
-        self.db.add(targets)
-        await self.db.commit()
-        self.db.add(targets)
-        await self.db.commit()
-ommit()
