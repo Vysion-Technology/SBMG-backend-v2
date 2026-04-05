@@ -379,6 +379,8 @@ class AnnualSurveyService:
         # Update main survey fields
         if request.vdo_name is not None:
             survey.vdo_name = request.vdo_name
+        if request.vdo_contact_number is not None:
+            survey.vdo_contact_number = request.vdo_contact_number
         if request.sarpanch_name is not None:
             survey.sarpanch_name = request.sarpanch_name
         if request.sarpanch_contact is not None:
