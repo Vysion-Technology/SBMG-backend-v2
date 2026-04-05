@@ -355,6 +355,20 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
                 selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
                 selectinload(AnnualSurvey.agency),
+                selectinload(AnnualSurvey.work_order),
+                selectinload(AnnualSurvey.fund_sanctioned),
+                selectinload(AnnualSurvey.door_to_door_collection),
+                selectinload(AnnualSurvey.road_sweeping),
+                selectinload(AnnualSurvey.drain_cleaning),
+                selectinload(AnnualSurvey.csc_details),
+                selectinload(AnnualSurvey.odf_sustainability),
+                selectinload(AnnualSurvey.swm_assets),
+                selectinload(AnnualSurvey.lwm_assets),
+                selectinload(AnnualSurvey.pwmu_details),
+                selectinload(AnnualSurvey.fsm_details),
+                selectinload(AnnualSurvey.gobardhan_projects),
+                selectinload(AnnualSurvey.d2d_activities),
+                selectinload(AnnualSurvey.sbmg_targets),
             )
             .where(AnnualSurvey.id == survey_id)
         )
