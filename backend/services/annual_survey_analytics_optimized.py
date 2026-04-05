@@ -124,6 +124,7 @@ class AnnualSurveyAnalyticsServiceOptimized:
         # 7. D2D Activities
         d2d_query = select(
             func.count(distinct(AnnualSurvey.gp_id)).label("total_gps"),
+            func.count(distinct(func.case((D2DActivities.is_active.is_(True), AnnualSurvey.gp_id), else_=None))).label("gps_with_d2d_active"),
             func.coalesce(func.sum(D2DActivities.sanctioned_tender), 0).label("sanctioned_tender"),
             func.coalesce(func.sum(D2DActivities.sanctioned_self_gp), 0).label("sanctioned_self_gp"),
             func.coalesce(func.sum(D2DActivities.sanctioned_csr_ngo), 0).label("sanctioned_csr_ngo"),
