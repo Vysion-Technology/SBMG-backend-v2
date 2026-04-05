@@ -61,6 +61,7 @@ def get_response_model_from_survey(
         survey_date=survey.survey_date,
         vdo_id=survey.vdo_id,
         vdo_name=survey.vdo_name,
+        vdo_contact_number=survey.vdo_contact_number,
         gp_name=survey.gp.name,
         block_name=survey.gp.block.name,
         district_name=survey.gp.district.name,
@@ -328,6 +329,7 @@ class AnnualSurveyService:
             survey_date=survey.survey_date,
             vdo_id=survey.vdo_id,
             vdo_name=survey.vdo_name,
+            vdo_contact_number=survey.vdo_contact_number,
             gp_name=gp.name,
             block_name=gp.block.name,
             district_name=gp.district.name,
@@ -799,6 +801,8 @@ class AnnualSurveyService:
                 dewats=random.randint(0, 2),
             ))
 
+        self.db.add(targets)
+        await self.db.commit()
         self.db.add(targets)
         await self.db.commit()
         self.db.add(targets)
