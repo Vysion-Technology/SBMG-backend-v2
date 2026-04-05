@@ -763,6 +763,7 @@ class AnnualSurveyService:
 
         self.db.add(D2DActivities(
             id=survey.id,
+            is_active=random.choice([True, False]),
             sanctioned_tender=random.randint(0, 5),
             sanctioned_self_gp=random.randint(0, 5),
             sanctioned_csr_ngo=random.randint(0, 2),
@@ -821,3 +822,4 @@ class AnnualSurveyService:
         await self.db.commit()
         self.db.add(targets)
         await self.db.commit()
+ommit()

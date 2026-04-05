@@ -115,6 +115,7 @@ class GobardhanProjectRequest(BaseModel):
 
 class D2DActivitiesRequest(BaseModel):
     """Request model for D2D activities details."""
+    is_active: bool = False
     sanctioned_tender: int = 0
     sanctioned_self_gp: int = 0
     sanctioned_csr_ngo: int = 0

@@ -461,6 +461,8 @@ class D2DActivities(Base):
     __tablename__ = "survey_d2d_activities"
     id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
     
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    
     # Sanctioned Status
     sanctioned_tender: Mapped[int] = mapped_column(Integer, default=0)
     sanctioned_self_gp: Mapped[int] = mapped_column(Integer, default=0)

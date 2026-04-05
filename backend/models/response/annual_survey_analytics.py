@@ -214,6 +214,7 @@ class GobardhanStats(BaseModel):
 
 class D2DActivitiesStats(BaseModel):
     total_gps: int
+    gps_with_d2d_active: int
     sanctioned_tender: int
     sanctioned_self_gp: int
     sanctioned_csr_ngo: int

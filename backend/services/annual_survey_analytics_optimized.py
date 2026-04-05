@@ -195,6 +195,7 @@ class AnnualSurveyAnalyticsServiceOptimized:
             ),
             d2d_activities=D2DActivitiesStats(
                 total_gps=d2d_res.total_gps,
+                gps_with_d2d_active=d2d_res.gps_with_d2d_active or 0,
                 sanctioned_tender=d2d_res.sanctioned_tender,
                 sanctioned_self_gp=d2d_res.sanctioned_self_gp,
                 sanctioned_csr_ngo=d2d_res.sanctioned_csr_ngo,
@@ -1007,6 +1008,10 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 master_data_status="Available"
                 if row.survey_count and row.survey_count > 0
                 else "Not Available",
+            )
+            for row in rows
+        ]
+",
             )
             for row in rows
         ]
