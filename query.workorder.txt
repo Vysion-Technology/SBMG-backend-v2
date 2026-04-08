@@ -1,0 +1,44 @@
+# 1. BACKUP: Run this command to create a full SQL dump of your database before any changes.
+docker exec sbm_postgres pg_dump -U sbm_user sbm_rajasthan > full_db_backup_$(date +%Y-%m-%d_%H%M%S).sql
+
+echo "Full database backup created in the current directory."
+
+# -----------------------------------------------------------------------------
+
+# 1b. RESTORE: Run this command to restore the database from a specific backup file.
+# Backup file: full_db_backup_2026-03-15_095743.sql
+# Clean the public schema first to ensure a clean restore
+docker exec -i sbm_postgres psql -U sbm_user -d sbm_rajasthan -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+cat full_db_backup_2026-03-15_095743.sql | docker exec -i sbm_postgres psql -U sbm_user -d sbm_rajasthan
+
+echo "Database restored from full_db_backup_2026-03-15_095743.sql"
+
+# -----------------------------------------------------------------------------
+
+# 2. CHECK & EXPORT: Run this command to export violations to a CSV file named 'survey_violations.csv'
+docker exec -it sbm_postgres psql -U sbm_user -d sbm_rajasthan -c "
+COPY (
+    SELECT 
+        s.id AS survey_id,
+        gp.name AS gp_name,
+        w.work_order_amount,
+        f.amount AS fund_amount,
+        (w.work_order_amount - f.amount) AS difference
+    FROM survey_work_order_details w
+    JOIN survey_fund_sanctioned f ON w.id = f.id
+    JOIN annual_surveys s ON s.id = w.id
+    JOIN gram_panchayats gp ON s.gp_id = gp.id
+    WHERE w.work_order_amount > f.amount
+) TO STDOUT WITH CSV HEADER;" > survey_violations.csv
+
+echo "Exported violations to survey_violations.csv"
+
+# -----------------------------------------------------------------------------
+
+# 3. FIX: Run this command to FIX violations by setting work_order_amount = fund_amount
+docker exec -it sbm_postgres psql -U sbm_user -d sbm_rajasthan -c "
+UPDATE survey_work_order_details w
+SET work_order_amount = f.amount
+FROM survey_fund_sanctioned f
+WHERE w.id = f.id
+AND w.work_order_amount > f.amount;"

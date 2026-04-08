@@ -39,8 +39,9 @@ from models.response.inspection import (
     TopPerformerInspectionResponse,
 )
 from services.inspection import InspectionService
+from middleware.xss_protection import XSSProtectionRoute
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 @router.get("/performance-report", response_model=PerformanceReportResponse)

@@ -29,11 +29,13 @@ from services.auth import AuthService
 from services.position_holder import PositionHolderService
 from services.notice import NoticeService
 from services.s3_service import S3Service
+from middleware.xss_protection import XSSProtectionRoute
+from middleware.file_validation import validate_secure_file
 
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 @router.post(
@@ -512,6 +514,9 @@ async def upload_notice_media(
     current_user: User = Depends(require_staff_role),
 ) -> NoticeDetailResponse:
     """Upload media file for a notice and get the URL."""
+    # Security: Validate file content via magic bytes and size
+    await validate_secure_file(file)
+
     assert current_user, "Authentication required"
     s3_service = S3Service()
     file_url = await s3_service.upload_file(file, folder="notices")

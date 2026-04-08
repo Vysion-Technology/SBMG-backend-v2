@@ -6,8 +6,9 @@ API endpoint to return all formulae used across the application
 from typing import Dict, Any
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+from middleware.xss_protection import XSSProtectionRoute
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 @router.get("/", response_class=JSONResponse)

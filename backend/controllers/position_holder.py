@@ -19,9 +19,10 @@ from models.response.auth import EmployeeResponse, PositionHolderResponse
 from services.position_holder import PositionHolderService
 from services.auth import AuthService, UserRole
 from controllers.auth import get_current_active_user
+from middleware.xss_protection import XSSProtectionRoute
 
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 def get_user_role(user: User) -> UserRole:
