@@ -57,13 +57,78 @@ class CSCDetailsRequest(BaseModel):
     cleaning_frequency: Optional[CleaningFrequency] = None
 
 
-class SWMAssetsRequest(BaseModel):
-    """Request model for SWM assets."""
+# --- New Asset Category Request Models ---
 
-    rrc: Optional[int] = None
-    pwmu: Optional[int] = None
-    compost_pit: Optional[int] = None
-    collection_vehicle: Optional[int] = None
+class ODFSustainabilityRequest(BaseModel):
+    """Request model for ODF sustainability details."""
+    ihhl: int = 0
+    retrofitting: int = 0
+    csc: int = 0
+    csc_shala_darpan: int = 0
+
+
+class SWMAssetsCategoryRequest(BaseModel):
+    """Request model for SWM assets details."""
+    bins_hh_level: int = 0
+    bins_public_places: int = 0
+    community_compost_pits: int = 0
+    segregation_sheds: int = 0
+    tricycles_manual: int = 0
+    e_rickshaws: int = 0
+    motorized_vehicles: int = 0
+
+
+class LWMAssetsRequest(BaseModel):
+    """Request model for LWM assets details."""
+    pits_hh_level: int = 0
+    community_pits: int = 0
+    wsp: int = 0
+    dewats: int = 0
+    wetlands: int = 0
+    other_treatments: int = 0
+    drainage_channels: int = 0
+
+
+class PWMUDetailsRequest(BaseModel):
+    """Request model for PWMU details."""
+    established_pwmu: int = 0
+    blocks_covered_pwmu: int = 0
+    urban_mrfs: int = 0
+    blocks_covered_urban_mrf: int = 0
+
+
+class FSMDetailsRequest(BaseModel):
+    """Request model for FSM details."""
+    twin_pit_toilets: int = 0
+    single_pit_toilets: int = 0
+    septic_tank_toilets: int = 0
+    retrofitted_toilets: int = 0
+    mechanized_desludging: int = 0
+    fstps_rural: int = 0
+    fstps_urban: int = 0
+
+
+class GobardhanProjectRequest(BaseModel):
+    """Request model for Gobar-dhan project details."""
+    total_projects: int = 0
+
+
+class D2DActivitiesRequest(BaseModel):
+    """Request model for D2D activities details."""
+    is_active: bool = False
+    sanctioned_tender: int = 0
+    sanctioned_self_gp: int = 0
+    sanctioned_csr_ngo: int = 0
+    sanctioned_shg: int = 0
+    total_expenditure: float = 0.0
+    vehicles_deployed: int = 0
+    persons_deployed: int = 0
+    households_covered: int = 0
+    status_start: int = 0
+    status_running: int = 0
+    status_completed: int = 0
+
+# --- End of New Asset Category Request Models ---
 
 
 class SBMGYearTargetsRequest(BaseModel):
@@ -120,6 +185,7 @@ class CreateAnnualSurveyRequest(BaseModel):
     # 1. VDO Details
     vdo_id: Optional[int] = Field(None, description="ID of the VDO")
     vdo_name: Optional[str] = Field(None, description="Name of the VDO")
+    vdo_contact_number: Optional[str] = Field(None, description="Contact number of the VDO")
 
     # 2. Sarpanch Details
     sarpanch_name: str = Field(..., description="Name of the Sarpanch")
@@ -151,8 +217,14 @@ class CreateAnnualSurveyRequest(BaseModel):
     # 10. CSC
     csc_details: Optional[CSCDetailsRequest] = None
 
-    # 11. SWM Assets
-    swm_assets: Optional[SWMAssetsRequest] = None
+    # New categorized assets
+    odf_sustainability: Optional[ODFSustainabilityRequest] = None
+    swm_assets: Optional[SWMAssetsCategoryRequest] = None
+    lwm_assets: Optional[LWMAssetsRequest] = None
+    pwmu_details: Optional[PWMUDetailsRequest] = None
+    fsm_details: Optional[FSMDetailsRequest] = None
+    gobardhan_projects: Optional[GobardhanProjectRequest] = None
+    d2d_activities: Optional[D2DActivitiesRequest] = None
 
     # 12. SBMG Year Targets
     sbmg_targets: Optional[SBMGYearTargetsRequest] = None
@@ -183,10 +255,15 @@ class UpdateAnnualSurveyRequest(BaseModel):
 
     # 1. VDO Details
     vdo_name: Optional[str] = None
+    vdo_contact_number: Optional[str] = Field(
+        None, description="Contact number of the VDO", pattern=r"^[6-9]\d{9}$"
+    )
 
     # 2. Sarpanch Details
     sarpanch_name: Optional[str] = None
-    sarpanch_contact: Optional[str] = None
+    sarpanch_contact: Optional[str] = Field(
+        None, description="Contact number of the Sarpanch", pattern=r"^[6-9]\d{9}$"
+    )
 
     # 3. No. of Ward Panchs
     num_ward_panchs: Optional[int] = None
@@ -212,8 +289,14 @@ class UpdateAnnualSurveyRequest(BaseModel):
     # 10. CSC
     csc_details: Optional[CSCDetailsRequest] = None
 
-    # 11. SWM Assets
-    swm_assets: Optional[SWMAssetsRequest] = None
+    # New categorized assets
+    odf_sustainability: Optional[ODFSustainabilityRequest] = None
+    swm_assets: Optional[SWMAssetsCategoryRequest] = None
+    lwm_assets: Optional[LWMAssetsRequest] = None
+    pwmu_details: Optional[PWMUDetailsRequest] = None
+    fsm_details: Optional[FSMDetailsRequest] = None
+    gobardhan_projects: Optional[GobardhanProjectRequest] = None
+    d2d_activities: Optional[D2DActivitiesRequest] = None
 
     # 12. SBMG Year Targets
     sbmg_targets: Optional[SBMGYearTargetsRequest] = None

@@ -6,7 +6,7 @@ Handles business logic for annual survey analytics using database-level aggregat
 from typing import List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, distinct, and_
+from sqlalchemy import select, func, distinct, and_, case
 from sqlalchemy.orm import selectinload
 
 from models.database.survey_master import (
@@ -18,6 +18,13 @@ from models.database.survey_master import (
     WorkOrderDetails,
     FundSanctioned,
     DoorToDoorCollectionDetails,
+    ODFSustainability,
+    SWMAssetsCategory,
+    LWMAssets,
+    PWMUDetails,
+    FSMDetails,
+    GobardhanProject,
+    D2DActivities,
 )
 from models.database.geography import District, Block, GramPanchayat
 from models.response.annual_survey_analytics import (
@@ -28,6 +35,14 @@ from models.response.annual_survey_analytics import (
     SchemeTargetAchievement,
     VillageMasterDataCoverage,
     AnnualOverview,
+    AssetsDashboardResponse,
+    ODFSustainabilityStats,
+    SWMAssetsStats,
+    LWMAssetsStats,
+    PWMUStats,
+    FSMStats,
+    GobardhanStats,
+    D2DActivitiesStats,
 )
 
 
@@ -36,6 +51,165 @@ class AnnualSurveyAnalyticsServiceOptimized:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def get_assets_dashboard_totals(self, fy_id: Optional[int] = None) -> AssetsDashboardResponse:
+        """Get aggregated totals for the Assets Dashboard."""
+        
+        # 1. ODF Sustainability
+        odf_query = select(
+            func.coalesce(func.sum(ODFSustainability.ihhl), 0).label("ihhl"),
+            func.coalesce(func.sum(ODFSustainability.retrofitting), 0).label("retrofitting"),
+            func.coalesce(func.sum(ODFSustainability.csc), 0).label("csc"),
+            func.coalesce(func.sum(ODFSustainability.csc_shala_darpan), 0).label("csc_shala_darpan"),
+        )
+        if fy_id:
+            odf_query = odf_query.join(AnnualSurvey).where(AnnualSurvey.fy_id == fy_id)
+        
+        # 2. SWM Assets
+        swm_query = select(
+            func.coalesce(func.sum(SWMAssetsCategory.bins_hh_level), 0).label("bins_hh_level"),
+            func.coalesce(func.sum(SWMAssetsCategory.bins_public_places), 0).label("bins_public_places"),
+            func.coalesce(func.sum(SWMAssetsCategory.community_compost_pits), 0).label("community_compost_pits"),
+            func.coalesce(func.sum(SWMAssetsCategory.segregation_sheds), 0).label("segregation_sheds"),
+            func.coalesce(func.sum(SWMAssetsCategory.tricycles_manual), 0).label("tricycles_manual"),
+            func.coalesce(func.sum(SWMAssetsCategory.e_rickshaws), 0).label("e_rickshaws"),
+            func.coalesce(func.sum(SWMAssetsCategory.motorized_vehicles), 0).label("motorized_vehicles"),
+        )
+        if fy_id:
+            swm_query = swm_query.join(AnnualSurvey).where(AnnualSurvey.fy_id == fy_id)
+
+        # 3. LWM Assets
+        lwm_query = select(
+            func.coalesce(func.sum(LWMAssets.pits_hh_level), 0).label("pits_hh_level"),
+            func.coalesce(func.sum(LWMAssets.community_pits), 0).label("community_pits"),
+            func.coalesce(func.sum(LWMAssets.wsp), 0).label("wsp"),
+            func.coalesce(func.sum(LWMAssets.dewats), 0).label("dewats"),
+            func.coalesce(func.sum(LWMAssets.wetlands), 0).label("wetlands"),
+            func.coalesce(func.sum(LWMAssets.other_treatments), 0).label("other_treatments"),
+            func.coalesce(func.sum(LWMAssets.drainage_channels), 0).label("drainage_channels"),
+        )
+        if fy_id:
+            lwm_query = lwm_query.join(AnnualSurvey).where(AnnualSurvey.fy_id == fy_id)
+
+        # 4. PWMU Details
+        pwmu_query = select(
+            func.coalesce(func.sum(PWMUDetails.established_pwmu), 0).label("established_pwmu"),
+            func.coalesce(func.sum(PWMUDetails.blocks_covered_pwmu), 0).label("blocks_covered_pwmu"),
+            func.coalesce(func.sum(PWMUDetails.urban_mrfs), 0).label("urban_mrfs"),
+            func.coalesce(func.sum(PWMUDetails.blocks_covered_urban_mrf), 0).label("blocks_covered_urban_mrf"),
+        )
+        if fy_id:
+            pwmu_query = pwmu_query.join(AnnualSurvey).where(AnnualSurvey.fy_id == fy_id)
+
+        # 5. FSM Details
+        fsm_query = select(
+            func.coalesce(func.sum(FSMDetails.twin_pit_toilets), 0).label("twin_pit_toilets"),
+            func.coalesce(func.sum(FSMDetails.single_pit_toilets), 0).label("single_pit_toilets"),
+            func.coalesce(func.sum(FSMDetails.septic_tank_toilets), 0).label("septic_tank_toilets"),
+            func.coalesce(func.sum(FSMDetails.retrofitted_toilets), 0).label("retrofitted_toilets"),
+            func.coalesce(func.sum(FSMDetails.mechanized_desludging), 0).label("mechanized_desludging"),
+            func.coalesce(func.sum(FSMDetails.fstps_rural), 0).label("fstps_rural"),
+            func.coalesce(func.sum(FSMDetails.fstps_urban), 0).label("fstps_urban"),
+        )
+        if fy_id:
+            fsm_query = fsm_query.join(AnnualSurvey).where(AnnualSurvey.fy_id == fy_id)
+
+        # 6. Gobardhan Project
+        gobardhan_query = select(
+            func.coalesce(func.sum(GobardhanProject.total_projects), 0).label("total_projects")
+        )
+        if fy_id:
+            gobardhan_query = gobardhan_query.join(AnnualSurvey).where(AnnualSurvey.fy_id == fy_id)
+
+        # 7. D2D Activities
+        d2d_query = select(
+            func.count(distinct(AnnualSurvey.gp_id)).label("total_gps"),
+            func.count(distinct(case((D2DActivities.is_active.is_(True), AnnualSurvey.gp_id), else_=None))).label("gps_with_d2d_active"),
+            func.coalesce(func.sum(D2DActivities.sanctioned_tender), 0).label("sanctioned_tender"),
+            func.coalesce(func.sum(D2DActivities.sanctioned_self_gp), 0).label("sanctioned_self_gp"),
+            func.coalesce(func.sum(D2DActivities.sanctioned_csr_ngo), 0).label("sanctioned_csr_ngo"),
+            func.coalesce(func.sum(D2DActivities.sanctioned_shg), 0).label("sanctioned_shg"),
+            func.coalesce(func.sum(D2DActivities.total_expenditure), 0).label("total_expenditure"),
+            func.coalesce(func.sum(D2DActivities.vehicles_deployed), 0).label("vehicles_deployed"),
+            func.coalesce(func.sum(D2DActivities.persons_deployed), 0).label("persons_deployed"),
+            func.coalesce(func.sum(D2DActivities.households_covered), 0).label("households_covered"),
+            func.coalesce(func.sum(D2DActivities.status_start), 0).label("status_start"),
+            func.coalesce(func.sum(D2DActivities.status_running), 0).label("status_running"),
+            func.coalesce(func.sum(D2DActivities.status_completed), 0).label("status_completed"),
+        )
+        if fy_id:
+            d2d_query = d2d_query.join(AnnualSurvey, AnnualSurvey.id == D2DActivities.id).where(AnnualSurvey.fy_id == fy_id)
+        else:
+            d2d_query = d2d_query.select_from(AnnualSurvey).outerjoin(D2DActivities, AnnualSurvey.id == D2DActivities.id)
+
+        # Execute all queries
+        odf_res = (await self.db.execute(odf_query)).one()
+        swm_res = (await self.db.execute(swm_query)).one()
+        lwm_res = (await self.db.execute(lwm_query)).one()
+        pwmu_res = (await self.db.execute(pwmu_query)).one()
+        fsm_res = (await self.db.execute(fsm_query)).one()
+        gob_res = (await self.db.execute(gobardhan_query)).one()
+        d2d_res = (await self.db.execute(d2d_query)).one()
+
+        return AssetsDashboardResponse(
+            odf_sustainability=ODFSustainabilityStats(
+                ihhl=odf_res.ihhl,
+                retrofitting=odf_res.retrofitting,
+                csc=odf_res.csc,
+                csc_shala_darpan=odf_res.csc_shala_darpan
+            ),
+            swm_assets=SWMAssetsStats(
+                bins_hh_level=swm_res.bins_hh_level,
+                bins_public_places=swm_res.bins_public_places,
+                community_compost_pits=swm_res.community_compost_pits,
+                segregation_sheds=swm_res.segregation_sheds,
+                tricycles_manual=swm_res.tricycles_manual,
+                e_rickshaws=swm_res.e_rickshaws,
+                motorized_vehicles=swm_res.motorized_vehicles
+            ),
+            lwm_assets=LWMAssetsStats(
+                pits_hh_level=lwm_res.pits_hh_level,
+                community_pits=lwm_res.community_pits,
+                wsp=lwm_res.wsp,
+                dewats=lwm_res.dewats,
+                wetlands=lwm_res.wetlands,
+                other_treatments=lwm_res.other_treatments,
+                drainage_channels=lwm_res.drainage_channels
+            ),
+            pwmu=PWMUStats(
+                established_pwmu=pwmu_res.established_pwmu,
+                blocks_covered_pwmu=pwmu_res.blocks_covered_pwmu,
+                urban_mrfs=pwmu_res.urban_mrfs,
+                blocks_covered_urban_mrf=pwmu_res.blocks_covered_urban_mrf
+            ),
+            fsm=FSMStats(
+                twin_pit_toilets=fsm_res.twin_pit_toilets,
+                single_pit_toilets=fsm_res.single_pit_toilets,
+                septic_tank_toilets=fsm_res.septic_tank_toilets,
+                retrofitted_toilets=fsm_res.retrofitted_toilets,
+                mechanized_desludging=fsm_res.mechanized_desludging,
+                fstps_rural=fsm_res.fstps_rural,
+                fstps_urban=fsm_res.fstps_urban
+            ),
+            gobardhan=GobardhanStats(
+                total_projects=gob_res.total_projects
+            ),
+            d2d_activities=D2DActivitiesStats(
+                total_gps=d2d_res.total_gps,
+                gps_with_d2d_active=d2d_res.gps_with_d2d_active or 0,
+                sanctioned_tender=d2d_res.sanctioned_tender,
+                sanctioned_self_gp=d2d_res.sanctioned_self_gp,
+                sanctioned_csr_ngo=d2d_res.sanctioned_csr_ngo,
+                sanctioned_shg=d2d_res.sanctioned_shg,
+                total_expenditure=float(d2d_res.total_expenditure),
+                vehicles_deployed=d2d_res.vehicles_deployed,
+                persons_deployed=d2d_res.persons_deployed,
+                households_covered=d2d_res.households_covered,
+                status_start=d2d_res.status_start,
+                status_running=d2d_res.status_running,
+                status_completed=d2d_res.status_completed
+            )
+        )
 
     async def get_state_analytics(self, fy_id: Optional[int] = None) -> StateAnalytics:
         """Get state-level analytics for annual surveys."""

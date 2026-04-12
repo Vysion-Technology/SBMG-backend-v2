@@ -27,7 +27,13 @@ from models.database.survey_master import (
     RoadSweepingDetails,
     DrainCleaningDetails,
     CSCDetails,
-    SWMAssets,
+    ODFSustainability,
+    SWMAssetsCategory,
+    LWMAssets,
+    PWMUDetails,
+    FSMDetails,
+    GobardhanProject,
+    D2DActivities,
     SBMGYearTargets,
     VillageData,
     VillageSBMGAssets,
@@ -55,6 +61,7 @@ def get_response_model_from_survey(
         survey_date=survey.survey_date,
         vdo_id=survey.vdo_id,
         vdo_name=survey.vdo_name,
+        vdo_contact_number=survey.vdo_contact_number,
         gp_name=survey.gp.name,
         block_name=survey.gp.block.name,
         district_name=survey.gp.district.name,
@@ -79,7 +86,15 @@ def get_response_model_from_survey(
         road_sweeping=survey.road_sweeping,
         drain_cleaning=survey.drain_cleaning,
         csc_details=survey.csc_details,
+        # Categorized assets
+        odf_sustainability=survey.odf_sustainability,
         swm_assets=survey.swm_assets,
+        lwm_assets=survey.lwm_assets,
+        pwmu_details=survey.pwmu_details,
+        fsm_details=survey.fsm_details,
+        gobardhan_projects=survey.gobardhan_projects,
+        d2d_activities=survey.d2d_activities,
+        
         sbmg_targets=survey.sbmg_targets,
         village_data=survey.village_data,  # type: ignore
     )
@@ -133,77 +148,132 @@ class AnnualSurveyService:
             )
         ).scalar_one()
 
-        # Create work order details if provided
+        # Create section details if provided
         if request.work_order:
-            work_order = WorkOrderDetails(
+            self.db.add(WorkOrderDetails(
                 id=survey.id,
                 work_order_no=request.work_order.work_order_no,
                 work_order_date=request.work_order.work_order_date,
                 work_order_amount=request.work_order.work_order_amount,
-            )
-            self.db.add(work_order)
+            ))
 
-        # Create fund sanctioned if provided
         if request.fund_sanctioned:
-            fund = FundSanctioned(
+            self.db.add(FundSanctioned(
                 id=survey.id,
                 amount=request.fund_sanctioned.amount,
                 head=request.fund_sanctioned.head,
-            )
-            self.db.add(fund)
+            ))
 
-        # Create door to door collection details if provided
         if request.door_to_door_collection:
-            dtd = DoorToDoorCollectionDetails(
+            self.db.add(DoorToDoorCollectionDetails(
                 id=survey.id,
                 num_households=request.door_to_door_collection.num_households,
                 num_shops=request.door_to_door_collection.num_shops,
                 collection_frequency=request.door_to_door_collection.collection_frequency,
-            )
-            self.db.add(dtd)
+            ))
 
-        # Create road sweeping details if provided
         if request.road_sweeping:
-            road = RoadSweepingDetails(
+            self.db.add(RoadSweepingDetails(
                 id=survey.id,
                 width=request.road_sweeping.width,
                 length=request.road_sweeping.length,
                 cleaning_frequency=request.road_sweeping.cleaning_frequency,
-            )
-            self.db.add(road)
+            ))
 
-        # Create drain cleaning details if provided
         if request.drain_cleaning:
-            drain = DrainCleaningDetails(
+            self.db.add(DrainCleaningDetails(
                 id=survey.id,
                 length=request.drain_cleaning.length,
                 cleaning_frequency=request.drain_cleaning.cleaning_frequency,
-            )
-            self.db.add(drain)
+            ))
 
-        # Create CSC details if provided
         if request.csc_details:
-            csc = CSCDetails(
+            self.db.add(CSCDetails(
                 id=survey.id,
                 numbers=request.csc_details.numbers,
                 cleaning_frequency=request.csc_details.cleaning_frequency,
-            )
-            self.db.add(csc)
+            ))
 
-        # Create SWM assets if provided
-        if request.swm_assets:
-            swm = SWMAssets(
+        # --- Categorized Assets Creation ---
+        
+        if request.odf_sustainability:
+            self.db.add(ODFSustainability(
                 id=survey.id,
-                rrc=request.swm_assets.rrc,
-                pwmu=request.swm_assets.pwmu,
-                compost_pit=request.swm_assets.compost_pit,
-                collection_vehicle=request.swm_assets.collection_vehicle,
-            )
-            self.db.add(swm)
+                ihhl=request.odf_sustainability.ihhl,
+                retrofitting=request.odf_sustainability.retrofitting,
+                csc=request.odf_sustainability.csc,
+                csc_shala_darpan=request.odf_sustainability.csc_shala_darpan,
+            ))
 
-        # Create SBMG targets if provided
+        if request.swm_assets:
+            self.db.add(SWMAssetsCategory(
+                id=survey.id,
+                bins_hh_level=request.swm_assets.bins_hh_level,
+                bins_public_places=request.swm_assets.bins_public_places,
+                community_compost_pits=request.swm_assets.community_compost_pits,
+                segregation_sheds=request.swm_assets.segregation_sheds,
+                tricycles_manual=request.swm_assets.tricycles_manual,
+                e_rickshaws=request.swm_assets.e_rickshaws,
+                motorized_vehicles=request.swm_assets.motorized_vehicles,
+            ))
+
+        if request.lwm_assets:
+            self.db.add(LWMAssets(
+                id=survey.id,
+                pits_hh_level=request.lwm_assets.pits_hh_level,
+                community_pits=request.lwm_assets.community_pits,
+                wsp=request.lwm_assets.wsp,
+                dewats=request.lwm_assets.dewats,
+                wetlands=request.lwm_assets.wetlands,
+                other_treatments=request.lwm_assets.other_treatments,
+                drainage_channels=request.lwm_assets.drainage_channels,
+            ))
+
+        if request.pwmu_details:
+            self.db.add(PWMUDetails(
+                id=survey.id,
+                established_pwmu=request.pwmu_details.established_pwmu,
+                blocks_covered_pwmu=request.pwmu_details.blocks_covered_pwmu,
+                urban_mrfs=request.pwmu_details.urban_mrfs,
+                blocks_covered_urban_mrf=request.pwmu_details.blocks_covered_urban_mrf,
+            ))
+
+        if request.fsm_details:
+            self.db.add(FSMDetails(
+                id=survey.id,
+                twin_pit_toilets=request.fsm_details.twin_pit_toilets,
+                single_pit_toilets=request.fsm_details.single_pit_toilets,
+                septic_tank_toilets=request.fsm_details.septic_tank_toilets,
+                retrofitted_toilets=request.fsm_details.retrofitted_toilets,
+                mechanized_desludging=request.fsm_details.mechanized_desludging,
+                fstps_rural=request.fsm_details.fstps_rural,
+                fstps_urban=request.fsm_details.fstps_urban,
+            ))
+
+        if request.gobardhan_projects:
+            self.db.add(GobardhanProject(
+                id=survey.id,
+                total_projects=request.gobardhan_projects.total_projects,
+            ))
+
+        if request.d2d_activities:
+            self.db.add(D2DActivities(
+                id=survey.id,
+                sanctioned_tender=request.d2d_activities.sanctioned_tender,
+                sanctioned_self_gp=request.d2d_activities.sanctioned_self_gp,
+                sanctioned_csr_ngo=request.d2d_activities.sanctioned_csr_ngo,
+                sanctioned_shg=request.d2d_activities.sanctioned_shg,
+                total_expenditure=request.d2d_activities.total_expenditure,
+                vehicles_deployed=request.d2d_activities.vehicles_deployed,
+                persons_deployed=request.d2d_activities.persons_deployed,
+                households_covered=request.d2d_activities.households_covered,
+                status_start=request.d2d_activities.status_start,
+                status_running=request.d2d_activities.status_running,
+                status_completed=request.d2d_activities.status_completed,
+            ))
+
         if request.sbmg_targets:
-            targets = SBMGYearTargets(
+            self.db.add(SBMGYearTargets(
                 id=survey.id,
                 ihhl=request.sbmg_targets.ihhl,
                 csc=request.sbmg_targets.csc,
@@ -214,42 +284,37 @@ class AnnualSurveyService:
                 leach_pit=request.sbmg_targets.leach_pit,
                 wsp=request.sbmg_targets.wsp,
                 dewats=request.sbmg_targets.dewats,
-            )
-            self.db.add(targets)
+            ))
 
         # Create village data if provided
         if request.village_data:
             for village_req in request.village_data:
-                village = VillageData(
+                v_data = VillageData(
                     survey_id=survey.id,
                     village_id=village_req.village_id,
                     village_name=village_req.village_name,
                     population=village_req.population,
                     num_households=village_req.num_households,
                 )
-                self.db.add(village)
+                self.db.add(v_data)
                 await self.db.flush()  # Get village data ID
 
-                # Create village SBMG assets if provided
                 if village_req.sbmg_assets:
-                    sbmg_assets = VillageSBMGAssets(
-                        id=village.id,
+                    self.db.add(VillageSBMGAssets(
+                        id=v_data.id,
                         ihhl=village_req.sbmg_assets.ihhl,
                         csc=village_req.sbmg_assets.csc,
-                    )
-                    self.db.add(sbmg_assets)
+                    ))
 
-                # Create village GWM assets if provided
                 if village_req.gwm_assets:
-                    gwm_assets = VillageGWMAssets(
-                        id=village.id,
+                    self.db.add(VillageGWMAssets(
+                        id=v_data.id,
                         soak_pit=village_req.gwm_assets.soak_pit,
                         magic_pit=village_req.gwm_assets.magic_pit,
                         leach_pit=village_req.gwm_assets.leach_pit,
                         wsp=village_req.gwm_assets.wsp,
                         dewats=village_req.gwm_assets.dewats,
-                    )
-                    self.db.add(gwm_assets)
+                    ))
 
         await self.db.commit()
         await self.db.refresh(survey)
@@ -264,6 +329,7 @@ class AnnualSurveyService:
             survey_date=survey.survey_date,
             vdo_id=survey.vdo_id,
             vdo_name=survey.vdo_name,
+            vdo_contact_number=survey.vdo_contact_number,
             gp_name=gp.name,
             block_name=gp.block.name,
             district_name=gp.district.name,
@@ -289,6 +355,20 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
                 selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
                 selectinload(AnnualSurvey.agency),
+                selectinload(AnnualSurvey.work_order),
+                selectinload(AnnualSurvey.fund_sanctioned),
+                selectinload(AnnualSurvey.door_to_door_collection),
+                selectinload(AnnualSurvey.road_sweeping),
+                selectinload(AnnualSurvey.drain_cleaning),
+                selectinload(AnnualSurvey.csc_details),
+                selectinload(AnnualSurvey.odf_sustainability),
+                selectinload(AnnualSurvey.swm_assets),
+                selectinload(AnnualSurvey.lwm_assets),
+                selectinload(AnnualSurvey.pwmu_details),
+                selectinload(AnnualSurvey.fsm_details),
+                selectinload(AnnualSurvey.gobardhan_projects),
+                selectinload(AnnualSurvey.d2d_activities),
+                selectinload(AnnualSurvey.sbmg_targets),
             )
             .where(AnnualSurvey.id == survey_id)
         )
@@ -299,6 +379,8 @@ class AnnualSurveyService:
         # Update main survey fields
         if request.vdo_name is not None:
             survey.vdo_name = request.vdo_name
+        if request.vdo_contact_number is not None:
+            survey.vdo_contact_number = request.vdo_contact_number
         if request.sarpanch_name is not None:
             survey.sarpanch_name = request.sarpanch_name
         if request.sarpanch_contact is not None:
@@ -308,216 +390,48 @@ class AnnualSurveyService:
         if request.agency_id is not None:
             survey.agency_id = request.agency_id
 
-        # Get existing work order and fund for validation
-        work_order_result = await self.db.execute(
-            select(WorkOrderDetails).where(WorkOrderDetails.id == survey_id)
-        )
-        existing_work_order = work_order_result.scalar_one_or_none()
+        # --- Helper for standard sections ---
+        async def upsert_section(model_class, request_data, existing_obj=None):
+            if request_data is None:
+                return existing_obj
+            
+            obj = existing_obj
+            if not obj:
+                # Check if it exists in DB first
+                res = await self.db.execute(select(model_class).where(model_class.id == survey_id))
+                obj = res.scalar_one_or_none()
+            
+            if not obj:
+                obj = model_class(id=survey_id)
+                self.db.add(obj)
+            
+            for key, value in request_data.model_dump(exclude_unset=True).items():
+                setattr(obj, key, value)
+            return obj
 
-        fund_result = await self.db.execute(
-            select(FundSanctioned).where(FundSanctioned.id == survey_id)
-        )
-        existing_fund = fund_result.scalar_one_or_none()
+        # Update core sections
+        await upsert_section(WorkOrderDetails, request.work_order, survey.work_order)
+        await upsert_section(FundSanctioned, request.fund_sanctioned, survey.fund_sanctioned)
+        await upsert_section(DoorToDoorCollectionDetails, request.door_to_door_collection, survey.door_to_door_collection)
+        await upsert_section(RoadSweepingDetails, request.road_sweeping, survey.road_sweeping)
+        await upsert_section(DrainCleaningDetails, request.drain_cleaning, survey.drain_cleaning)
+        await upsert_section(CSCDetails, request.csc_details, survey.csc_details)
 
-        # Update or create work order details
-        if request.work_order is not None:
-            work_order = existing_work_order
-            if work_order:
-                if request.work_order.work_order_no is not None:
-                    work_order.work_order_no = request.work_order.work_order_no
-                if request.work_order.work_order_date is not None:
-                    work_order.work_order_date = request.work_order.work_order_date
-                if request.work_order.work_order_amount is not None:
-                    work_order.work_order_amount = request.work_order.work_order_amount
-            else:
-                work_order = WorkOrderDetails(
-                    id=survey.id,
-                    work_order_no=request.work_order.work_order_no,
-                    work_order_date=request.work_order.work_order_date,
-                    work_order_amount=request.work_order.work_order_amount,
-                )
-                self.db.add(work_order)
-            existing_work_order = work_order
-
-        # Update or create fund sanctioned
-        if request.fund_sanctioned is not None:
-            fund = existing_fund
-            if fund:
-                if request.fund_sanctioned.amount is not None:
-                    fund.amount = request.fund_sanctioned.amount
-                if request.fund_sanctioned.head is not None:
-                    fund.head = request.fund_sanctioned.head
-            else:
-                fund = FundSanctioned(
-                    id=survey.id,
-                    amount=request.fund_sanctioned.amount,
-                    head=request.fund_sanctioned.head,
-                )
-                self.db.add(fund)
-            existing_fund = fund
+        # Update categorized assets
+        await upsert_section(ODFSustainability, request.odf_sustainability, survey.odf_sustainability)
+        await upsert_section(SWMAssetsCategory, request.swm_assets, survey.swm_assets)
+        await upsert_section(LWMAssets, request.lwm_assets, survey.lwm_assets)
+        await upsert_section(PWMUDetails, request.pwmu_details, survey.pwmu_details)
+        await upsert_section(FSMDetails, request.fsm_details, survey.fsm_details)
+        await upsert_section(GobardhanProject, request.gobardhan_projects, survey.gobardhan_projects)
+        await upsert_section(D2DActivities, request.d2d_activities, survey.d2d_activities)
+        
+        await upsert_section(SBMGYearTargets, request.sbmg_targets, survey.sbmg_targets)
 
         # Final amount validation
-        if (
-            existing_work_order
-            and existing_work_order.work_order_amount is not None
-            and existing_fund
-            and existing_fund.amount is not None
-        ):
-            if existing_work_order.work_order_amount > existing_fund.amount:
-                raise ValueError(
-                    "Work order amount cannot be greater than the fund sanctioned amount"
-                )
-
-        # Update or create door to door collection details
-        if request.door_to_door_collection is not None:
-            dtd_result = await self.db.execute(
-                select(DoorToDoorCollectionDetails).where(
-                    DoorToDoorCollectionDetails.id == survey_id
-                )
-            )
-            dtd = dtd_result.scalar_one_or_none()
-            if dtd:
-                if request.door_to_door_collection.num_households is not None:
-                    dtd.num_households = request.door_to_door_collection.num_households
-                if request.door_to_door_collection.num_shops is not None:
-                    dtd.num_shops = request.door_to_door_collection.num_shops
-                if request.door_to_door_collection.collection_frequency is not None:
-                    dtd.collection_frequency = (
-                        request.door_to_door_collection.collection_frequency
-                    )
-            else:
-                dtd = DoorToDoorCollectionDetails(
-                    id=survey.id,
-                    num_households=request.door_to_door_collection.num_households,
-                    num_shops=request.door_to_door_collection.num_shops,
-                    collection_frequency=request.door_to_door_collection.collection_frequency,
-                )
-                self.db.add(dtd)
-
-        # Update or create road sweeping details
-        if request.road_sweeping is not None:
-            road_result = await self.db.execute(
-                select(RoadSweepingDetails).where(RoadSweepingDetails.id == survey_id)
-            )
-            road = road_result.scalar_one_or_none()
-            if road:
-                if request.road_sweeping.width is not None:
-                    road.width = request.road_sweeping.width
-                if request.road_sweeping.length is not None:
-                    road.length = request.road_sweeping.length
-                if request.road_sweeping.cleaning_frequency is not None:
-                    road.cleaning_frequency = request.road_sweeping.cleaning_frequency
-            else:
-                road = RoadSweepingDetails(
-                    id=survey.id,
-                    width=request.road_sweeping.width,
-                    length=request.road_sweeping.length,
-                    cleaning_frequency=request.road_sweeping.cleaning_frequency,
-                )
-                self.db.add(road)
-
-        # Update or create drain cleaning details
-        if request.drain_cleaning is not None:
-            drain_result = await self.db.execute(
-                select(DrainCleaningDetails).where(DrainCleaningDetails.id == survey_id)
-            )
-            drain = drain_result.scalar_one_or_none()
-            if drain:
-                if request.drain_cleaning.length is not None:
-                    drain.length = request.drain_cleaning.length
-                if request.drain_cleaning.cleaning_frequency is not None:
-                    drain.cleaning_frequency = request.drain_cleaning.cleaning_frequency
-            else:
-                drain = DrainCleaningDetails(
-                    id=survey.id,
-                    length=request.drain_cleaning.length,
-                    cleaning_frequency=request.drain_cleaning.cleaning_frequency,
-                )
-                self.db.add(drain)
-
-        # Update or create CSC details
-        if request.csc_details is not None:
-            csc_result = await self.db.execute(
-                select(CSCDetails).where(CSCDetails.id == survey_id)
-            )
-            csc = csc_result.scalar_one_or_none()
-            if csc:
-                if request.csc_details.numbers is not None:
-                    csc.numbers = request.csc_details.numbers
-                if request.csc_details.cleaning_frequency is not None:
-                    csc.cleaning_frequency = request.csc_details.cleaning_frequency
-            else:
-                csc = CSCDetails(
-                    id=survey.id,
-                    numbers=request.csc_details.numbers,
-                    cleaning_frequency=request.csc_details.cleaning_frequency,
-                )
-                self.db.add(csc)
-
-        # Update or create SWM assets
-        if request.swm_assets is not None:
-            swm_result = await self.db.execute(
-                select(SWMAssets).where(SWMAssets.id == survey_id)
-            )
-            swm = swm_result.scalar_one_or_none()
-            if swm:
-                if request.swm_assets.rrc is not None:
-                    swm.rrc = request.swm_assets.rrc
-                if request.swm_assets.pwmu is not None:
-                    swm.pwmu = request.swm_assets.pwmu
-                if request.swm_assets.compost_pit is not None:
-                    swm.compost_pit = request.swm_assets.compost_pit
-                if request.swm_assets.collection_vehicle is not None:
-                    swm.collection_vehicle = request.swm_assets.collection_vehicle
-            else:
-                swm = SWMAssets(
-                    id=survey.id,
-                    rrc=request.swm_assets.rrc,
-                    pwmu=request.swm_assets.pwmu,
-                    compost_pit=request.swm_assets.compost_pit,
-                    collection_vehicle=request.swm_assets.collection_vehicle,
-                )
-                self.db.add(swm)
-
-        # Update or create SBMG targets
-        if request.sbmg_targets is not None:
-            targets_result = await self.db.execute(
-                select(SBMGYearTargets).where(SBMGYearTargets.id == survey_id)
-            )
-            targets = targets_result.scalar_one_or_none()
-            if targets:
-                if request.sbmg_targets.ihhl is not None:
-                    targets.ihhl = request.sbmg_targets.ihhl
-                if request.sbmg_targets.csc is not None:
-                    targets.csc = request.sbmg_targets.csc
-                if request.sbmg_targets.rrc is not None:
-                    targets.rrc = request.sbmg_targets.rrc
-                if request.sbmg_targets.pwmu is not None:
-                    targets.pwmu = request.sbmg_targets.pwmu
-                if request.sbmg_targets.soak_pit is not None:
-                    targets.soak_pit = request.sbmg_targets.soak_pit
-                if request.sbmg_targets.magic_pit is not None:
-                    targets.magic_pit = request.sbmg_targets.magic_pit
-                if request.sbmg_targets.leach_pit is not None:
-                    targets.leach_pit = request.sbmg_targets.leach_pit
-                if request.sbmg_targets.wsp is not None:
-                    targets.wsp = request.sbmg_targets.wsp
-                if request.sbmg_targets.dewats is not None:
-                    targets.dewats = request.sbmg_targets.dewats
-            else:
-                targets = SBMGYearTargets(
-                    id=survey.id,
-                    ihhl=request.sbmg_targets.ihhl,
-                    csc=request.sbmg_targets.csc,
-                    rrc=request.sbmg_targets.rrc,
-                    pwmu=request.sbmg_targets.pwmu,
-                    soak_pit=request.sbmg_targets.soak_pit,
-                    magic_pit=request.sbmg_targets.magic_pit,
-                    leach_pit=request.sbmg_targets.leach_pit,
-                    wsp=request.sbmg_targets.wsp,
-                    dewats=request.sbmg_targets.dewats,
-                )
-                self.db.add(targets)
+        if survey.work_order and survey.fund_sanctioned:
+            if (survey.work_order.work_order_amount or 0) > (survey.fund_sanctioned.amount or 0):
+                raise ValueError("Work order amount cannot be greater than the fund sanctioned amount")
 
         # Update village data if provided
         if request.village_data is not None:
@@ -535,66 +449,31 @@ class AnnualSurveyService:
                 )
 
             # Delete existing village data and recreate
-            village_ids_subquery = select(VillageData.id).where(
-                VillageData.survey_id == survey_id
-            )
-
-            # Remove village-level assets first to honor FK constraints
-            await self.db.execute(
-                delete(VillageGWMAssets).where(
-                    VillageGWMAssets.id.in_(village_ids_subquery)
-                )
-            )
-            await self.db.execute(
-                delete(VillageSBMGAssets).where(
-                    VillageSBMGAssets.id.in_(village_ids_subquery)
-                )
-            )
-            await self.db.execute(
-                delete(VillageData).where(VillageData.survey_id == survey_id)
-            )
+            village_ids_subquery = select(VillageData.id).where(VillageData.survey_id == survey_id)
+            await self.db.execute(delete(VillageGWMAssets).where(VillageGWMAssets.id.in_(village_ids_subquery)))
+            await self.db.execute(delete(VillageSBMGAssets).where(VillageSBMGAssets.id.in_(village_ids_subquery)))
+            await self.db.execute(delete(VillageData).where(VillageData.survey_id == survey_id))
 
             for village_req in request.village_data:
-                village = VillageData(
+                v_data = VillageData(
                     survey_id=survey.id,
                     village_id=village_req.village_id,
                     village_name=village_req.village_name,
                     population=village_req.population,
                     num_households=village_req.num_households,
                 )
-                self.db.add(village)
-                await self.db.flush()  # Get village data ID
+                self.db.add(v_data)
+                await self.db.flush()
 
-                # Create village SBMG assets if provided
                 if village_req.sbmg_assets:
-                    sbmg_assets = VillageSBMGAssets(
-                        id=village.id,
-                        ihhl=village_req.sbmg_assets.ihhl,
-                        csc=village_req.sbmg_assets.csc,
-                    )
-                    self.db.add(sbmg_assets)
-
-                # Create village GWM assets if provided
+                    self.db.add(VillageSBMGAssets(id=v_data.id, **village_req.sbmg_assets.model_dump()))
                 if village_req.gwm_assets:
-                    gwm_assets = VillageGWMAssets(
-                        id=village.id,
-                        soak_pit=village_req.gwm_assets.soak_pit,
-                        magic_pit=village_req.gwm_assets.magic_pit,
-                        leach_pit=village_req.gwm_assets.leach_pit,
-                        wsp=village_req.gwm_assets.wsp,
-                        dewats=village_req.gwm_assets.dewats,
-                    )
-                    self.db.add(gwm_assets)
+                    self.db.add(VillageGWMAssets(id=v_data.id, **village_req.gwm_assets.model_dump()))
 
         await self.db.commit()
         await self.db.refresh(survey)
 
         agency_name = survey.agency.name if getattr(survey, "agency", None) else ""
-        if request.agency_id is not None:
-            agency = await self.db.get(Agency, request.agency_id)
-            if agency:
-                agency_name = agency.name
-
         return AnnualSurveyResponse(
             id=survey.id,
             fy_id=survey.fy_id,
@@ -602,6 +481,7 @@ class AnnualSurveyService:
             survey_date=survey.survey_date,
             vdo_id=survey.vdo_id,
             vdo_name=survey.vdo_name,
+            vdo_contact_number=survey.vdo_contact_number,
             gp_name=survey.gp.name,
             block_name=survey.gp.block.name,
             district_name=survey.gp.district.name,
@@ -622,7 +502,6 @@ class AnnualSurveyService:
             .options(
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
-                # eager-load both the linked User and Employee for the VDO/position holder
                 selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
                 selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.employee),
                 selectinload(AnnualSurvey.agency),
@@ -632,14 +511,17 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.road_sweeping),
                 selectinload(AnnualSurvey.drain_cleaning),
                 selectinload(AnnualSurvey.csc_details),
+                # New assets
+                selectinload(AnnualSurvey.odf_sustainability),
                 selectinload(AnnualSurvey.swm_assets),
+                selectinload(AnnualSurvey.lwm_assets),
+                selectinload(AnnualSurvey.pwmu_details),
+                selectinload(AnnualSurvey.fsm_details),
+                selectinload(AnnualSurvey.gobardhan_projects),
+                selectinload(AnnualSurvey.d2d_activities),
                 selectinload(AnnualSurvey.sbmg_targets),
-                selectinload(AnnualSurvey.village_data).selectinload(
-                    VillageData.sbmg_assets
-                ),
-                selectinload(AnnualSurvey.village_data).selectinload(
-                    VillageData.gwm_assets
-                ),
+                selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
+                selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
             )
             .where(AnnualSurvey.id == survey_id)
         )
@@ -649,8 +531,7 @@ class AnnualSurveyService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Annual Survey has not been filled for this GP yet.",
             )
-        resp = get_response_model_from_survey(survey)
-        return resp
+        return get_response_model_from_survey(survey)
 
     async def get_surveys_list(
         self,
@@ -663,11 +544,9 @@ class AnnualSurveyService:
         skip: int = 0,
     ) -> List[AnnualSurveyResponse]:
         """Get paginated list of surveys with filters."""
-        # Build base query
         query = select(AnnualSurvey).options(
             selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
             selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
-            # eager-load both the linked User and Employee for the VDO/position holder
             selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
             selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.employee),
             selectinload(AnnualSurvey.agency),
@@ -677,14 +556,17 @@ class AnnualSurveyService:
             selectinload(AnnualSurvey.road_sweeping),
             selectinload(AnnualSurvey.drain_cleaning),
             selectinload(AnnualSurvey.csc_details),
+            # New assets
+            selectinload(AnnualSurvey.odf_sustainability),
             selectinload(AnnualSurvey.swm_assets),
+            selectinload(AnnualSurvey.lwm_assets),
+            selectinload(AnnualSurvey.pwmu_details),
+            selectinload(AnnualSurvey.fsm_details),
+            selectinload(AnnualSurvey.gobardhan_projects),
+            selectinload(AnnualSurvey.d2d_activities),
             selectinload(AnnualSurvey.sbmg_targets),
-            selectinload(AnnualSurvey.village_data).selectinload(
-                VillageData.sbmg_assets
-            ),
-            selectinload(AnnualSurvey.village_data).selectinload(
-                VillageData.gwm_assets
-            ),
+            selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
+            selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
         )
 
         if gp_id:
@@ -699,11 +581,9 @@ class AnnualSurveyService:
         if end_date:
             query = query.where(AnnualSurvey.survey_date <= end_date)
 
-        # Apply pagination
         query = query.order_by(AnnualSurvey.survey_date.desc())
         query = query.offset(skip).limit(limit)
 
-        # Execute query
         result = await self.db.execute(query)
         surveys = result.scalars().all()
 
@@ -732,7 +612,6 @@ class AnnualSurveyService:
             .options(
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
-                # eager-load both the linked User and Employee for the VDO/position holder
                 selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
                 selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.employee),
                 selectinload(AnnualSurvey.agency),
@@ -742,14 +621,17 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.road_sweeping),
                 selectinload(AnnualSurvey.drain_cleaning),
                 selectinload(AnnualSurvey.csc_details),
+                # New assets
+                selectinload(AnnualSurvey.odf_sustainability),
                 selectinload(AnnualSurvey.swm_assets),
+                selectinload(AnnualSurvey.lwm_assets),
+                selectinload(AnnualSurvey.pwmu_details),
+                selectinload(AnnualSurvey.fsm_details),
+                selectinload(AnnualSurvey.gobardhan_projects),
+                selectinload(AnnualSurvey.d2d_activities),
                 selectinload(AnnualSurvey.sbmg_targets),
-                selectinload(AnnualSurvey.village_data).selectinload(
-                    VillageData.sbmg_assets
-                ),
-                selectinload(AnnualSurvey.village_data).selectinload(
-                    VillageData.gwm_assets
-                ),
+                selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
+                selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
             )
             .where(AnnualSurvey.gp_id == gp_id)
             .order_by(AnnualSurvey.survey_date.desc())
@@ -800,16 +682,11 @@ class AnnualSurveyService:
                 )
             )
             await self.db.commit()
-            # Fill other related data as well for all related tables compulsorily
             surveys_list = surveys.scalars().all()
-            # Process related survey data sequentially to avoid concurrent use of the same AsyncSession.
-            # Concurrent operations on the same AsyncSession are not permitted and were causing
-            # `InvalidRequestError: This session is provisioning a new connection; concurrent operations are not permitted`.
             for survey in surveys_list:
                 await self._fill_related_survey_data(
                     survey, gp_villages_map[survey.gp_id]
                 )
-            # Ensure any remaining pending changes are committed
             await self.db.commit()
 
     async def _fill_related_survey_data(
@@ -831,44 +708,76 @@ class AnnualSurveyService:
         )
         self.db.add(fund)
 
-        dtd = DoorToDoorCollectionDetails(
+        # Fill categorized assets with random data
+        self.db.add(ODFSustainability(
             id=survey.id,
-            num_households=random.randint(100, 500),
-            num_shops=random.randint(10, 50),
-            collection_frequency=random.choice(list(CollectionFrequency)),
-        )
-        self.db.add(dtd)
+            ihhl=random.randint(500, 1500),
+            retrofitting=random.randint(100, 500),
+            csc=random.randint(5, 20),
+            csc_shala_darpan=random.randint(2, 10),
+        ))
 
-        road = RoadSweepingDetails(
+        self.db.add(SWMAssetsCategory(
             id=survey.id,
-            width=random.uniform(2.0, 5.0),
-            length=random.uniform(1000.0, 5000.0),
-            cleaning_frequency=random.choice(list(CleaningFrequency)),
-        )
-        self.db.add(road)
+            bins_hh_level=random.randint(1000, 5000),
+            bins_public_places=random.randint(50, 200),
+            community_compost_pits=random.randint(5, 15),
+            segregation_sheds=random.randint(1, 3),
+            tricycles_manual=random.randint(2, 8),
+            e_rickshaws=random.randint(1, 4),
+            motorized_vehicles=random.randint(1, 2),
+        ))
 
-        drain = DrainCleaningDetails(
+        self.db.add(LWMAssets(
             id=survey.id,
-            length=random.uniform(500.0, 2000.0),
-            cleaning_frequency=random.choice(list(CleaningFrequency)),
-        )
-        self.db.add(drain)
+            pits_hh_level=random.randint(500, 2000),
+            community_pits=random.randint(10, 50),
+            wsp=random.randint(1, 5),
+            dewats=random.randint(1, 3),
+            wetlands=random.randint(0, 2),
+            other_treatments=random.randint(0, 5),
+            drainage_channels=random.randint(1000, 5000),
+        ))
 
-        csc = CSCDetails(
+        self.db.add(PWMUDetails(
             id=survey.id,
-            numbers=random.randint(1, 5),
-            cleaning_frequency=random.choice(list(CleaningFrequency)),
-        )
-        self.db.add(csc)
+            established_pwmu=random.randint(0, 1),
+            blocks_covered_pwmu=random.randint(0, 5),
+            urban_mrfs=random.randint(0, 2),
+            blocks_covered_urban_mrf=random.randint(0, 3),
+        ))
 
-        swm = SWMAssets(
+        self.db.add(FSMDetails(
             id=survey.id,
-            rrc=random.randint(1, 3),
-            pwmu=random.randint(1, 2),
-            compost_pit=random.randint(1, 4),
-            collection_vehicle=random.randint(1, 2),
-        )
-        self.db.add(swm)
+            twin_pit_toilets=random.randint(100, 500),
+            single_pit_toilets=random.randint(50, 200),
+            septic_tank_toilets=random.randint(200, 800),
+            retrofitted_toilets=random.randint(10, 50),
+            mechanized_desludging=random.randint(1, 5),
+            fstps_rural=random.randint(0, 1),
+            fstps_urban=random.randint(0, 1),
+        ))
+
+        self.db.add(GobardhanProject(
+            id=survey.id,
+            total_projects=random.randint(0, 2),
+        ))
+
+        self.db.add(D2DActivities(
+            id=survey.id,
+            is_active=random.choice([True, False]),
+            sanctioned_tender=random.randint(0, 5),
+            sanctioned_self_gp=random.randint(0, 5),
+            sanctioned_csr_ngo=random.randint(0, 2),
+            sanctioned_shg=random.randint(0, 3),
+            total_expenditure=float(random.randint(50000, 200000)),
+            vehicles_deployed=random.randint(1, 5),
+            persons_deployed=random.randint(2, 10),
+            households_covered=random.randint(500, 2000),
+            status_start=random.randint(1, 5),
+            status_running=random.randint(1, 5),
+            status_completed=random.randint(1, 5),
+        ))
 
         targets = SBMGYearTargets(
             id=survey.id,
@@ -883,37 +792,31 @@ class AnnualSurveyService:
             dewats=random.randint(0, 2),
         )
 
-        village_data_entries: List[VillageData] = []
         for village_id in village_ids:
-            village_data = VillageData(
+            v_data = VillageData(
                 survey_id=survey.id,
                 village_id=village_id,
                 village_name=f"Village {village_id}",
                 population=random.randint(500, 2000),
                 num_households=random.randint(100, 500),
             )
-            village_data_entries.append(village_data)
-            self.db.add(village_data)
-            # flush to populate village_data.id without committing the transaction
+            self.db.add(v_data)
             await self.db.flush()
 
-            sbmg_assets = VillageSBMGAssets(
-                id=village_data.id,
+            self.db.add(VillageSBMGAssets(
+                id=v_data.id,
                 ihhl=random.randint(50, 150),
                 csc=random.randint(1, 5),
-            )
-            self.db.add(sbmg_assets)
+            ))
 
-            gwm_assets = VillageGWMAssets(
-                id=village_data.id,
+            self.db.add(VillageGWMAssets(
+                id=v_data.id,
                 soak_pit=random.randint(20, 80),
                 magic_pit=random.randint(10, 50),
                 leach_pit=random.randint(5, 30),
                 wsp=random.randint(1, 3),
                 dewats=random.randint(0, 2),
-            )
-            self.db.add(gwm_assets)
+            ))
 
-        # add targets and perform a single commit for the entire survey's related data
         self.db.add(targets)
         await self.db.commit()
