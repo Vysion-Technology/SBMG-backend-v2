@@ -52,9 +52,40 @@ class AnnualSurveyAnalyticsServiceOptimized:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_assets_dashboard_totals(self, fy_id: Optional[int] = None) -> AssetsDashboardResponse:
+async def get_assets_dashboard_totals(
+        self, 
+        fy_id: Optional[int] = None,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None
+    ) -> AssetsDashboardResponse:
         """Get aggregated totals for the Assets Dashboard."""
         
+        # Build base filters based on jurisdiction and FY
+        filters = []
+        if fy_id:
+            filters.append(AnnualSurvey.fy_id == fy_id)
+        if district_id:
+            filters.append(GramPanchayat.district_id == district_id)
+        if block_id:
+            filters.append(GramPanchayat.block_id == block_id)
+        if gp_id:
+            filters.append(AnnualSurvey.gp_id == gp_id)
+
+        has_filters = len(filters) > 0
+        needs_gp_join = bool(district_id or block_id)
+
+        # Helper function to apply dynamic joins and filters
+        def apply_filters(query, model_class):
+            if has_filters:
+                # Join AnnualSurvey to access fy_id and gp_id
+                query = query.select_from(model_class).join(AnnualSurvey, AnnualSurvey.id == model_class.id)
+                # Join GramPanchayat if we need to filter by block_id or district_id
+                if needs_gp_join:
+                    query = query.join(GramPanchayat, AnnualSurvey.gp_id == GramPanchayat.id)
+                query = query.where(and_(*filters))
+            return query
+
         # 1. ODF Sustainability
         odf_query = select(
             func.coalesce(func.sum(ODFSustainability.ihhl), 0).label("ihhl"),
@@ -62,8 +93,7 @@ class AnnualSurveyAnalyticsServiceOptimized:
             func.coalesce(func.sum(ODFSustainability.csc), 0).label("csc"),
             func.coalesce(func.sum(ODFSustainability.csc_shala_darpan), 0).label("csc_shala_darpan"),
         )
-        if fy_id:
-            odf_query = odf_query.join(AnnualSurvey).where(AnnualSurvey.fy_id == fy_id)
+        odf_query = apply_filters(odf_query, ODFSustainability)
         
         # 2. SWM Assets
         swm_query = select(
@@ -75,8 +105,7 @@ class AnnualSurveyAnalyticsServiceOptimized:
             func.coalesce(func.sum(SWMAssetsCategory.e_rickshaws), 0).label("e_rickshaws"),
             func.coalesce(func.sum(SWMAssetsCategory.motorized_vehicles), 0).label("motorized_vehicles"),
         )
-        if fy_id:
-            swm_query = swm_query.join(AnnualSurvey).where(AnnualSurvey.fy_id == fy_id)
+        swm_query = apply_filters(swm_query, SWMAssetsCategory)
 
         # 3. LWM Assets
         lwm_query = select(
@@ -88,8 +117,7 @@ class AnnualSurveyAnalyticsServiceOptimized:
             func.coalesce(func.sum(LWMAssets.other_treatments), 0).label("other_treatments"),
             func.coalesce(func.sum(LWMAssets.drainage_channels), 0).label("drainage_channels"),
         )
-        if fy_id:
-            lwm_query = lwm_query.join(AnnualSurvey).where(AnnualSurvey.fy_id == fy_id)
+        lwm_query = apply_filters(lwm_query, LWMAssets)
 
         # 4. PWMU Details
         pwmu_query = select(
@@ -98,8 +126,7 @@ class AnnualSurveyAnalyticsServiceOptimized:
             func.coalesce(func.sum(PWMUDetails.urban_mrfs), 0).label("urban_mrfs"),
             func.coalesce(func.sum(PWMUDetails.blocks_covered_urban_mrf), 0).label("blocks_covered_urban_mrf"),
         )
-        if fy_id:
-            pwmu_query = pwmu_query.join(AnnualSurvey).where(AnnualSurvey.fy_id == fy_id)
+        pwmu_query = apply_filters(pwmu_query, PWMUDetails)
 
         # 5. FSM Details
         fsm_query = select(
@@ -111,17 +138,15 @@ class AnnualSurveyAnalyticsServiceOptimized:
             func.coalesce(func.sum(FSMDetails.fstps_rural), 0).label("fstps_rural"),
             func.coalesce(func.sum(FSMDetails.fstps_urban), 0).label("fstps_urban"),
         )
-        if fy_id:
-            fsm_query = fsm_query.join(AnnualSurvey).where(AnnualSurvey.fy_id == fy_id)
+        fsm_query = apply_filters(fsm_query, FSMDetails)
 
         # 6. Gobardhan Project
         gobardhan_query = select(
             func.coalesce(func.sum(GobardhanProject.total_projects), 0).label("total_projects")
         )
-        if fy_id:
-            gobardhan_query = gobardhan_query.join(AnnualSurvey).where(AnnualSurvey.fy_id == fy_id)
+        gobardhan_query = apply_filters(gobardhan_query, GobardhanProject)
 
-        # 7. D2D Activities
+        # 7. D2D Activities (Special case since it queries directly from AnnualSurvey)
         d2d_query = select(
             func.count(distinct(AnnualSurvey.gp_id)).label("total_gps"),
             func.count(distinct(case((D2DActivities.is_active.is_(True), AnnualSurvey.gp_id), else_=None))).label("gps_with_d2d_active"),
@@ -136,11 +161,13 @@ class AnnualSurveyAnalyticsServiceOptimized:
             func.coalesce(func.sum(D2DActivities.status_start), 0).label("status_start"),
             func.coalesce(func.sum(D2DActivities.status_running), 0).label("status_running"),
             func.coalesce(func.sum(D2DActivities.status_completed), 0).label("status_completed"),
-        )
-        if fy_id:
-            d2d_query = d2d_query.join(AnnualSurvey, AnnualSurvey.id == D2DActivities.id).where(AnnualSurvey.fy_id == fy_id)
-        else:
-            d2d_query = d2d_query.select_from(AnnualSurvey).outerjoin(D2DActivities, AnnualSurvey.id == D2DActivities.id)
+        ).select_from(AnnualSurvey).outerjoin(D2DActivities, AnnualSurvey.id == D2DActivities.id)
+
+        if needs_gp_join:
+            d2d_query = d2d_query.join(GramPanchayat, AnnualSurvey.gp_id == GramPanchayat.id)
+            
+        if has_filters:
+            d2d_query = d2d_query.where(and_(*filters))
 
         # Execute all queries
         odf_res = (await self.db.execute(odf_query)).one()
@@ -210,8 +237,8 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 status_completed=d2d_res.status_completed
             )
         )
-
-    async def get_state_analytics(self, fy_id: Optional[int] = None) -> StateAnalytics:
+        
+async def get_state_analytics(self, fy_id: Optional[int] = None) -> StateAnalytics:
         """Get state-level analytics for annual surveys."""
 
         # Build base query
