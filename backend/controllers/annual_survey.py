@@ -266,12 +266,18 @@ async def get_assets_dashboard_totals(
 ) -> AssetsDashboardResponse:
     """
     Get aggregated totals for all asset categories for the dashboard.
-    Only authorized staff can view these totals.
+    Results are automatically filtered based on the user's role/jurisdiction.
     """
     service = AnnualSurveyAnalyticsService(db)
 
     try:
-        analytics = await service.get_assets_dashboard_totals(fy_id=fy_id)
+        # Pass the user's jurisdiction IDs down to the service
+        analytics = await service.get_assets_dashboard_totals(
+            fy_id=fy_id,
+            district_id=current_user.district_id,
+            block_id=current_user.block_id,
+            gp_id=current_user.gp_id
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
