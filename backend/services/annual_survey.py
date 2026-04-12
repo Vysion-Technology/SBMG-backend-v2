@@ -139,6 +139,7 @@ class AnnualSurveyService:
                     survey_date=date.today(),
                     vdo_id=position.id,
                     vdo_name=request.vdo_name,
+                    vdo_contact_number=request.vdo_contact_number,
                     sarpanch_name=request.sarpanch_name,
                     sarpanch_contact=request.sarpanch_contact,
                     num_ward_panchs=request.num_ward_panchs,
