@@ -627,29 +627,30 @@ class AuthService:
 def send_otp(mobile_number: str, otp: int | str) -> bool:
     """Send OTP to the given phone number."""
 
-    url = "https://www.fast2sms.com/dev/bulkV2"
+    # url = "https://www.fast2sms.com/dev/bulkV2"
 
-    # payload = f"variables_values={otp}&route=otp&numbers={mobile_number}"
-    headers = {
-        "authorization": "wGrmheyagfiXCqP7sVAD2n8zURu5B6l1jZT4OLS9t3WKHbYNoJy6CTDn1XlmMYLeBsGOjfxVHi07apkE",
-        "Content-Type": "application/json",
-        # "Content-Type": "application/x-www-form-urlencoded",
-        # "Cache-Control": "no-cache",
-    }
+    # # payload = f"variables_values={otp}&route=otp&numbers={mobile_number}"
+    # headers = {
+    #     "authorization": "wGrmheyagfiXCqP7sVAD2n8zURu5B6l1jZT4OLS9t3WKHbYNoJy6CTDn1XlmMYLeBsGOjfxVHi07apkE",
+    #     "Content-Type": "application/json",
+    #     # "Content-Type": "application/x-www-form-urlencoded",
+    #     # "Cache-Control": "no-cache",
+    # }
 
-    response = requests.request(
-        "POST",
-        url,
-        headers=headers,
-        json={
-            "route": "otp",
-            "variables_values": otp,
-            "numbers": mobile_number,
-        },
-        timeout=30,
-    )
+    # response = requests.request(
+    #     "POST",
+    #     url,
+    #     headers=headers,
+    #     json={
+    #         "route": "otp",
+    #         "variables_values": otp,
+    #         "numbers": mobile_number,
+    #     },
+    #     timeout=30,
+    # )
 
-    print(response.text)
+    # print(response.text)
+    print(f"MOCK SMS SENT: OTP {otp} sent to {mobile_number}")
     return True
 
 
