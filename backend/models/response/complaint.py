@@ -24,6 +24,9 @@ class ComplaintResponse(BaseModel):
     village_name: str
     block_name: str
     district_name: str
+    village_id: Optional[int] = None
+    block_id: Optional[int] = None
+    district_id: Optional[int] = None
     lat: float
     long: float
     location: str
@@ -82,6 +85,9 @@ class DetailedComplaintResponse(BaseModel):
     village_name: Optional[str] = None
     block_name: Optional[str] = None
     district_name: Optional[str] = None
+    village_id: Optional[int] = None
+    block_id: Optional[int] = None
+    district_id: Optional[int] = None
     updated_at: Optional[datetime]
     media_urls: List[str] = []
     media: List[MediaResponse] = []

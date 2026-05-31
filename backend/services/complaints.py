@@ -153,6 +153,9 @@ class ComplaintService:
                 village_name=complaint.gp.name if complaint.gp else None,
                 block_name=complaint.block.name if complaint.block else None,
                 district_name=complaint.district.name if complaint.district else None,
+                village_id=complaint.gp_id,
+                block_id=complaint.block_id,
+                district_id=complaint.district_id,
                 media_urls=[media.media_url for media in complaint.media] if complaint.media else [],
                 media=[
                     MediaResponse(
