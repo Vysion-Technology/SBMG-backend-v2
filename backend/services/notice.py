@@ -236,7 +236,15 @@ class NoticeService:
         result = await self.db.execute(
             select(NoticeReply)
             .where(NoticeReply.id == reply_id)
-            .options(selectinload(NoticeReply.replier).selectinload(PositionHolder.employee))
+            .options(
+                selectinload(NoticeReply.replier).options(
+                    selectinload(PositionHolder.employee),
+                    selectinload(PositionHolder.role),
+                    selectinload(PositionHolder.gp),
+                    selectinload(PositionHolder.block),
+                    selectinload(PositionHolder.district),
+                )
+            )
         )
         return result.scalar_one_or_none()
 

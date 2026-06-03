@@ -146,8 +146,20 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
             selectinload(Complaint.status),
             selectinload(Complaint.gp).selectinload(GramPanchayat.block).selectinload(Block.district),
             selectinload(Complaint.media),
-            selectinload(Complaint.comments).selectinload(ComplaintComment.user).selectinload(User.positions).selectinload(PositionHolder.employee),
-            selectinload(Complaint.assignments).selectinload(ComplaintAssignment.user).selectinload(User.positions).selectinload(PositionHolder.employee),
+            selectinload(Complaint.comments).selectinload(ComplaintComment.user).selectinload(User.positions).options(
+                selectinload(PositionHolder.role),
+                selectinload(PositionHolder.gp),
+                selectinload(PositionHolder.block),
+                selectinload(PositionHolder.district),
+                selectinload(PositionHolder.employee),
+            ),
+            selectinload(Complaint.assignments).selectinload(ComplaintAssignment.user).selectinload(User.positions).options(
+                selectinload(PositionHolder.role),
+                selectinload(PositionHolder.gp),
+                selectinload(PositionHolder.block),
+                selectinload(PositionHolder.district),
+                selectinload(PositionHolder.employee),
+            ),
         )
         .where(Complaint.id == complaint_id)
     )
@@ -190,7 +202,15 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
     complaint_assignment = (
         await db.execute(
             select(ComplaintAssignment)
-            .options(selectinload(ComplaintAssignment.user).selectinload(User.positions))
+            .options(
+                selectinload(ComplaintAssignment.user).selectinload(User.positions).options(
+                    selectinload(PositionHolder.role),
+                    selectinload(PositionHolder.gp),
+                    selectinload(PositionHolder.block),
+                    selectinload(PositionHolder.district),
+                    selectinload(PositionHolder.employee),
+                )
+            )
             .where(ComplaintAssignment.complaint_id == complaint.id)
         )
     ).scalars().all()
