@@ -426,15 +426,24 @@ class AuthService:
     ) -> Optional[PositionHolder]:
         """Get the current position holder for the user."""
         result: Optional[Any] = None
+        options = [
+            selectinload(PositionHolder.role),
+            selectinload(PositionHolder.gp),
+            selectinload(PositionHolder.block),
+            selectinload(PositionHolder.district),
+            selectinload(PositionHolder.employee),
+        ]
         if gp_id is not None:
             result = await self.db.execute(
-                select(PositionHolder).where(
-                    PositionHolder.gp_id == gp_id, PositionHolder.end_date.is_(None)
-                )
+                select(PositionHolder)
+                .options(*options)
+                .where(PositionHolder.gp_id == gp_id, PositionHolder.end_date.is_(None))
             )
         elif block_id is not None:
             result = await self.db.execute(
-                select(PositionHolder).where(
+                select(PositionHolder)
+                .options(*options)
+                .where(
                     PositionHolder.block_id == block_id,
                     PositionHolder.gp_id.is_(None),
                     PositionHolder.end_date.is_(None),
@@ -442,7 +451,9 @@ class AuthService:
             )
         elif district_id is not None:
             result = await self.db.execute(
-                select(PositionHolder).where(
+                select(PositionHolder)
+                .options(*options)
+                .where(
                     PositionHolder.district_id == district_id,
                     PositionHolder.block_id.is_(None),
                     PositionHolder.gp_id.is_(None),
@@ -451,7 +462,9 @@ class AuthService:
             )
         else:
             result = await self.db.execute(
-                select(PositionHolder).where(
+                select(PositionHolder)
+                .options(*options)
+                .where(
                     PositionHolder.district_id.is_(None),
                     PositionHolder.block_id.is_(None),
                     PositionHolder.gp_id.is_(None),

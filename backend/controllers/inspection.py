@@ -265,6 +265,9 @@ async def get_my_inspections(
                 selectinload(PositionHolder.role),
                 selectinload(PositionHolder.user),
                 selectinload(PositionHolder.employee),
+                selectinload(PositionHolder.gp),
+                selectinload(PositionHolder.block),
+                selectinload(PositionHolder.district),
             )
             .where(PositionHolder.id == inspection.position_holder_id)
         )
@@ -385,6 +388,9 @@ async def get_inspections(
                 selectinload(PositionHolder.role),
                 selectinload(PositionHolder.user),
                 selectinload(PositionHolder.employee),
+                selectinload(PositionHolder.gp),
+                selectinload(PositionHolder.block),
+                selectinload(PositionHolder.district),
             )
             .where(PositionHolder.id == inspection.position_holder_id)
         )
@@ -452,6 +458,9 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
             selectinload(PositionHolder.role),
             selectinload(PositionHolder.user),
             selectinload(PositionHolder.employee),
+            selectinload(PositionHolder.gp),
+            selectinload(PositionHolder.block),
+            selectinload(PositionHolder.district),
         )
         .where(PositionHolder.id == inspection.position_holder_id)
     )
