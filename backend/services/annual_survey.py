@@ -354,7 +354,14 @@ class AnnualSurveyService:
             .options(
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
-                selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
+                selectinload(AnnualSurvey.vdo).options(
+                    selectinload(PositionHolder.user),
+                    selectinload(PositionHolder.role),
+                    selectinload(PositionHolder.gp),
+                    selectinload(PositionHolder.block),
+                    selectinload(PositionHolder.district),
+                    selectinload(PositionHolder.employee),
+                ),
                 selectinload(AnnualSurvey.agency),
                 selectinload(AnnualSurvey.work_order),
                 selectinload(AnnualSurvey.fund_sanctioned),
@@ -503,8 +510,14 @@ class AnnualSurveyService:
             .options(
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
-                selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
-                selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.employee),
+                selectinload(AnnualSurvey.vdo).options(
+                    selectinload(PositionHolder.user),
+                    selectinload(PositionHolder.role),
+                    selectinload(PositionHolder.gp),
+                    selectinload(PositionHolder.block),
+                    selectinload(PositionHolder.district),
+                    selectinload(PositionHolder.employee),
+                ),
                 selectinload(AnnualSurvey.agency),
                 selectinload(AnnualSurvey.work_order),
                 selectinload(AnnualSurvey.fund_sanctioned),
@@ -548,8 +561,14 @@ class AnnualSurveyService:
         query = select(AnnualSurvey).options(
             selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
             selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
-            selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
-            selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.employee),
+            selectinload(AnnualSurvey.vdo).options(
+                selectinload(PositionHolder.user),
+                selectinload(PositionHolder.role),
+                selectinload(PositionHolder.gp),
+                selectinload(PositionHolder.block),
+                selectinload(PositionHolder.district),
+                selectinload(PositionHolder.employee),
+            ),
             selectinload(AnnualSurvey.agency),
             selectinload(AnnualSurvey.work_order),
             selectinload(AnnualSurvey.fund_sanctioned),
@@ -573,9 +592,9 @@ class AnnualSurveyService:
         if gp_id:
             query = query.where(AnnualSurvey.gp_id == gp_id)
         elif block_id:
-            query = query.where(Block.id == block_id)
+            query = query.join(GramPanchayat, AnnualSurvey.gp_id == GramPanchayat.id).where(GramPanchayat.block_id == block_id)
         elif district_id:
-            query = query.where(District.id == district_id)
+            query = query.join(GramPanchayat, AnnualSurvey.gp_id == GramPanchayat.id).where(GramPanchayat.district_id == district_id)
 
         if start_date:
             query = query.where(AnnualSurvey.survey_date >= start_date)
@@ -613,8 +632,14 @@ class AnnualSurveyService:
             .options(
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
                 selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
-                selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.user),
-                selectinload(AnnualSurvey.vdo).selectinload(PositionHolder.employee),
+                selectinload(AnnualSurvey.vdo).options(
+                    selectinload(PositionHolder.user),
+                    selectinload(PositionHolder.role),
+                    selectinload(PositionHolder.gp),
+                    selectinload(PositionHolder.block),
+                    selectinload(PositionHolder.district),
+                    selectinload(PositionHolder.employee),
+                ),
                 selectinload(AnnualSurvey.agency),
                 selectinload(AnnualSurvey.work_order),
                 selectinload(AnnualSurvey.fund_sanctioned),
