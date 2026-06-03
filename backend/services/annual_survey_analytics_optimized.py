@@ -43,6 +43,8 @@ from models.response.annual_survey_analytics import (
     StateAnalytics,
     SWMAssetsStats,
     VillageMasterDataCoverage,
+    HierarchicalAssetsResponse,
+    GeographyAssetBreakdown,
 )
 
 
@@ -315,6 +317,62 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 status_running=d2d_res.status_running,
                 status_completed=d2d_res.status_completed,
             ),
+        )
+
+    async def get_assets_drill_down(
+        self,
+        fy_id: Optional[int] = None,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+    ) -> HierarchicalAssetsResponse:
+        """Get hierarchical asset analytics breakdown (District -> Block -> GP)."""
+
+        # Determine the level of breakdown and the grouping entity
+        if block_id:
+            # Level: GP
+            geography_type = "gp"
+            group_by_entity = GramPanchayat
+            filters = [GramPanchayat.block_id == block_id]
+        elif district_id:
+            # Level: Block
+            geography_type = "block"
+            group_by_entity = Block
+            filters = [Block.district_id == district_id]
+        else:
+            # Level: District
+            geography_type = "district"
+            group_by_entity = District
+            filters = []
+
+        # Fetch all geography items for the target level
+        geo_query = select(group_by_entity.id, group_by_entity.name)
+        if filters:
+            geo_query = geo_query.where(and_(*filters))
+        
+        geo_result = await self.db.execute(geo_query)
+        geo_items = geo_result.all()
+
+        results = []
+        for geo in geo_items:
+            # Call the existing optimized total method for each geography item
+            if geography_type == "district":
+                assets = await self.get_assets_dashboard_totals(fy_id=fy_id, district_id=geo.id)
+            elif geography_type == "block":
+                assets = await self.get_assets_dashboard_totals(fy_id=fy_id, block_id=geo.id)
+            else:  # gp
+                assets = await self.get_assets_dashboard_totals(fy_id=fy_id, gp_id=geo.id)
+            
+            results.append(
+                GeographyAssetBreakdown(
+                    geography_id=geo.id,
+                    geography_name=geo.name,
+                    assets=assets
+                )
+            )
+
+        return HierarchicalAssetsResponse(
+            geography_type=geography_type,
+            items=results
         )
 
     async def get_state_analytics(self, fy_id: Optional[int] = None) -> StateAnalytics:

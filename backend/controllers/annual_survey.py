@@ -26,6 +26,7 @@ from models.response.annual_survey_analytics import (
     BlockAnalytics,
     GPAnalytics,
     AssetsDashboardResponse,
+    HierarchicalAssetsResponse,
 )
 
 from services.geography import GeographyService
@@ -277,6 +278,52 @@ async def get_assets_dashboard_totals(
             district_id=current_user.district_id,
             block_id=current_user.block_id,
             gp_id=current_user.gp_id
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
+
+    return analytics
+
+
+@router.get("/analytics/assets/drill-down", response_model=HierarchicalAssetsResponse)
+async def get_assets_drill_down(
+    db: AsyncSession = Depends(get_db),
+    fy_id: Optional[int] = Query(None, description="Financial Year ID"),
+    district_id: Optional[int] = Query(None, description="District ID"),
+    block_id: Optional[int] = Query(None, description="Block ID"),
+    current_user: User = Depends(require_staff_role),
+) -> HierarchicalAssetsResponse:
+    """
+    Get hierarchical asset analytics breakdown (District -> Block -> GP).
+    Results are automatically filtered based on the user's role/jurisdiction.
+    """
+    service = AnnualSurveyAnalyticsService(db)
+
+    # Apply jurisdiction restrictions from current_user
+    final_district_id = district_id or current_user.district_id
+    final_block_id = block_id or current_user.block_id
+
+    # If user is restricted to a district, they cannot see other districts
+    if current_user.district_id and district_id and current_user.district_id != district_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this district's data."
+        )
+    
+    # If user is restricted to a block, they cannot see other blocks
+    if current_user.block_id and block_id and current_user.block_id != block_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this block's data."
+        )
+
+    try:
+        analytics = await service.get_assets_drill_down(
+            fy_id=fy_id,
+            district_id=final_district_id,
+            block_id=final_block_id
         )
     except ValueError as e:
         raise HTTPException(

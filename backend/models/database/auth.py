@@ -246,18 +246,22 @@ class PositionHolder(Base):  # type: ignore
 
     @property
     def first_name(self) -> str:
-        """Returns the first name of the position holder."""
-        return self.employee.first_name
+        """Returns the role name as the first name."""
+        return self.role.name if self.role else "Unknown"
 
     @property
     def middle_name(self) -> Optional[str]:
-        """Returns the middle name of the position holder."""
-        return self.employee.middle_name
+        """Returns the GP or Block name as the middle name."""
+        if self.gp:
+            return self.gp.name
+        if self.block:
+            return self.block.name
+        return None
 
     @property
     def last_name(self) -> str:
-        """Returns the last name of the position holder."""
-        return self.employee.last_name
+        """Returns the District name as the last name."""
+        return self.district.name if self.district else "Unknown"
 
     @property
     def full_name(self) -> str:

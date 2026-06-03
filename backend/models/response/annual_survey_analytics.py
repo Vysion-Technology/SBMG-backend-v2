@@ -240,3 +240,16 @@ class AssetsDashboardResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class GeographyAssetBreakdown(BaseModel):
+    """Asset breakdown for a specific geography (District/Block/GP)."""
+    geography_id: int
+    geography_name: str
+    assets: AssetsDashboardResponse
+
+
+class HierarchicalAssetsResponse(BaseModel):
+    """Response model for hierarchical asset analytics."""
+    geography_type: str  # "district", "block", or "gp"
+    items: List[GeographyAssetBreakdown]
