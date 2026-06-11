@@ -40,12 +40,12 @@ def upgrade() -> None:
     )
     op.drop_index(op.f('ix_annual_survey_financial_year_fy'), table_name='annual_survey_financial_year')
     op.create_index('ix_annual_survey_financial_year_fy', 'annual_survey_financial_year', ['fy'], unique=False)
-    op.add_column('survey_d2d_activities', sa.Column('sanctioned_mixed_model', sa.Integer(), nullable=False))
-    op.add_column('survey_gobardhan_projects', sa.Column('total_sanctioned', sa.Integer(), nullable=False))
-    op.add_column('survey_gobardhan_projects', sa.Column('total_functional', sa.Integer(), nullable=False))
-    op.add_column('survey_gobardhan_projects', sa.Column('gas_production', sa.Numeric(precision=15, scale=2), nullable=False))
+    op.add_column('survey_d2d_activities', sa.Column('sanctioned_mixed_model', sa.Integer(), nullable=False, server_default='0'))
+    op.add_column('survey_gobardhan_projects', sa.Column('total_sanctioned', sa.Integer(), nullable=False, server_default='0'))
+    op.add_column('survey_gobardhan_projects', sa.Column('total_functional', sa.Integer(), nullable=False, server_default='0'))
+    op.add_column('survey_gobardhan_projects', sa.Column('gas_production', sa.Numeric(precision=15, scale=2), nullable=False, server_default='0.0'))
     op.drop_column('survey_gobardhan_projects', 'total_projects')
-    op.add_column('survey_swm_assets_new', sa.Column('hh_compost_pit', sa.Integer(), nullable=False))
+    op.add_column('survey_swm_assets_new', sa.Column('hh_compost_pit', sa.Integer(), nullable=False, server_default='0'))
     # ### end Alembic commands ###
 
 
