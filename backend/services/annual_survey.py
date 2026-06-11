@@ -34,6 +34,8 @@ from models.database.survey_master import (
     FSMDetails,
     GobardhanProject,
     D2DActivities,
+    BartanBank,
+    VehicleAssets,
     SBMGYearTargets,
     VillageData,
     VillageSBMGAssets,
@@ -94,6 +96,8 @@ def get_response_model_from_survey(
         fsm_details=survey.fsm_details,
         gobardhan_projects=survey.gobardhan_projects,
         d2d_activities=survey.d2d_activities,
+        bartan_bank=survey.bartan_bank,
+        vehicle_assets=survey.vehicle_assets,
         
         sbmg_targets=survey.sbmg_targets,
         village_data=survey.village_data,  # type: ignore
@@ -212,6 +216,7 @@ class AnnualSurveyService:
                 bins_hh_level=request.swm_assets.bins_hh_level,
                 bins_public_places=request.swm_assets.bins_public_places,
                 community_compost_pits=request.swm_assets.community_compost_pits,
+                hh_compost_pit=request.swm_assets.hh_compost_pit,
                 segregation_sheds=request.swm_assets.segregation_sheds,
                 tricycles_manual=request.swm_assets.tricycles_manual,
                 e_rickshaws=request.swm_assets.e_rickshaws,
@@ -254,7 +259,9 @@ class AnnualSurveyService:
         if request.gobardhan_projects:
             self.db.add(GobardhanProject(
                 id=survey.id,
-                total_projects=request.gobardhan_projects.total_projects,
+                total_sanctioned=request.gobardhan_projects.total_sanctioned,
+                total_functional=request.gobardhan_projects.total_functional,
+                gas_production=request.gobardhan_projects.gas_production,
             ))
 
         if request.d2d_activities:
@@ -264,6 +271,7 @@ class AnnualSurveyService:
                 sanctioned_self_gp=request.d2d_activities.sanctioned_self_gp,
                 sanctioned_csr_ngo=request.d2d_activities.sanctioned_csr_ngo,
                 sanctioned_shg=request.d2d_activities.sanctioned_shg,
+                sanctioned_mixed_model=request.d2d_activities.sanctioned_mixed_model,
                 total_expenditure=request.d2d_activities.total_expenditure,
                 vehicles_deployed=request.d2d_activities.vehicles_deployed,
                 persons_deployed=request.d2d_activities.persons_deployed,
@@ -271,6 +279,23 @@ class AnnualSurveyService:
                 status_start=request.d2d_activities.status_start,
                 status_running=request.d2d_activities.status_running,
                 status_completed=request.d2d_activities.status_completed,
+            ))
+
+        if request.bartan_bank:
+            self.db.add(BartanBank(
+                id=survey.id,
+                established_banks=request.bartan_bank.established_banks,
+            ))
+
+        if request.vehicle_assets:
+            self.db.add(VehicleAssets(
+                id=survey.id,
+                owned_tricycles=request.vehicle_assets.owned_tricycles,
+                owned_e_rickshaws=request.vehicle_assets.owned_e_rickshaws,
+                owned_motorized_vehicles=request.vehicle_assets.owned_motorized_vehicles,
+                contractor_tricycles=request.vehicle_assets.contractor_tricycles,
+                contractor_e_rickshaws=request.vehicle_assets.contractor_e_rickshaws,
+                contractor_motorized_vehicles=request.vehicle_assets.contractor_motorized_vehicles,
             ))
 
         if request.sbmg_targets:
@@ -318,31 +343,7 @@ class AnnualSurveyService:
                     ))
 
         await self.db.commit()
-        await self.db.refresh(survey)
-
-        agency = await self.db.get(Agency, request.agency_id)
-        agency_name = agency.name if agency else ""
-
-        return AnnualSurveyResponse(
-            id=survey.id,
-            fy_id=survey.fy_id,
-            gp_id=survey.gp_id,
-            survey_date=survey.survey_date,
-            vdo_id=survey.vdo_id,
-            vdo_name=survey.vdo_name,
-            vdo_contact_number=survey.vdo_contact_number,
-            gp_name=gp.name,
-            block_name=gp.block.name,
-            district_name=gp.district.name,
-            sarpanch_name=survey.sarpanch_name or "",
-            sarpanch_contact=survey.sarpanch_contact or "",
-            num_ward_panchs=survey.num_ward_panchs or 0,
-            agency_id=survey.agency_id,
-            agency_name=agency_name,
-            vdo=None,
-            created_at=survey.created_at,
-            updated_at=survey.updated_at,
-        )
+        return await self.get_survey_by_id(survey.id)
 
     async def update_survey(
         self, survey_id: int, request: UpdateAnnualSurveyRequest
@@ -376,6 +377,8 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.fsm_details),
                 selectinload(AnnualSurvey.gobardhan_projects),
                 selectinload(AnnualSurvey.d2d_activities),
+                selectinload(AnnualSurvey.bartan_bank),
+                selectinload(AnnualSurvey.vehicle_assets),
                 selectinload(AnnualSurvey.sbmg_targets),
             )
             .where(AnnualSurvey.id == survey_id)
@@ -433,6 +436,8 @@ class AnnualSurveyService:
         await upsert_section(FSMDetails, request.fsm_details, survey.fsm_details)
         await upsert_section(GobardhanProject, request.gobardhan_projects, survey.gobardhan_projects)
         await upsert_section(D2DActivities, request.d2d_activities, survey.d2d_activities)
+        await upsert_section(BartanBank, request.bartan_bank, survey.bartan_bank)
+        await upsert_section(VehicleAssets, request.vehicle_assets, survey.vehicle_assets)
         
         await upsert_section(SBMGYearTargets, request.sbmg_targets, survey.sbmg_targets)
 
@@ -479,29 +484,7 @@ class AnnualSurveyService:
                     self.db.add(VillageGWMAssets(id=v_data.id, **village_req.gwm_assets.model_dump()))
 
         await self.db.commit()
-        await self.db.refresh(survey)
-
-        agency_name = survey.agency.name if getattr(survey, "agency", None) else ""
-        return AnnualSurveyResponse(
-            id=survey.id,
-            fy_id=survey.fy_id,
-            gp_id=survey.gp_id,
-            survey_date=survey.survey_date,
-            vdo_id=survey.vdo_id,
-            vdo_name=survey.vdo_name,
-            vdo_contact_number=survey.vdo_contact_number,
-            gp_name=survey.gp.name,
-            block_name=survey.gp.block.name,
-            district_name=survey.gp.district.name,
-            sarpanch_name=survey.sarpanch_name or "",
-            sarpanch_contact=survey.sarpanch_contact or "",
-            num_ward_panchs=survey.num_ward_panchs or 0,
-            agency_id=survey.agency_id,
-            agency_name=agency_name,
-            vdo=None,
-            created_at=survey.created_at,
-            updated_at=survey.updated_at,
-        )
+        return await self.get_survey_by_id(survey.id)
 
     async def get_survey_by_id(self, survey_id: int) -> Optional[AnnualSurveyResponse]:
         """Get annual survey by ID with all related data."""
@@ -533,6 +516,8 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.fsm_details),
                 selectinload(AnnualSurvey.gobardhan_projects),
                 selectinload(AnnualSurvey.d2d_activities),
+                selectinload(AnnualSurvey.bartan_bank),
+                selectinload(AnnualSurvey.vehicle_assets),
                 selectinload(AnnualSurvey.sbmg_targets),
                 selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
                 selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
@@ -584,6 +569,8 @@ class AnnualSurveyService:
             selectinload(AnnualSurvey.fsm_details),
             selectinload(AnnualSurvey.gobardhan_projects),
             selectinload(AnnualSurvey.d2d_activities),
+            selectinload(AnnualSurvey.bartan_bank),
+            selectinload(AnnualSurvey.vehicle_assets),
             selectinload(AnnualSurvey.sbmg_targets),
             selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
             selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
@@ -655,6 +642,8 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.fsm_details),
                 selectinload(AnnualSurvey.gobardhan_projects),
                 selectinload(AnnualSurvey.d2d_activities),
+                selectinload(AnnualSurvey.bartan_bank),
+                selectinload(AnnualSurvey.vehicle_assets),
                 selectinload(AnnualSurvey.sbmg_targets),
                 selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
                 selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
@@ -748,6 +737,7 @@ class AnnualSurveyService:
             bins_hh_level=random.randint(1000, 5000),
             bins_public_places=random.randint(50, 200),
             community_compost_pits=random.randint(5, 15),
+            hh_compost_pit=random.randint(100, 500),
             segregation_sheds=random.randint(1, 3),
             tricycles_manual=random.randint(2, 8),
             e_rickshaws=random.randint(1, 4),
@@ -786,7 +776,9 @@ class AnnualSurveyService:
 
         self.db.add(GobardhanProject(
             id=survey.id,
-            total_projects=random.randint(0, 2),
+            total_sanctioned=random.randint(1, 5),
+            total_functional=random.randint(0, 3),
+            gas_production=float(random.randint(10, 100)),
         ))
 
         self.db.add(D2DActivities(
@@ -796,6 +788,7 @@ class AnnualSurveyService:
             sanctioned_self_gp=random.randint(0, 5),
             sanctioned_csr_ngo=random.randint(0, 2),
             sanctioned_shg=random.randint(0, 3),
+            sanctioned_mixed_model=random.randint(0, 2),
             total_expenditure=float(random.randint(50000, 200000)),
             vehicles_deployed=random.randint(1, 5),
             persons_deployed=random.randint(2, 10),
@@ -803,6 +796,21 @@ class AnnualSurveyService:
             status_start=random.randint(1, 5),
             status_running=random.randint(1, 5),
             status_completed=random.randint(1, 5),
+        ))
+
+        self.db.add(BartanBank(
+            id=survey.id,
+            established_banks=random.randint(0, 5),
+        ))
+
+        self.db.add(VehicleAssets(
+            id=survey.id,
+            owned_tricycles=random.randint(0, 5),
+            owned_e_rickshaws=random.randint(0, 3),
+            owned_motorized_vehicles=random.randint(0, 2),
+            contractor_tricycles=random.randint(0, 5),
+            contractor_e_rickshaws=random.randint(0, 3),
+            contractor_motorized_vehicles=random.randint(0, 2),
         ))
 
         targets = SBMGYearTargets(

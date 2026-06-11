@@ -26,6 +26,8 @@ from models.database.survey_master import (
     VillageGWMAssets,
     VillageSBMGAssets,
     WorkOrderDetails,
+    BartanBank,
+    VehicleAssets,
 )
 from models.response.annual_survey_analytics import (
     AnnualOverview,
@@ -45,6 +47,8 @@ from models.response.annual_survey_analytics import (
     VillageMasterDataCoverage,
     HierarchicalAssetsResponse,
     GeographyAssetBreakdown,
+    BartanBankStats,
+    VehicleStats,
 )
 
 
@@ -115,6 +119,9 @@ class AnnualSurveyAnalyticsServiceOptimized:
             ),
             func.coalesce(func.sum(SWMAssetsCategory.community_compost_pits), 0).label(
                 "community_compost_pits"
+            ),
+            func.coalesce(func.sum(SWMAssetsCategory.hh_compost_pit), 0).label(
+                "hh_compost_pit"
             ),
             func.coalesce(func.sum(SWMAssetsCategory.segregation_sheds), 0).label(
                 "segregation_sheds"
@@ -188,9 +195,15 @@ class AnnualSurveyAnalyticsServiceOptimized:
 
         # 6. Gobardhan Project
         gobardhan_query = select(
-            func.coalesce(func.sum(GobardhanProject.total_projects), 0).label(
-                "total_projects"
-            )
+            func.coalesce(func.sum(GobardhanProject.total_sanctioned), 0).label(
+                "total_sanctioned"
+            ),
+            func.coalesce(func.sum(GobardhanProject.total_functional), 0).label(
+                "total_functional"
+            ),
+            func.coalesce(func.sum(GobardhanProject.gas_production), 0).label(
+                "gas_production"
+            ),
         )
         gobardhan_query = apply_filters(gobardhan_query, GobardhanProject)
 
@@ -217,6 +230,9 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 ),
                 func.coalesce(func.sum(D2DActivities.sanctioned_shg), 0).label(
                     "sanctioned_shg"
+                ),
+                func.coalesce(func.sum(D2DActivities.sanctioned_mixed_model), 0).label(
+                    "sanctioned_mixed_model"
                 ),
                 func.coalesce(func.sum(D2DActivities.total_expenditure), 0).label(
                     "total_expenditure"
@@ -252,6 +268,37 @@ class AnnualSurveyAnalyticsServiceOptimized:
         if has_filters:
             d2d_query = d2d_query.where(and_(*filters))
 
+        # 8. Bartan Bank
+        bartan_query = select(
+            func.coalesce(func.sum(BartanBank.established_banks), 0).label(
+                "established_banks"
+            )
+        )
+        bartan_query = apply_filters(bartan_query, BartanBank)
+
+        # 9. Vehicle Assets
+        vehicle_query = select(
+            func.coalesce(func.sum(VehicleAssets.owned_tricycles), 0).label(
+                "owned_tricycles"
+            ),
+            func.coalesce(func.sum(VehicleAssets.owned_e_rickshaws), 0).label(
+                "owned_e_rickshaws"
+            ),
+            func.coalesce(func.sum(VehicleAssets.owned_motorized_vehicles), 0).label(
+                "owned_motorized_vehicles"
+            ),
+            func.coalesce(func.sum(VehicleAssets.contractor_tricycles), 0).label(
+                "contractor_tricycles"
+            ),
+            func.coalesce(func.sum(VehicleAssets.contractor_e_rickshaws), 0).label(
+                "contractor_e_rickshaws"
+            ),
+            func.coalesce(func.sum(VehicleAssets.contractor_motorized_vehicles), 0).label(
+                "contractor_motorized_vehicles"
+            ),
+        )
+        vehicle_query = apply_filters(vehicle_query, VehicleAssets)
+
         # Execute all queries
         odf_res = (await self.db.execute(odf_query)).one()
         swm_res = (await self.db.execute(swm_query)).one()
@@ -260,6 +307,8 @@ class AnnualSurveyAnalyticsServiceOptimized:
         fsm_res = (await self.db.execute(fsm_query)).one()
         gob_res = (await self.db.execute(gobardhan_query)).one()
         d2d_res = (await self.db.execute(d2d_query)).one()
+        bartan_res = (await self.db.execute(bartan_query)).one()
+        vehicle_res = (await self.db.execute(vehicle_query)).one()
 
         return AssetsDashboardResponse(
             odf_sustainability=ODFSustainabilityStats(
@@ -272,6 +321,7 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 bins_hh_level=swm_res.bins_hh_level,
                 bins_public_places=swm_res.bins_public_places,
                 community_compost_pits=swm_res.community_compost_pits,
+                hh_compost_pit=swm_res.hh_compost_pit,
                 segregation_sheds=swm_res.segregation_sheds,
                 tricycles_manual=swm_res.tricycles_manual,
                 e_rickshaws=swm_res.e_rickshaws,
@@ -301,14 +351,20 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 fstps_rural=fsm_res.fstps_rural,
                 fstps_urban=fsm_res.fstps_urban,
             ),
-            gobardhan=GobardhanStats(total_projects=gob_res.total_projects),
+            gobardhan=GobardhanStats(
+                total_sanctioned=gob_res.total_sanctioned,
+                total_functional=gob_res.total_functional,
+                gas_production=float(gob_res.gas_production),
+            ),
             d2d_activities=D2DActivitiesStats(
                 total_gps=d2d_res.total_gps,
                 gps_with_d2d_active=d2d_res.gps_with_d2d_active or 0,
+                not_started_gps=(d2d_res.total_gps - (d2d_res.gps_with_d2d_active or 0)),
                 sanctioned_tender=d2d_res.sanctioned_tender,
                 sanctioned_self_gp=d2d_res.sanctioned_self_gp,
                 sanctioned_csr_ngo=d2d_res.sanctioned_csr_ngo,
                 sanctioned_shg=d2d_res.sanctioned_shg,
+                sanctioned_mixed_model=d2d_res.sanctioned_mixed_model,
                 total_expenditure=float(d2d_res.total_expenditure),
                 vehicles_deployed=d2d_res.vehicles_deployed,
                 persons_deployed=d2d_res.persons_deployed,
@@ -316,6 +372,17 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 status_start=d2d_res.status_start,
                 status_running=d2d_res.status_running,
                 status_completed=d2d_res.status_completed,
+            ),
+            bartan_bank=BartanBankStats(
+                established_banks=bartan_res.established_banks,
+            ),
+            vehicle_assets=VehicleStats(
+                owned_tricycles=vehicle_res.owned_tricycles,
+                owned_e_rickshaws=vehicle_res.owned_e_rickshaws,
+                owned_motorized_vehicles=vehicle_res.owned_motorized_vehicles,
+                contractor_tricycles=vehicle_res.contractor_tricycles,
+                contractor_e_rickshaws=vehicle_res.contractor_e_rickshaws,
+                contractor_motorized_vehicles=vehicle_res.contractor_motorized_vehicles,
             ),
         )
 

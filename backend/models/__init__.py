@@ -61,6 +61,8 @@ from models.database.survey_master import (
     FSMDetails,
     GobardhanProject,
     D2DActivities,
+    BartanBank,
+    VehicleAssets,
     FundSanctioned,
     WorkOrderDetails,
 )
@@ -137,6 +139,8 @@ __all__ = [
     "FSMDetails",
     "GobardhanProject",
     "D2DActivities",
+    "BartanBank",
+    "VehicleAssets",
     "FundSanctioned",
     "WorkOrderDetails",
     # GPS Tracking model

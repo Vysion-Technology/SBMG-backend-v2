@@ -221,6 +221,20 @@ class AnnualSurvey(Base):  # type: ignore
         cascade="all, delete-orphan",
     )
 
+    bartan_bank: Mapped[Optional["BartanBank"]] = relationship(
+        "BartanBank",
+        back_populates="survey",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    vehicle_assets: Mapped[Optional["VehicleAssets"]] = relationship(
+        "VehicleAssets",
+        back_populates="survey",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
     sbmg_targets: Mapped[Optional["SBMGYearTargets"]] = relationship(
         "SBMGYearTargets",
         back_populates="survey",
@@ -388,6 +402,7 @@ class SWMAssetsCategory(Base):
     bins_hh_level: Mapped[int] = mapped_column(Integer, default=0)
     bins_public_places: Mapped[int] = mapped_column(Integer, default=0)
     community_compost_pits: Mapped[int] = mapped_column(Integer, default=0)
+    hh_compost_pit: Mapped[int] = mapped_column(Integer, default=0)
     segregation_sheds: Mapped[int] = mapped_column(Integer, default=0) # RRC
     tricycles_manual: Mapped[int] = mapped_column(Integer, default=0)
     e_rickshaws: Mapped[int] = mapped_column(Integer, default=0)
@@ -450,7 +465,9 @@ class GobardhanProject(Base):
     __tablename__ = "survey_gobardhan_projects"
     id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
     
-    total_projects: Mapped[int] = mapped_column(Integer, default=0)
+    total_sanctioned: Mapped[int] = mapped_column(Integer, default=0)
+    total_functional: Mapped[int] = mapped_column(Integer, default=0)
+    gas_production: Mapped[float] = mapped_column(Numeric(15, 2), default=0.0)
 
     # 1:1 relationship back to survey
     survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="gobardhan_projects")
@@ -468,6 +485,7 @@ class D2DActivities(Base):
     sanctioned_self_gp: Mapped[int] = mapped_column(Integer, default=0)
     sanctioned_csr_ngo: Mapped[int] = mapped_column(Integer, default=0)
     sanctioned_shg: Mapped[int] = mapped_column(Integer, default=0)
+    sanctioned_mixed_model: Mapped[int] = mapped_column(Integer, default=0)
     
     total_expenditure: Mapped[float] = mapped_column(Numeric(15, 2), default=0.0)
     vehicles_deployed: Mapped[int] = mapped_column(Integer, default=0)
@@ -481,6 +499,36 @@ class D2DActivities(Base):
 
     # 1:1 relationship back to survey
     survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="d2d_activities")
+
+
+class BartanBank(Base):
+    """Bartan Bank Details"""
+    __tablename__ = "survey_bartan_banks"
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
+    
+    established_banks: Mapped[int] = mapped_column(Integer, default=0)
+
+    # 1:1 relationship back to survey
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="bartan_bank")
+
+
+class VehicleAssets(Base):
+    """Categorized Vehicle Assets"""
+    __tablename__ = "survey_vehicle_assets"
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
+    
+    # Owned Vehicles
+    owned_tricycles: Mapped[int] = mapped_column(Integer, default=0)
+    owned_e_rickshaws: Mapped[int] = mapped_column(Integer, default=0)
+    owned_motorized_vehicles: Mapped[int] = mapped_column(Integer, default=0)
+    
+    # Contractor Vehicles
+    contractor_tricycles: Mapped[int] = mapped_column(Integer, default=0)
+    contractor_e_rickshaws: Mapped[int] = mapped_column(Integer, default=0)
+    contractor_motorized_vehicles: Mapped[int] = mapped_column(Integer, default=0)
+
+    # 1:1 relationship back to survey
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="vehicle_assets")
 
 
 # --- End of New Asset Category Tables ---

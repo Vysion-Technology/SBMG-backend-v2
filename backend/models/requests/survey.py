@@ -72,6 +72,7 @@ class SWMAssetsCategoryRequest(BaseModel):
     bins_hh_level: int = 0
     bins_public_places: int = 0
     community_compost_pits: int = 0
+    hh_compost_pit: int = 0
     segregation_sheds: int = 0
     tricycles_manual: int = 0
     e_rickshaws: int = 0
@@ -110,7 +111,9 @@ class FSMDetailsRequest(BaseModel):
 
 class GobardhanProjectRequest(BaseModel):
     """Request model for Gobar-dhan project details."""
-    total_projects: int = 0
+    total_sanctioned: int = 0
+    total_functional: int = 0
+    gas_production: float = 0.0
 
 
 class D2DActivitiesRequest(BaseModel):
@@ -120,6 +123,7 @@ class D2DActivitiesRequest(BaseModel):
     sanctioned_self_gp: int = 0
     sanctioned_csr_ngo: int = 0
     sanctioned_shg: int = 0
+    sanctioned_mixed_model: int = 0
     total_expenditure: float = 0.0
     vehicles_deployed: int = 0
     persons_deployed: int = 0
@@ -127,6 +131,21 @@ class D2DActivitiesRequest(BaseModel):
     status_start: int = 0
     status_running: int = 0
     status_completed: int = 0
+
+
+class BartanBankRequest(BaseModel):
+    """Request model for Bartan Bank details."""
+    established_banks: int = 0
+
+
+class VehicleAssetsRequest(BaseModel):
+    """Request model for categorized vehicle assets."""
+    owned_tricycles: int = 0
+    owned_e_rickshaws: int = 0
+    owned_motorized_vehicles: int = 0
+    contractor_tricycles: int = 0
+    contractor_e_rickshaws: int = 0
+    contractor_motorized_vehicles: int = 0
 
 # --- End of New Asset Category Request Models ---
 
@@ -225,6 +244,8 @@ class CreateAnnualSurveyRequest(BaseModel):
     fsm_details: Optional[FSMDetailsRequest] = None
     gobardhan_projects: Optional[GobardhanProjectRequest] = None
     d2d_activities: Optional[D2DActivitiesRequest] = None
+    bartan_bank: Optional[BartanBankRequest] = None
+    vehicle_assets: Optional[VehicleAssetsRequest] = None
 
     # 12. SBMG Year Targets
     sbmg_targets: Optional[SBMGYearTargetsRequest] = None
@@ -297,6 +318,8 @@ class UpdateAnnualSurveyRequest(BaseModel):
     fsm_details: Optional[FSMDetailsRequest] = None
     gobardhan_projects: Optional[GobardhanProjectRequest] = None
     d2d_activities: Optional[D2DActivitiesRequest] = None
+    bartan_bank: Optional[BartanBankRequest] = None
+    vehicle_assets: Optional[VehicleAssetsRequest] = None
 
     # 12. SBMG Year Targets
     sbmg_targets: Optional[SBMGYearTargetsRequest] = None

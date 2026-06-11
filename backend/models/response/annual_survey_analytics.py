@@ -175,6 +175,7 @@ class SWMAssetsStats(BaseModel):
     bins_hh_level: int
     bins_public_places: int
     community_compost_pits: int
+    hh_compost_pit: int
     segregation_sheds: int
     tricycles_manual: int
     e_rickshaws: int
@@ -209,16 +210,20 @@ class FSMStats(BaseModel):
 
 
 class GobardhanStats(BaseModel):
-    total_projects: int
+    total_sanctioned: int
+    total_functional: int
+    gas_production: float
 
 
 class D2DActivitiesStats(BaseModel):
     total_gps: int
     gps_with_d2d_active: int
+    not_started_gps: int
     sanctioned_tender: int
     sanctioned_self_gp: int
     sanctioned_csr_ngo: int
     sanctioned_shg: int
+    sanctioned_mixed_model: int
     total_expenditure: float
     vehicles_deployed: int
     persons_deployed: int
@@ -226,6 +231,19 @@ class D2DActivitiesStats(BaseModel):
     status_start: int
     status_running: int
     status_completed: int
+
+
+class BartanBankStats(BaseModel):
+    established_banks: int
+
+
+class VehicleStats(BaseModel):
+    owned_tricycles: int
+    owned_e_rickshaws: int
+    owned_motorized_vehicles: int
+    contractor_tricycles: int
+    contractor_e_rickshaws: int
+    contractor_motorized_vehicles: int
 
 
 class AssetsDashboardResponse(BaseModel):
@@ -237,6 +255,8 @@ class AssetsDashboardResponse(BaseModel):
     fsm: FSMStats
     gobardhan: GobardhanStats
     d2d_activities: D2DActivitiesStats
+    bartan_bank: BartanBankStats
+    vehicle_assets: VehicleStats
 
     class Config:
         from_attributes = True
