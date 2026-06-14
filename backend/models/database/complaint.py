@@ -123,6 +123,7 @@ class Complaint(Base):  # type: ignore
         onupdate=lambda: datetime.now(tz=timezone.utc),
         nullable=True,
     )
+    last_sla_breach_level: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
 
     # Relationships
     gp: Mapped["GramPanchayat"] = relationship("GramPanchayat", back_populates="complaints")
@@ -220,6 +221,7 @@ class ComplaintComment(Base):  # type: ignore
         DateTime(timezone=True),
         default=lambda: datetime.now(tz=timezone.utc),
     )
+    is_system_generated: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")  # type: ignore
 
     # Relationships
     complaint: Mapped["Complaint"] = relationship("Complaint", back_populates="comments")

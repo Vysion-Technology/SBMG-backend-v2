@@ -156,6 +156,7 @@ class ComplaintService:
                 village_id=complaint.gp_id,
                 block_id=complaint.block_id,
                 district_id=complaint.district_id,
+                last_sla_breach_level=complaint.last_sla_breach_level,
                 media_urls=[media.media_url for media in complaint.media] if complaint.media else [],
                 media=[
                     MediaResponse(
@@ -174,6 +175,7 @@ class ComplaintService:
                         comment=comment.comment,
                         commented_at=comment.commented_at,
                         user_name=comment.user.name if comment.user else "",
+                        is_system_generated=comment.is_system_generated,
                     )
                     for comment in complaint.comments
                 ],

@@ -15,6 +15,7 @@ class ComplaintCommentResponse(BaseModel):
     comment: str
     commented_at: datetime
     user_name: str
+    is_system_generated: bool = False
 
 class ComplaintResponse(BaseModel):
     id: int
@@ -89,6 +90,7 @@ class DetailedComplaintResponse(BaseModel):
     block_id: Optional[int] = None
     district_id: Optional[int] = None
     updated_at: Optional[datetime]
+    last_sla_breach_level: Optional[str] = None
     media_urls: List[str] = []
     media: List[MediaResponse] = []
     comments: List[ComplaintCommentResponse] = []
@@ -101,3 +103,9 @@ class CitizenStatusUpdateResponse(BaseModel):
     complaint_id: int
     new_status: str
     updated_at: datetime
+
+
+class ComplaintTypeResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None

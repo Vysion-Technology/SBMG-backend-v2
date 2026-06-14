@@ -25,7 +25,9 @@ from models.requests.admin import (
     CreateUserRequest,
     CreateRoleRequest,
 )
+from models.requests.complaint import ComplaintTypeRequest
 from models.response.admin import UserResponse, RoleResponse
+from models.response.complaint import ComplaintTypeResponse
 
 router = APIRouter()
 
@@ -420,6 +422,131 @@ async def delete_village(
     await db.commit()
 
     return {"message": "Village deleted successfully"}
+
+
+# Complaint Type Management
+
+
+@router.post("/complaint-types", response_model=ComplaintTypeResponse)
+async def create_complaint_type(
+    complaint_type_request: ComplaintTypeRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),  # pylint: disable=unused-argument
+):
+    """Create a new complaint type (Admin only)."""
+    # Check if complaint type name already exists
+    existing_type = await db.execute(
+        select(ComplaintType).where(ComplaintType.name == complaint_type_request.name)
+    )
+    if existing_type.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Complaint type name already exists")
+
+    complaint_type = ComplaintType(
+        name=complaint_type_request.name,
+        description=complaint_type_request.description,
+    )
+    db.add(complaint_type)
+    await db.commit()
+    await db.refresh(complaint_type)
+
+    return ComplaintTypeResponse(
+        id=complaint_type.id,
+        name=complaint_type.name,
+        description=complaint_type.description,
+    )
+
+
+@router.get("/complaint-types", response_model=List[ComplaintTypeResponse])
+async def get_all_complaint_types(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),  # pylint: disable=unused-argument
+):
+    """Get all complaint types (Admin only)."""
+    result = await db.execute(select(ComplaintType))
+    complaint_types = result.scalars().all()
+
+    return [
+        ComplaintTypeResponse(
+            id=ct.id,
+            name=ct.name,
+            description=ct.description,
+        )
+        for ct in complaint_types
+    ]
+
+
+@router.put("/complaint-types/{complaint_type_id}", response_model=ComplaintTypeResponse)
+async def update_complaint_type(
+    complaint_type_id: int,
+    complaint_type_request: ComplaintTypeRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),  # pylint: disable=unused-argument
+):
+    """Update a complaint type (Admin only)."""
+    result = await db.execute(
+        select(ComplaintType).where(ComplaintType.id == complaint_type_id)
+    )
+    complaint_type = result.scalar_one_or_none()
+
+    if not complaint_type:
+        raise HTTPException(status_code=404, detail="Complaint type not found")
+
+    # Check if new name already exists for another type
+    existing_type = await db.execute(
+        select(ComplaintType).where(
+            ComplaintType.name == complaint_type_request.name,
+            ComplaintType.id != complaint_type_id,
+        )
+    )
+    if existing_type.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Complaint type name already exists")
+
+    complaint_type.name = complaint_type_request.name
+    complaint_type.description = complaint_type_request.description
+
+    await db.commit()
+    await db.refresh(complaint_type)
+
+    return ComplaintTypeResponse(
+        id=complaint_type.id,
+        name=complaint_type.name,
+        description=complaint_type.description,
+    )
+
+
+@router.delete("/complaint-types/{complaint_type_id}")
+async def delete_complaint_type(
+    complaint_type_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),  # pylint: disable=unused-argument
+):
+    """Delete a complaint type (Admin only)."""
+    result = await db.execute(
+        select(ComplaintType).where(ComplaintType.id == complaint_type_id)
+    )
+    complaint_type = result.scalar_one_or_none()
+
+    if not complaint_type:
+        raise HTTPException(status_code=404, detail="Complaint type not found")
+
+    # Check if any complaints are associated with this type
+    complaints_count_result = await db.execute(
+        select(func.count(Complaint.id)).where(
+            Complaint.complaint_type_id == complaint_type_id
+        )
+    )
+    complaints_count = complaints_count_result.scalar() or 0
+
+    if complaints_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete complaint type. It has {complaints_count} associated complaints.",
+        )
+
+    await db.delete(complaint_type)
+    await db.commit()
+
+    return {"message": "Complaint type deleted successfully"}
 
 
 # Initialize default data

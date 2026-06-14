@@ -25,6 +25,7 @@ from controllers import contractor_analytics
 from database import get_db
 from middleware.security import SecurityHeadersMiddleware
 from services.gps_tracking import GPSTrackingService
+from services.sla_service import SLAService
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ async def lifespan(app: FastAPI):
     # Create background task for periodic GPS fetching
     async for db in get_db():
         gps_task = asyncio.create_task(GPSTrackingService(db).start_periodic_fetch())
+        sla_task = asyncio.create_task(SLAService(db).start_monitoring())
 
         yield
 
@@ -46,15 +48,19 @@ async def lifespan(app: FastAPI):
         logger.info("Application shutting down...")
         logger.info("Stopping GPS data periodic fetch task...")
         GPSTrackingService(db).stop_periodic_fetch()
+        SLAService(db).stop_monitoring()
 
     # Wait for the task to complete (with timeout)
     try:
         await asyncio.wait_for(gps_task, timeout=5.0)
+        await asyncio.wait_for(sla_task, timeout=5.0)
     except asyncio.TimeoutError:
-        logger.warning("GPS fetch task did not stop within timeout, cancelling...")
+        logger.warning("Tasks did not stop within timeout, cancelling...")
         gps_task.cancel()
+        sla_task.cancel()
         try:
             await gps_task
+            await sla_task
         except asyncio.CancelledError:
             pass
 

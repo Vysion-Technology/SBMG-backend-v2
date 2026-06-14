@@ -124,6 +124,7 @@ async def create_complaint_for_public_user(
         village_id=complaint_with_relations.gp_id,
         block_id=complaint_with_relations.block_id,
         district_id=complaint_with_relations.district_id,
+        last_sla_breach_level=complaint_with_relations.last_sla_breach_level,
         resolved_at=complaint_with_relations.resolved_at,
         verified_at=complaint_with_relations.verified_at,
         closed_at=complaint_with_relations.closed_at,
@@ -162,6 +163,7 @@ async def create_complaint_for_public_user(
                 comment=comment.comment,
                 commented_at=comment.commented_at,
                 user_name=comment.user.name if comment.user else "",
+                is_system_generated=comment.is_system_generated,
             )
             for comment in complaint_with_relations.comments
         ]
@@ -218,6 +220,7 @@ async def update_complaint_for_public_user(
         village_id=complaint_with_relations.gp_id,
         block_id=complaint_with_relations.block_id,
         district_id=complaint_with_relations.district_id,
+        last_sla_breach_level=complaint_with_relations.last_sla_breach_level,
         resolved_at=complaint_with_relations.resolved_at,
         verified_at=complaint_with_relations.verified_at,
         closed_at=complaint_with_relations.closed_at,
@@ -256,6 +259,7 @@ async def update_complaint_for_public_user(
                 comment=comment.comment,
                 commented_at=comment.commented_at,
                 user_name=comment.user.name if comment.user else "",
+                is_system_generated=comment.is_system_generated,
             )
             for comment in complaint_with_relations.comments
         ]
@@ -340,6 +344,7 @@ async def get_my_complaints(
             village_id=complaint.gp_id,
             block_id=complaint.block_id,
             district_id=complaint.district_id,
+            last_sla_breach_level=complaint.last_sla_breach_level,
             resolved_at=complaint.resolved_at,
             verified_at=complaint.verified_at,
             closed_at=complaint.closed_at,
@@ -407,6 +412,25 @@ async def update_complaint_status(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Status not found"
         )
+
+    # Prevent VDO from changing status to CLOSED
+    if new_status.name == "CLOSED" and PermissionChecker.user_has_role(
+        current_user, [UserRole.VDO]
+    ):
+        # Admins, CEOs, and BDOs might also pass user_has_role(VDO) in this implementation,
+        # but PermissionChecker.user_has_role for VDO returns True if user has gp_id.
+        # We should check if they have HIGHER roles first or check specifically for VDO role.
+        # However, looking at PermissionChecker, it's safer to check the roles directly from positions
+        # if we want to be strict.
+        user_roles = [pos.role.name for pos in current_user.positions if pos.role]
+        if UserRole.VDO in user_roles and not any(
+            role in [UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.CEO, UserRole.BDO]
+            for role in user_roles
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="VDOs are not allowed to close complaints. Only Citizens or higher authority can close them.",
+            )
 
     # Update complaint
     complaint.status_id = new_status.id

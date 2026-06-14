@@ -423,6 +423,7 @@ async def close_complaint(
                 comment=comment.comment,
                 commented_at=comment.commented_at,
                 user_name=comment.user.name if comment.user else "Public User",
+                is_system_generated=comment.is_system_generated,
             )
             for comment in complaint_with_relations.comments
         ] if complaint_with_relations.comments else [],
