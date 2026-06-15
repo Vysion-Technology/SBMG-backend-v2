@@ -6,7 +6,7 @@ Handles business logic for annual survey management
 from fastapi.exceptions import HTTPException
 from fastapi import status
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
 import random
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -80,6 +80,7 @@ def get_response_model_from_survey(
             last_name=survey.vdo.last_name,
             username=survey.vdo.user.username,
         ),
+        last_reconfirmed_at=survey.last_reconfirmed_at,
         created_at=survey.created_at,
         updated_at=survey.updated_at,
         work_order=survey.work_order,
@@ -400,6 +401,9 @@ class AnnualSurveyService:
             survey.num_ward_panchs = request.num_ward_panchs
         if request.agency_id is not None:
             survey.agency_id = request.agency_id
+        
+        # Update reconfirmation timestamp
+        survey.last_reconfirmed_at = datetime.now()
 
         # --- Helper for standard sections ---
         async def upsert_section(model_class, request_data, existing_obj=None):
@@ -602,6 +606,55 @@ class AnnualSurveyService:
         await self.db.commit()
         return True
 
+    async def reconfirm_survey(self, survey_id: int) -> AnnualSurveyResponse:
+        """Reconfirm an existing annual survey without updating data."""
+        result = await self.db.execute(
+            select(AnnualSurvey)
+            .options(
+                selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
+                selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
+                selectinload(AnnualSurvey.vdo).options(
+                    selectinload(PositionHolder.user),
+                    selectinload(PositionHolder.role),
+                    selectinload(PositionHolder.gp),
+                    selectinload(PositionHolder.block),
+                    selectinload(PositionHolder.district),
+                    selectinload(PositionHolder.employee),
+                ),
+                selectinload(AnnualSurvey.agency),
+                selectinload(AnnualSurvey.work_order),
+                selectinload(AnnualSurvey.fund_sanctioned),
+                selectinload(AnnualSurvey.door_to_door_collection),
+                selectinload(AnnualSurvey.road_sweeping),
+                selectinload(AnnualSurvey.drain_cleaning),
+                selectinload(AnnualSurvey.csc_details),
+                # New assets
+                selectinload(AnnualSurvey.odf_sustainability),
+                selectinload(AnnualSurvey.swm_assets),
+                selectinload(AnnualSurvey.lwm_assets),
+                selectinload(AnnualSurvey.pwmu_details),
+                selectinload(AnnualSurvey.fsm_details),
+                selectinload(AnnualSurvey.gobardhan_projects),
+                selectinload(AnnualSurvey.d2d_activities),
+                selectinload(AnnualSurvey.bartan_bank),
+                selectinload(AnnualSurvey.vehicle_assets),
+                selectinload(AnnualSurvey.sbmg_targets),
+                selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
+                selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
+            )
+            .where(AnnualSurvey.id == survey_id)
+        )
+        survey = result.scalar_one_or_none()
+        if not survey:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Survey not found",
+            )
+        
+        survey.last_reconfirmed_at = datetime.now()
+        await self.db.commit()
+        return get_response_model_from_survey(survey)
+
     async def get_active_financial_years(self) -> List[AnnualSurveyFYResponse]:
         """Get list of active financial years from surveys."""
         result = await self.db.execute(
@@ -649,13 +702,44 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
             )
             .where(AnnualSurvey.gp_id == gp_id)
-            .order_by(AnnualSurvey.survey_date.desc())
+            .order_by(AnnualSurvey.last_reconfirmed_at.desc())
             .limit(1)
         )
         survey = result.scalar_one_or_none()
         if survey:
             return get_response_model_from_survey(survey)
         return None
+
+    async def get_gp_reconfirmation_status(self, gp_id: int) -> dict:
+        """Get the reconfirmation status for a Gram Panchayat."""
+        result = await self.db.execute(
+            select(AnnualSurvey.last_reconfirmed_at)
+            .where(AnnualSurvey.gp_id == gp_id)
+            .order_by(AnnualSurvey.last_reconfirmed_at.desc())
+            .limit(1)
+        )
+        last_reconfirmed_at = result.scalar_one_or_none()
+        
+        if not last_reconfirmed_at:
+            return {
+                "is_overdue": True,
+                "last_reconfirmed_at": None,
+                "days_remaining": 0
+            }
+        
+        # Calculate days remaining (90 days limit)
+        # Handle timezone-aware/naive comparison
+        now = datetime.now(last_reconfirmed_at.tzinfo) if last_reconfirmed_at.tzinfo else datetime.now()
+        diff = now - last_reconfirmed_at
+        days_passed = diff.days
+        days_remaining = max(0, 90 - days_passed)
+        is_overdue = days_passed > 90
+        
+        return {
+            "is_overdue": is_overdue,
+            "last_reconfirmed_at": last_reconfirmed_at,
+            "days_remaining": days_remaining if not is_overdue else - (days_passed - 90)
+        }
 
     async def fill_annual_survey_bulk(
         self,

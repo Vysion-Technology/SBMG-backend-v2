@@ -1,6 +1,6 @@
 from services.auth import UserRole
 from typing import List, Optional, Union
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from database import get_db
 from models.database.auth import PositionHolder, User, PublicUser
 from services.auth import AuthService
+from services.annual_survey import AnnualSurveyService
 from services.encryption import EncryptionService
 from config import settings
 
@@ -67,6 +68,12 @@ class PositionInfo(BaseModel):
     village_name: Optional[str]
 
 
+class GPDataStatus(BaseModel):
+    is_overdue: bool
+    last_reconfirmed_at: Optional[datetime] = None
+    days_remaining: int
+
+
 class UserResponse(BaseModel):
     id: int
     username: str
@@ -77,6 +84,7 @@ class UserResponse(BaseModel):
     district_id: Optional[int]
     role: UserRole = UserRole.WORKER
     positions: list[PositionInfo] = []
+    gp_data_status: Optional[GPDataStatus] = None
 
 
 class AuthController:
@@ -222,8 +230,19 @@ async def login(login_request: LoginRequest, db: AsyncSession = Depends(get_db))
 
 
 @router.get("/me", response_model=UserResponse)
-async def read_users_me(current_user: User = Depends(get_current_active_user)):
+async def read_users_me(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
     """Get current user information."""
+    
+    role = AuthService.get_role_by_user(current_user) or UserRole.WORKER
+    gp_data_status = None
+    
+    if role == UserRole.VDO and current_user.gp_id:
+        survey_service = AnnualSurveyService(db)
+        status_dict = await survey_service.get_gp_reconfirmation_status(current_user.gp_id)
+        gp_data_status = GPDataStatus(**status_dict)
 
     return UserResponse(
         id=current_user.id,
@@ -233,8 +252,9 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
         village_id=current_user.gp_id,
         block_id=current_user.block_id,
         district_id=current_user.district_id,
-        role=AuthService.get_role_by_user(current_user) or UserRole.WORKER,
+        role=role,
         positions=[],
+        gp_data_status=gp_data_status,
     )
 
 

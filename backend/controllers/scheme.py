@@ -9,7 +9,7 @@ from controllers.auth import get_current_any_user
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from auth_utils import require_admin
+from auth_utils import require_admin, require_reconfirmed_vdo
 
 from services.s3_service import s3_service
 from services.scheme import SchemeService
@@ -18,7 +18,7 @@ from models.requests.scheme import CreateSchemeRequest, SchemeUpdateRequest
 from models.response.scheme import SchemeResponse
 from models.response.deletion import DeletionResponse
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
 
 
 @router.post("/", response_model=SchemeResponse)

@@ -341,6 +341,7 @@ class AnnualSurveyResponse(BaseModel):
     village_data: List[VillageDataResponse] = []
 
     # Timestamps
+    last_reconfirmed_at: datetime
     created_at: datetime
     updated_at: datetime
 

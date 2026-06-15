@@ -5,7 +5,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_utils import require_admin, require_staff_role
+from auth_utils import require_admin, require_staff_role, require_reconfirmed_vdo
 from database import get_db
 from exceptions.position_holders import ActivePositionHolderExistsError
 from models.database.auth import User
@@ -21,7 +21,7 @@ from services.auth import AuthService, UserRole
 from controllers.auth import get_current_active_user
 
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
 
 
 def get_user_role(user: User) -> UserRole:

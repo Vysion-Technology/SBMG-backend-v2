@@ -1,10 +1,16 @@
 """Utility functions for role-based access control (RBAC) in FastAPI."""
 
 from typing import List
+from datetime import datetime, timedelta
 
 from fastapi import HTTPException, status, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from database import get_db
 from controllers.auth import get_current_active_user, UserRole
 from models.database.auth import User
+from models.database.survey_master import AnnualSurvey
 
 
 class PermissionChecker:
@@ -62,4 +68,45 @@ async def require_worker_role(
     """Require worker role."""
     if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER]):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Worker role required")
+    return current_user
+
+
+async def require_reconfirmed_vdo(
+    current_user: User = Depends(require_staff_role),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """
+    Check if the VDO has reconfirmed their GP Master Data within the last 3 months.
+    Only applies to users with the VDO role.
+    """
+    # 1. Identify if user is a VDO
+    # Using the same logic as PermissionChecker.is_vdo if it existed here
+    is_vdo = current_user.gp_id and "contractor" not in current_user.username.lower()
+    
+    if not is_vdo:
+        return current_user
+
+    # 2. Check latest AnnualSurvey for this GP
+    result = await db.execute(
+        select(AnnualSurvey)
+        .where(AnnualSurvey.gp_id == current_user.gp_id)
+        .order_by(AnnualSurvey.last_reconfirmed_at.desc())
+        .limit(1)
+    )
+    survey = result.scalar_one_or_none()
+
+    # 3. Validation
+    if not survey:
+        raise HTTPException(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            detail="GP_RECONFIRMATION_REQUIRED",
+        )
+
+    # Check if more than 90 days have passed since last reconfirmation
+    if datetime.now(survey.last_reconfirmed_at.tzinfo) - survey.last_reconfirmed_at > timedelta(days=90):
+        raise HTTPException(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            detail="GP_RECONFIRMATION_REQUIRED",
+        )
+
     return current_user

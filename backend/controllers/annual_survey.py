@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_utils import require_staff_role
+from auth_utils import require_staff_role, require_reconfirmed_vdo
 from database import get_db
 
 
@@ -114,6 +114,48 @@ async def update_annual_survey(
             )
 
         updated_survey = await service.update_survey(survey_id, survey_request)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
+
+    return updated_survey
+
+
+@router.patch("/{survey_id}/reconfirm", response_model=AnnualSurveyResponse)
+async def reconfirm_annual_survey(
+    survey_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> AnnualSurveyResponse:
+    """
+    Reconfirm an existing annual survey without changing any data.
+    Updates the last_reconfirmed_at timestamp.
+    """
+    service = AnnualSurveyService(db)
+
+    try:
+        # Get the existing survey to check permissions
+        survey = await service.get_survey_by_id(survey_id)
+        if not survey:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Survey not found",
+            )
+
+        # Check permissions
+        if current_user.gp_id and survey.gp_id != current_user.gp_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to reconfirm this survey",
+            )
+        if "contractor" in current_user.username:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Contractor users cannot reconfirm surveys",
+            )
+
+        updated_survey = await service.reconfirm_survey(survey_id)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
@@ -262,7 +304,7 @@ async def get_gp_latest_survey(
 async def get_assets_dashboard_totals(
     db: AsyncSession = Depends(get_db),
     fy_id: Optional[int] = Query(None, description="Financial Year ID"),
-    current_user: User = Depends(require_staff_role),
+    current_user: User = Depends(require_reconfirmed_vdo),
 ) -> AssetsDashboardResponse:
     """
     Get aggregated totals for all asset categories for the dashboard.
@@ -292,7 +334,7 @@ async def get_assets_drill_down(
     fy_id: Optional[int] = Query(None, description="Financial Year ID"),
     district_id: Optional[int] = Query(None, description="District ID"),
     block_id: Optional[int] = Query(None, description="Block ID"),
-    current_user: User = Depends(require_staff_role),
+    current_user: User = Depends(require_reconfirmed_vdo),
 ) -> HierarchicalAssetsResponse:
     """
     Get hierarchical asset analytics breakdown (District -> Block -> GP).
@@ -335,7 +377,7 @@ async def get_assets_drill_down(
 @router.get("/analytics/state", response_model=StateAnalytics)
 async def get_state_analytics(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_staff_role),
+    _: User = Depends(require_reconfirmed_vdo),
     fy_id: Optional[int] = Query(None, ge=1, le=1000000),
 ) -> StateAnalytics:
     """
@@ -366,7 +408,7 @@ async def get_state_analytics(
 async def get_district_analytics(
     district_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role),
+    current_user: User = Depends(require_reconfirmed_vdo),
     fy_id: Optional[int] = None,
 ) -> DistrictAnalytics:
     """
@@ -408,7 +450,7 @@ async def get_district_analytics(
 async def get_block_analytics(
     block_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role),
+    current_user: User = Depends(require_reconfirmed_vdo),
     fy_id: Optional[int] = None,
 ) -> BlockAnalytics:
     """
@@ -464,7 +506,7 @@ async def get_block_analytics(
 async def get_gp_analytics(
     gp_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role),
+    current_user: User = Depends(require_reconfirmed_vdo),
     fy_id: Optional[int] = None,
 ) -> GPAnalytics:
     """
@@ -524,7 +566,7 @@ async def get_gp_analytics(
 @router.get("/analytics")
 async def get_annual_survey_analytics_deprecated(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_staff_role),
+    current_user: User = Depends(require_reconfirmed_vdo),
     district_id: int | None = None,
     block_id: int | None = None,
     gp_id: int | None = None,

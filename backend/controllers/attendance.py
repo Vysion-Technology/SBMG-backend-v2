@@ -9,7 +9,7 @@ from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from auth_utils import require_staff_role
+from auth_utils import require_staff_role, require_reconfirmed_vdo
 from controllers.auth import get_current_user
 from database import get_db
 
@@ -47,7 +47,7 @@ from exceptions.attendance import (
 security = HTTPBearer()
 
 # Router
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
 
 
 async def get_contractor_from_user(user: User, db: AsyncSession) -> Contractor:

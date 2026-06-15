@@ -27,6 +27,7 @@ from auth_utils import (
     PermissionChecker,
     UserRole,
     require_worker_role,
+    require_reconfirmed_vdo,
 )
 
 from models.database.auth import User
@@ -58,7 +59,7 @@ from services.fcm_notification_service import notify_user_on_complaint_status_up
 from services.complaints import ComplaintOrderByEnum, ComplaintService
 from services.auth import PublicUserService
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
 
 
 # Helper function to get public user by token

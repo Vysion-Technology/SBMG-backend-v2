@@ -4,10 +4,11 @@ API endpoint to return all formulae used across the application
 """
 
 from typing import Dict, Any
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
+from auth_utils import require_reconfirmed_vdo
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
 
 
 @router.get("/", response_class=JSONResponse)

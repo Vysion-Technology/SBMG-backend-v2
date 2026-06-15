@@ -22,10 +22,11 @@ from models.requests.feedback import FeedbackCreateRequest, FeedbackUpdateReques
 from models.response.feedback import FeedbackResponse, FeedbackStatsResponse
 from models.internal import FeedbackFromEnum
 from controllers.auth import get_current_active_user
+from auth_utils import require_reconfirmed_vdo
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
 
 
 async def get_user_type(
