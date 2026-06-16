@@ -22,6 +22,7 @@ from models.database.auth import (
     PublicUserOTP,
     PublicUserToken,
     UserPasswordResetOTP,
+    Employee,
 )
 from config import settings
 
@@ -133,6 +134,7 @@ class AuthService:
                 selectinload(User.positions).selectinload(PositionHolder.gp),
                 selectinload(User.positions).selectinload(PositionHolder.block),
                 selectinload(User.positions).selectinload(PositionHolder.district),
+                selectinload(User.positions).selectinload(PositionHolder.employee),
             )
             .where(User.username == username)
         )
@@ -148,6 +150,7 @@ class AuthService:
                 selectinload(User.positions).selectinload(PositionHolder.gp),
                 selectinload(User.positions).selectinload(PositionHolder.block),
                 selectinload(User.positions).selectinload(PositionHolder.district),
+                selectinload(User.positions).selectinload(PositionHolder.employee),
             )
             .where(User.id == user_id)
         )
@@ -556,6 +559,66 @@ class AuthService:
 
         await self.db.commit()
 
+        return True
+
+    async def update_user_profile(
+        self,
+        user_id: int,
+        first_name: Optional[str] = None,
+        middle_name: Optional[str] = None,
+        last_name: Optional[str] = None,
+        email: Optional[str] = None,
+        mobile_number: Optional[str] = None,
+    ) -> bool:
+        """Update user profile and associated employee details."""
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            raise ValueError("User not found")
+
+        # Update User email if provided
+        if email:
+            user.email = email
+
+        # Get active position holder to find the linked employee
+        position = await self.get_user_active_position(user)
+        if position:
+            # If position holder exists, ensure it has an employee record
+            # In this system, PositionHolder has an employee_id
+            result = await self.db.execute(
+                select(Employee).where(Employee.id == position.employee_id)
+            )
+            employee = result.scalar_one_or_none()
+            
+            if employee:
+                if first_name:
+                    employee.first_name = first_name
+                if middle_name is not None:
+                    employee.middle_name = middle_name
+                if last_name:
+                    employee.last_name = last_name
+                if mobile_number:
+                    # Check if mobile number is already taken by another employee
+                    if mobile_number != employee.mobile_number:
+                        existing_employee = await self.db.execute(
+                            select(Employee).where(Employee.mobile_number == mobile_number)
+                        )
+                        if existing_employee.scalar_one_or_none():
+                            raise ValueError("Mobile number already in use by another authority member")
+                        employee.mobile_number = mobile_number
+            else:
+                # If no employee record exists, create one (should not happen normally)
+                new_employee = Employee(
+                    first_name=first_name or "Unknown",
+                    middle_name=middle_name,
+                    last_name=last_name or "Unknown",
+                    mobile_number=mobile_number or "0000000000",
+                    email=email or user.email or f"{user.username}@placeholder.com"
+                )
+                self.db.add(new_employee)
+                await self.db.flush()
+                position.employee_id = new_employee.id
+
+        await self.db.commit()
         return True
 
     async def get_ceo_users(self) -> List[User]:

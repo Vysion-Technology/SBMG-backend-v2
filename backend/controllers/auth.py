@@ -74,6 +74,21 @@ class GPDataStatus(BaseModel):
     days_remaining: int
 
 
+class EmployeeInfo(BaseModel):
+    first_name: str
+    middle_name: Optional[str] = None
+    last_name: str
+    mobile_number: str
+
+
+class ProfileUpdateRequest(BaseModel):
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
+    mobile_number: Optional[str] = None
+
+
 class UserResponse(BaseModel):
     id: int
     username: str
@@ -85,6 +100,7 @@ class UserResponse(BaseModel):
     role: UserRole = UserRole.WORKER
     positions: list[PositionInfo] = []
     gp_data_status: Optional[GPDataStatus] = None
+    employee: Optional[EmployeeInfo] = None
 
 
 class AuthController:
@@ -235,14 +251,29 @@ async def read_users_me(
     db: AsyncSession = Depends(get_db),
 ):
     """Get current user information."""
-    
+
     role = AuthService.get_role_by_user(current_user) or UserRole.WORKER
     gp_data_status = None
-    
+
     if role == UserRole.VDO and current_user.gp_id:
         survey_service = AnnualSurveyService(db)
-        status_dict = await survey_service.get_gp_reconfirmation_status(current_user.gp_id)
+        status_dict = await survey_service.get_gp_reconfirmation_status(
+            current_user.gp_id
+        )
         gp_data_status = GPDataStatus(**status_dict)
+
+    # Get employee info from active position
+    employee_info = None
+    auth_service = AuthService(db)
+    active_position = await auth_service.get_user_active_position(current_user)
+    if active_position and active_position.employee:
+        employee = active_position.employee
+        employee_info = EmployeeInfo(
+            first_name=employee.first_name,
+            middle_name=employee.middle_name,
+            last_name=employee.last_name,
+            mobile_number=employee.mobile_number,
+        )
 
     return UserResponse(
         id=current_user.id,
@@ -255,7 +286,30 @@ async def read_users_me(
         role=role,
         positions=[],
         gp_data_status=gp_data_status,
+        employee=employee_info,
     )
+
+
+@router.put("/profile")
+async def update_profile(
+    request: ProfileUpdateRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update current user's profile information."""
+    auth_service = AuthService(db)
+    try:
+        await auth_service.update_user_profile(
+            user_id=current_user.id,
+            first_name=request.first_name,
+            middle_name=request.middle_name,
+            last_name=request.last_name,
+            email=request.email,
+            mobile_number=request.mobile_number,
+        )
+        return {"detail": "Profile updated successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("send-otp")
