@@ -68,6 +68,8 @@ from models.database.survey_master import (
 )
 from models.database.gps import GPSTracking, Vehicle, GPSRecord
 from models.database.feedback import Feedback
+from models.database.volunteer import VolunteerRegistration
+
 __all__ = [
     # Auth models
     "DailyAttendance",
@@ -149,4 +151,7 @@ __all__ = [
     "Vehicle",
     # Feedback model
     "Feedback",
+    # Volunteer model
+    "VolunteerRegistration",
 ]
+
