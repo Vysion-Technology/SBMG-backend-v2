@@ -36,6 +36,7 @@ class ComplaintResponse(BaseModel):
     resolved_at: Optional[datetime] = None
     verified_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None
+    closed_by_info: Optional[str] = None
     media_urls: List[str] = []
     media: List[MediaResponse] = []
     comments: List[ComplaintCommentResponse] = []
@@ -81,6 +82,7 @@ class DetailedComplaintResponse(BaseModel):
     resolved_at: Optional[datetime] = None
     verified_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None
+    closed_by_info: Optional[str] = None
     complaint_type: Optional[str] = None
     status: Optional[str] = None
     village_name: Optional[str] = None

@@ -366,6 +366,7 @@ async def close_complaint(
     print(closed_status)
     complaint.status_id = closed_status.id  # type: ignore
     complaint.closed_at = datetime.now(tz=timezone.utc)
+    complaint.closed_by_info = "CITIZEN"
     # Add a new comment indicating resolution
     if not public_user:
         raise HTTPException(

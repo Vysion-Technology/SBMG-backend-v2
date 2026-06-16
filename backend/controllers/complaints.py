@@ -435,7 +435,31 @@ async def update_complaint_status(
 
     # Update complaint
     complaint.status_id = new_status.id
-    complaint.updated_at = datetime.now()  # type: ignore
+    complaint.updated_at = datetime.now(tz=timezone.utc)  # type: ignore
+
+    if new_status.name == "CLOSED":
+        complaint.closed_at = datetime.now(tz=timezone.utc)
+        complaint.closed_by_id = current_user.id
+        
+        # Construct role - place_name info
+        user_role = current_user.role
+        place_name = ""
+        
+        # Use positions to get the geographical name
+        if current_user.positions:
+            pos = current_user.positions[0]
+            if user_role == "VDO" and pos.gp:
+                place_name = pos.gp.name
+            elif user_role == "BDO" and pos.block:
+                place_name = pos.block.name
+            elif user_role == "CEO" and pos.district:
+                place_name = pos.district.name
+            elif user_role == "WORKER" and pos.gp:
+                place_name = pos.gp.name
+            elif user_role == "ADMIN":
+                place_name = "State"
+        
+        complaint.closed_by_info = f"{user_role} - {place_name}" if place_name else user_role
 
     await db.commit()
 

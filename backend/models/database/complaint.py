@@ -118,6 +118,12 @@ class Complaint(Base):  # type: ignore
         DateTime(timezone=True),
         nullable=True,
     )
+    closed_by_id: Mapped[Optional[int]] = mapped_column(  # type: ignore
+        Integer, ForeignKey("authority_users.id"), nullable=True
+    )
+    closed_by_info: Mapped[Optional[str]] = mapped_column(  # type: ignore
+        String, nullable=True
+    )
     updated_at: Mapped[Optional[datetime]] = mapped_column(  # type: ignore
         DateTime(timezone=True),
         onupdate=lambda: datetime.now(tz=timezone.utc),
@@ -131,6 +137,7 @@ class Complaint(Base):  # type: ignore
     district: Mapped["District"] = relationship("District", back_populates="complaints")
     complaint_type: Mapped["ComplaintType"] = relationship("ComplaintType", back_populates="complaints")
     status: Mapped[ComplaintStatus] = relationship("ComplaintStatus", back_populates="complaints")
+    closed_by: Mapped[Optional["User"]] = relationship("User")
     assignments: Mapped["ComplaintAssignment"] = relationship("ComplaintAssignment", back_populates="complaint")
     media: Mapped[List["ComplaintMedia"]] = relationship("ComplaintMedia", back_populates="complaint")
     comments: Mapped[List["ComplaintComment"]] = relationship("ComplaintComment", back_populates="complaint")
