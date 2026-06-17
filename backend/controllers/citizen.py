@@ -202,6 +202,7 @@ async def create_complaint_with_media(
             resolved_at=complaint.resolved_at,
             verified_at=complaint.verified_at,
             closed_at=complaint.closed_at,
+            closed_by_info=complaint.closed_by_info,
         )
 
     except HTTPException:
@@ -417,6 +418,7 @@ async def close_complaint(
         resolved_at=complaint_with_relations.resolved_at,
         verified_at=complaint_with_relations.verified_at,
         closed_at=complaint_with_relations.closed_at,
+        closed_by_info=complaint_with_relations.closed_by_info,
         comments=[
             ComplaintCommentResponse(
                 id=comment.id,

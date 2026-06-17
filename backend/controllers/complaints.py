@@ -129,6 +129,7 @@ async def create_complaint_for_public_user(
         resolved_at=complaint_with_relations.resolved_at,
         verified_at=complaint_with_relations.verified_at,
         closed_at=complaint_with_relations.closed_at,
+        closed_by_info=complaint_with_relations.closed_by_info,
         complaint_type=complaint_with_relations.complaint_type.name
         if complaint_with_relations.complaint_type
         else None,
@@ -225,6 +226,7 @@ async def update_complaint_for_public_user(
         resolved_at=complaint_with_relations.resolved_at,
         verified_at=complaint_with_relations.verified_at,
         closed_at=complaint_with_relations.closed_at,
+        closed_by_info=complaint_with_relations.closed_by_info,
         complaint_type=complaint_with_relations.complaint_type.name
         if complaint_with_relations.complaint_type
         else None,
@@ -349,9 +351,8 @@ async def get_my_complaints(
             resolved_at=complaint.resolved_at,
             verified_at=complaint.verified_at,
             closed_at=complaint.closed_at,
-            complaint_type=complaint.complaint_type.name
-            if complaint.complaint_type
-            else None,
+            closed_by_info=complaint.closed_by_info,
+            complaint_type=complaint.complaint_type.name if complaint.complaint_type else None,
             status=complaint.status.name if complaint.status else None,
             village_name=complaint.gp.name if complaint.gp else None,
             block_name=complaint.block.name if complaint.block else None,

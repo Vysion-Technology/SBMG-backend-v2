@@ -182,6 +182,7 @@ class ComplaintService:
                 resolved_at=complaint.resolved_at,
                 verified_at=complaint.verified_at,
                 closed_at=complaint.closed_at,
+                closed_by_info=complaint.closed_by_info,
             )
             for complaint in complaints
         ]
