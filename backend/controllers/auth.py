@@ -2,7 +2,7 @@ from services.auth import UserRole
 from typing import List, Optional, Union
 from datetime import timedelta, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, ConfigDict
@@ -16,7 +16,7 @@ from config import settings
 
 
 # Security
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 # Router
 router = APIRouter()
@@ -135,7 +135,7 @@ class AuthController:
 
 # Dependency to get current user from token
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """Get current user from JWT token."""
@@ -146,6 +146,9 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    if not credentials:
+        raise credentials_exception
 
     try:
         token = credentials.credentials
@@ -167,12 +170,26 @@ async def get_current_active_user(
 
 
 async def get_current_any_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: AsyncSession = Depends(get_db),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> Union[User, PublicUser]:
     """Get current user (User or PublicUser) from token."""
     auth_service = AuthService(db)
-    token = credentials.credentials
+    token = None
+
+    if credentials:
+        token = credentials.credentials
+    else:
+        # Fallback to custom 'token' header for public users
+        token = request.headers.get("token")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     # 1. Try Public User (Token based)
     public_user = await auth_service.get_public_user_by_token(token)

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import os
 import traceback
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import (
     APIRouter,
@@ -16,12 +16,14 @@ from fastapi import (
     UploadFile,
     Form,
     Header,
+    Request,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from database import get_db
+from controllers.auth import get_current_any_user
 from services.auth import AuthService
 from services.complaints import ComplaintService
 from services.fcm_notification_service import notify_workers_on_new_complaint
@@ -46,10 +48,18 @@ async def create_complaint_with_media(
     long: float = Form(..., description="Longitude"),
     location: str = Form(..., description="Location description"),
     db: AsyncSession = Depends(get_db),
-    token: str = Header(..., description="Public user token"),
+    current_user: Union[User, PublicUser] = Depends(get_current_any_user),
 ) -> ComplaintResponse:
     """Create a new complaint with optional media files (Public access)."""
     try:
+        # Ensure it's a public user
+        if not isinstance(current_user, PublicUser):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only public users can access this endpoint",
+            )
+        
+        user = current_user
         # Create the complaint first using similar logic to create_complaint
         # Verify village exists
         if not lat or not long:
@@ -66,13 +76,6 @@ async def create_complaint_with_media(
         if not gp:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gram Panchayat not found")
 
-        auth_service = AuthService(db)
-        user = await auth_service.get_public_user_by_token(token)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or missing user token",
-            )
         # Get or create "OPEN" status
         status_result = await db.execute(select(ComplaintStatus).where(ComplaintStatus.name == "OPEN"))
         complaint_status = status_result.scalar_one_or_none()
@@ -222,18 +225,18 @@ async def comment_on_complaint(
     complaint_id: int,
     comment: str = Form(...),
     db: AsyncSession = Depends(get_db),
-    user_token: str = Header(..., description="Public user token"),
+    current_user: Union[User, PublicUser] = Depends(get_current_any_user),
 ) -> Dict[str, Any]:
     """Add a comment to a complaint (Public access)."""
-    # Check if complaint exists
-    # Get the user id using the token
-    auth_service = AuthService(db)
-    public_user = await auth_service.get_public_user_by_token(user_token)
-    if not public_user:
+    # Ensure it's a public user
+    if not isinstance(current_user, PublicUser):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing user token",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only public users can access this endpoint",
         )
+    
+    public_user = current_user
+    # Check if complaint exists
     result = await db.execute(select(Complaint).where(Complaint.id == complaint_id))
     complaint = result.scalar_one_or_none()
 
@@ -268,9 +271,17 @@ async def upload_complaint_media(
     complaint_id: int,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    token: str = Header(..., description="Public user token"),
+    current_user: Union[User, PublicUser] = Depends(get_current_any_user),
 ) -> Dict[str, Any]:
     """Upload media (image) for a complaint (Public access)."""
+    # Ensure it's a public user
+    if not isinstance(current_user, PublicUser):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only public users can access this endpoint",
+        )
+    
+    public_user = current_user
     # Check if complaint exists
     result = await db.execute(select(Complaint).where(Complaint.id == complaint_id))
     complaint = result.scalar_one_or_none()
@@ -278,17 +289,12 @@ async def upload_complaint_media(
     if not complaint:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
 
-    # Get the user id using the token
-    public_user_token = (
-        await db.execute(select(PublicUserToken).where(PublicUserToken.token == token))
-    ).scalar_one_or_none()
-    if not public_user_token:
+    # Verify that the user owns the complaint
+    if complaint.public_user_id != public_user.id:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing user token",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only upload media to your own complaints",
         )
-    public_user_id = public_user_token.public_user_id
-    public_user = (await db.execute(select(PublicUser).where(PublicUser.id == public_user_id))).scalar_one_or_none()
 
     # Validate file type
     allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
@@ -339,9 +345,17 @@ async def close_complaint(
     complaint_id: int,
     resolution: str,
     db: AsyncSession = Depends(get_db),
-    user_token: str = Header(..., description="Public user token"),
+    current_user: Union[User, PublicUser] = Depends(get_current_any_user),
 ):
     """Close a complaint (User who created the complaint only)."""
+    # Ensure it's a public user
+    if not isinstance(current_user, PublicUser):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only public users can access this endpoint",
+        )
+    
+    public_user = current_user
     complaint = await ComplaintService(db).get_complaint_by_id(complaint_id)
     # complaint = result.scalar_one_or_none()
 
@@ -349,9 +363,6 @@ async def close_complaint(
         raise HTTPException(status_code=404, detail="Complaint not found")
 
     # Check if the public user is the one who created the complaint
-    auth_service = AuthService(db)
-    public_user = await auth_service.get_public_user_by_token(user_token)
-    assert public_user is not None, "Public user should be valid here"
     if complaint.public_user_id != public_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

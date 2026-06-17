@@ -2,7 +2,7 @@
 
 # pylint: disable=line-too-long
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from datetime import date, datetime, timezone
 
 from fastapi import (
@@ -15,6 +15,7 @@ from fastapi import (
     Form,
     Header,
     Query,
+    Request,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -30,7 +31,8 @@ from auth_utils import (
     require_reconfirmed_vdo,
 )
 
-from models.database.auth import User
+from controllers.auth import get_current_active_user, get_current_any_user
+from models.database.auth import User, PublicUser
 from models.database.complaint import (
     Complaint,
     ComplaintStatus,
@@ -59,7 +61,7 @@ from services.fcm_notification_service import notify_user_on_complaint_status_up
 from services.complaints import ComplaintOrderByEnum, ComplaintService
 from services.auth import PublicUserService
 
-router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
+router = APIRouter()
 
 
 # Helper function to get public user by token
@@ -277,20 +279,20 @@ async def update_complaint_for_public_user(
 @router.get("/my", response_model=List[DetailedComplaintResponse])
 async def get_my_complaints(
     db: AsyncSession = Depends(get_db),
-    token: str = Header(..., description="Public user token"),
+    current_user: Union[User, PublicUser] = Depends(get_current_any_user),
     skip: int = Query(0, ge=0, le=10000),
     limit: int = Query(100, ge=1, le=1000),
     order_by: ComplaintOrderByEnum = ComplaintOrderByEnum.NEWEST,
 ) -> List[DetailedComplaintResponse]:
     """Get complaints created by the authenticated public user."""
-    # Verify the public user token
-    auth_service = AuthService(db)
-    user = await auth_service.get_public_user_by_token(token)
-    if not user:
+    # Ensure it's a public user
+    if not isinstance(current_user, PublicUser):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing user token",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only public users can access this endpoint",
         )
+
+    user = current_user
 
     # Query complaints by mobile number
     query = (

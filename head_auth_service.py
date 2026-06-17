@@ -352,36 +352,36 @@ class AuthService:
         stored_otp = stored_otp.scalar_one_or_none()
         if not stored_otp or stored_otp.otp != otp:
             raise ValueError("You had not requested an OTP earlier or OTP is incorrect")
-        # Delete any existing tokens for this user to ensure a fresh session
-        await self.db.execute(
-            delete(PublicUserToken).where(
+        # Check if a token already exists for this public user
+        existing_token = await self.db.execute(
+            select(PublicUserToken).where(
                 PublicUserToken.public_user_id == public_user.id
             )
         )
-        
-        # Create a fresh token for the public user
-        token_val = str(uuid.uuid4())
-        
-        await self.db.execute(
+        existing_token = existing_token.scalar_one_or_none()
+        if existing_token:
+            return existing_token.token
+        # Create a token for the public user
+        token = await self.db.execute(
             insert(PublicUserToken)
             .values(
-                id=public_user.id, # Maintain the 1-to-1 ID mapping from prod to avoid sequence conflicts
+                id=public_user.id,
                 public_user_id=public_user.id,
-                token=token_val,
+                token=str(uuid.uuid4()),
                 created_at=datetime.now(tz=timezone.utc),
                 expires_at=datetime.now(tz=timezone.utc) + timedelta(days=365),
             )
+            .returning(PublicUserToken.token)
         )
-        
         # Change the OTP to verified
         await self.db.execute(
             update(PublicUserOTP)
             .where(PublicUserOTP.id == stored_otp.id)
             .values(is_verified=True)
         )
-        
+        token = token.scalar_one()
         await self.db.commit()
-        return token_val
+        return token
 
     @staticmethod
     def get_role_by_user(user: User) -> Optional[UserRole]:
