@@ -18,7 +18,7 @@ from models.requests.scheme import CreateSchemeRequest, SchemeUpdateRequest
 from models.response.scheme import SchemeResponse
 from models.response.deletion import DeletionResponse
 
-router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
+router = APIRouter()
 
 
 @router.post("/", response_model=SchemeResponse)

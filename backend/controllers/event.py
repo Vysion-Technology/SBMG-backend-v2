@@ -18,7 +18,7 @@ from models.response.deletion import DeletionResponse
 from services.event import EventService
 from services.s3_service import s3_service
 
-router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
+router = APIRouter()
 
 
 @router.post("/", response_model=EventResponse)

@@ -26,7 +26,7 @@ from auth_utils import require_reconfirmed_vdo
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
+router = APIRouter()
 
 
 async def get_user_type(
