@@ -61,3 +61,15 @@ class VolunteerRegistration(Base):
     district = relationship("District")
     block = relationship("Block")
     gp = relationship("GramPanchayat")
+
+    @property
+    def district_name(self) -> str:
+        return self.district.name if self.district else ""
+
+    @property
+    def block_name(self) -> str:
+        return self.block.name if self.block else ""
+
+    @property
+    def gp_name(self) -> str:
+        return self.gp.name if self.gp else ""

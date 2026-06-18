@@ -64,8 +64,7 @@ class VolunteerService:
 
         self.db.add(volunteer)
         await self.db.commit()
-        await self.db.refresh(volunteer)
-        return volunteer
+        return await self.get_volunteer_by_id(volunteer.id)
 
     async def get_volunteer_by_public_user_id(self, public_user_id: int) -> Optional[VolunteerRegistration]:
         """Get volunteer registration by public user ID."""
