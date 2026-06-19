@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     trackverse_username: str = os.getenv("TRACKVERSE_USERNAME") or "deepakgupta"
     trackverse_password: str = os.getenv("TRACKVERSE_PASSWORD") or "123456"
 
+    # SMS/OTP Settings (eSanchar API)
+    sms_client_id: Optional[str] = os.getenv("SMS_CLIENT_ID")
+    sms_password: Optional[str] = os.getenv("SMS_PASSWORD")
+    sms_username: str = os.getenv("SMS_USERNAME") or "SBMOTP"
+
     # Application
     debug: bool = False
     host: str = "0.0.0.0"
