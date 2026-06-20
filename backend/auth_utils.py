@@ -45,6 +45,15 @@ async def require_admin(current_user: User = Depends(get_current_active_user)) -
     return current_user
 
 
+async def require_admin_or_smd(
+    current_user: User = Depends(get_current_active_user),
+) -> User:
+    """Require admin, superadmin, or SMD role."""
+    if not PermissionChecker.user_has_role(current_user, [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.SMD]):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin or SMD role required")
+    return current_user
+
+
 async def require_staff_role(
     current_user: User = Depends(get_current_active_user),
 ) -> User:
