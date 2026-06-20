@@ -26,8 +26,7 @@ class VolunteerService:
         
         photo_url = None
         if photo:
-            s3_key = await s3_service.upload_file(photo, folder="volunteers/photos")
-            photo_url = s3_service.get_file_url(s3_key)
+            photo_url = await s3_service.upload_file(photo, folder="volunteers/photos")
 
         volunteer = VolunteerRegistration(
             public_user_id=public_user.id,

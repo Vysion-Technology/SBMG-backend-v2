@@ -19,9 +19,9 @@ class VolunteerResponse(BaseModel):
     # Address
     state: str
     district_name: str
-    block_name: str
-    gp_name: str
-    village_name: str
+    block_name: Optional[str] = None
+    gp_name: Optional[str] = None
+    village_name: Optional[str] = None
     ward_number: Optional[str] = None
     full_address: str
     pin_code: str
