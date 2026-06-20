@@ -121,3 +121,48 @@ async def get_volunteer_detail(
         raise HTTPException(status_code=403, detail="Access denied: Outside GP jurisdiction")
 
     return volunteer
+
+
+@router.put("/{volunteer_id}", response_model=VolunteerResponse)
+async def update_volunteer(
+    volunteer_id: int,
+    update_data: str = Form(...),
+    photo: Optional[UploadFile] = File(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: Union[User, PublicUser] = Depends(get_current_any_user),
+):
+    """
+    Update a volunteer registration.
+    Only the citizen who created this volunteer profile can update it.
+    """
+    if not isinstance(current_user, PublicUser):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only citizens can edit their volunteer data"
+        )
+
+    service = VolunteerService(db)
+    volunteer = await service.get_volunteer_by_id(volunteer_id)
+    if not volunteer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Volunteer registration not found"
+        )
+
+    if volunteer.public_user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only edit your own volunteer profile"
+        )
+
+    try:
+        data_dict = json.loads(update_data)
+        request = VolunteerRegistrationRequest(**data_dict)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid update data: {str(e)}"
+        )
+
+    updated_volunteer = await service.update_volunteer(volunteer_id, request, photo)
+    return updated_volunteer

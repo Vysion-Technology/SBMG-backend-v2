@@ -66,7 +66,7 @@ class VolunteerService:
         return await self.get_volunteer_by_id(volunteer.id)
 
     async def get_volunteer_by_public_user_id(self, public_user_id: int) -> Optional[VolunteerRegistration]:
-        """Get volunteer registration by public user ID."""
+        """Get volunteer registration by public user ID (returns the latest one)."""
         result = await self.db.execute(
             select(VolunteerRegistration)
             .options(
@@ -75,8 +75,9 @@ class VolunteerService:
                 selectinload(VolunteerRegistration.gp)
             )
             .where(VolunteerRegistration.public_user_id == public_user_id)
+            .order_by(VolunteerRegistration.id.desc())
         )
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     async def get_volunteers_list(
         self,
@@ -120,3 +121,49 @@ class VolunteerService:
             .where(VolunteerRegistration.id == volunteer_id)
         )
         return result.scalar_one_or_none()
+
+    async def update_volunteer(
+        self,
+        volunteer_id: int,
+        request: VolunteerRegistrationRequest,
+        photo: Optional[UploadFile] = None
+    ) -> Optional[VolunteerRegistration]:
+        """Update a volunteer registration."""
+        volunteer = await self.get_volunteer_by_id(volunteer_id)
+        if not volunteer:
+            return None
+
+        if photo:
+            photo_url = await s3_service.upload_file(photo, folder="volunteers/photos")
+            volunteer.photo_url = photo_url
+
+        volunteer.full_name = request.full_name
+        volunteer.date_of_birth = request.date_of_birth
+        volunteer.gender = request.gender
+        volunteer.aadhar_number = request.aadhar_number
+        volunteer.alternate_mobile = request.alternate_mobile
+        volunteer.email = request.email
+        volunteer.district_id = request.district_id
+        volunteer.block_id = request.block_id
+        volunteer.gp_id = request.gp_id
+        volunteer.village_name = request.village_name
+        volunteer.ward_number = request.ward_number
+        volunteer.full_address = request.full_address
+        volunteer.pin_code = request.pin_code
+        volunteer.highest_qualification = request.highest_qualification
+        volunteer.current_occupation = request.current_occupation
+        volunteer.organization_name = request.organization_name
+        volunteer.service_types = request.service_types
+        volunteer.preferred_days = request.preferred_days
+        volunteer.hours_per_week = request.hours_per_week
+        volunteer.commitment_duration = request.commitment_duration
+        volunteer.fitness_level = request.fitness_level
+        volunteer.relevant_skills = request.relevant_skills
+        volunteer.willing_to_work_other_villages = request.willing_to_work_other_villages
+        volunteer.can_bring_more_volunteers = request.can_bring_more_volunteers
+        volunteer.additional_volunteers_count = request.additional_volunteers_count
+        volunteer.category = request.category
+        volunteer.declaration_accepted = request.declaration_accepted
+
+        await self.db.commit()
+        return await self.get_volunteer_by_id(volunteer_id)
