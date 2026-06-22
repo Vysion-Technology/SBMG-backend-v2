@@ -3,6 +3,8 @@ Annual Survey Analytics Service (Optimized)
 Handles business logic for annual survey analytics using database-level aggregations
 """
 
+import calendar
+from datetime import date, datetime
 from typing import List, Optional
 
 from sqlalchemy import and_, case, distinct, func, select
@@ -10,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from models.database.geography import Block, District, GramPanchayat
+from models.database.contractor import Contractor
 from models.database.survey_master import (
     AnnualSurvey,
     D2DActivities,
@@ -49,6 +52,7 @@ from models.response.annual_survey_analytics import (
     GeographyAssetBreakdown,
     BartanBankStats,
     VehicleStats,
+    WorkFrequencyCount,
 )
 
 
@@ -219,6 +223,60 @@ class AnnualSurveyAnalyticsServiceOptimized:
                         )
                     )
                 ).label("gps_with_d2d_active"),
+                func.count(
+                    distinct(
+                        case(
+                            (D2DActivities.is_active.is_(True), AnnualSurvey.gp_id),
+                            else_=None,
+                        )
+                    )
+                ).label("running_started_gps"),
+                func.count(
+                    distinct(
+                        case(
+                            (
+                                (D2DActivities.is_active.is_(False)) | (D2DActivities.id.is_(None)),
+                                AnnualSurvey.gp_id,
+                            ),
+                            else_=None,
+                        )
+                    )
+                ).label("not_started_gps"),
+                func.count(
+                    distinct(
+                        case(
+                            (
+                                (D2DActivities.work_frequency == "none") | (D2DActivities.id.is_(None)),
+                                AnnualSurvey.gp_id,
+                            ),
+                            else_=None,
+                        )
+                    )
+                ).label("freq_none"),
+                func.count(
+                    distinct(
+                        case(
+                            (D2DActivities.work_frequency == "weekly", AnnualSurvey.gp_id),
+                            else_=None,
+                        )
+                    )
+                ).label("freq_weekly"),
+                func.count(
+                    distinct(
+                        case(
+                            (D2DActivities.work_frequency == "15 days", AnnualSurvey.gp_id),
+                            else_=None,
+                        )
+                    )
+                ).label("freq_fifteen_days"),
+                func.count(
+                    distinct(
+                        case(
+                            (D2DActivities.work_frequency == "monthly", AnnualSurvey.gp_id),
+                            else_=None,
+                        )
+                    )
+                ).label("freq_monthly"),
                 func.coalesce(func.sum(D2DActivities.sanctioned_tender), 0).label(
                     "sanctioned_tender"
                 ),
@@ -310,6 +368,39 @@ class AnnualSurveyAnalyticsServiceOptimized:
         bartan_res = (await self.db.execute(bartan_query)).one()
         vehicle_res = (await self.db.execute(vehicle_query)).one()
 
+        # Calculate contracts ending next month
+        today = date.today()
+        if today.month == 12:
+            next_month = 1
+            next_year = today.year + 1
+        else:
+            next_month = today.month + 1
+            next_year = today.year
+
+        start_date = datetime(next_year, next_month, 1, 0, 0, 0)
+        last_day = calendar.monthrange(next_year, next_month)[1]
+        end_date = datetime(next_year, next_month, last_day, 23, 59, 59)
+
+        contractor_filters = [
+            Contractor.contract_end_date >= start_date,
+            Contractor.contract_end_date <= end_date
+        ]
+
+        if gp_id:
+            contractor_filters.append(Contractor.gp_id == gp_id)
+
+        contractor_query = select(func.count(Contractor.id))
+
+        if district_id or block_id:
+            contractor_query = contractor_query.join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
+            if district_id:
+                contractor_filters.append(GramPanchayat.district_id == district_id)
+            if block_id:
+                contractor_filters.append(GramPanchayat.block_id == block_id)
+
+        contractor_query = contractor_query.where(and_(*contractor_filters))
+        contracts_ending_next_month = (await self.db.execute(contractor_query)).scalar_one() or 0
+
         return AssetsDashboardResponse(
             odf_sustainability=ODFSustainabilityStats(
                 ihhl=odf_res.ihhl,
@@ -359,7 +450,8 @@ class AnnualSurveyAnalyticsServiceOptimized:
             d2d_activities=D2DActivitiesStats(
                 total_gps=d2d_res.total_gps,
                 gps_with_d2d_active=d2d_res.gps_with_d2d_active or 0,
-                not_started_gps=(d2d_res.total_gps - (d2d_res.gps_with_d2d_active or 0)),
+                not_started_gps=d2d_res.not_started_gps or 0,
+                running_started_gps=d2d_res.running_started_gps or 0,
                 sanctioned_tender=d2d_res.sanctioned_tender,
                 sanctioned_self_gp=d2d_res.sanctioned_self_gp,
                 sanctioned_csr_ngo=d2d_res.sanctioned_csr_ngo,
@@ -372,6 +464,12 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 status_start=d2d_res.status_start,
                 status_running=d2d_res.status_running,
                 status_completed=d2d_res.status_completed,
+                work_frequency_count=WorkFrequencyCount(
+                    none=d2d_res.freq_none or 0,
+                    weekly=d2d_res.freq_weekly or 0,
+                    fifteen_days=d2d_res.freq_fifteen_days or 0,
+                    monthly=d2d_res.freq_monthly or 0,
+                ),
             ),
             bartan_bank=BartanBankStats(
                 established_banks=bartan_res.established_banks,
@@ -384,6 +482,7 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 contractor_e_rickshaws=vehicle_res.contractor_e_rickshaws,
                 contractor_motorized_vehicles=vehicle_res.contractor_motorized_vehicles,
             ),
+            contracts_ending_next_month=contracts_ending_next_month,
         )
 
     async def get_assets_drill_down(

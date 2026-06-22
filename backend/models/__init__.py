@@ -49,6 +49,7 @@ from models.database.survey_master import (
     FundHead,
     CollectionFrequency,
     CleaningFrequency,
+    WorkFrequency,
     AnnualSurvey,
     DoorToDoorCollectionDetails,
     RoadSweepingDetails,
@@ -69,6 +70,7 @@ from models.database.survey_master import (
 from models.database.gps import GPSTracking, Vehicle, GPSRecord
 from models.database.feedback import Feedback
 from models.database.volunteer import VolunteerRegistration
+from models.database.circular import Circular
 
 __all__ = [
     # Auth models
@@ -129,6 +131,7 @@ __all__ = [
     "FundHead",
     "CollectionFrequency",
     "CleaningFrequency",
+    "WorkFrequency",
     "AnnualSurvey",
     "DoorToDoorCollectionDetails",
     "RoadSweepingDetails",
@@ -153,5 +156,7 @@ __all__ = [
     "Feedback",
     # Volunteer model
     "VolunteerRegistration",
+    # Circular model
+    "Circular",
 ]
 

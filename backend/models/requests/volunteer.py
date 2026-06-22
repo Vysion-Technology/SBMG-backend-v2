@@ -16,9 +16,9 @@ class VolunteerRegistrationRequest(BaseModel):
     
     # Address Details
     district_id: int
-    block_id: int
-    gp_id: int
-    village_name: str
+    block_id: Optional[int] = None
+    gp_id: Optional[int] = None
+    village_name: Optional[str] = None
     ward_number: Optional[str] = None
     full_address: str
     pin_code: str

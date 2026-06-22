@@ -21,6 +21,7 @@ from controllers import position_holder
 from controllers import gps_tracking
 from controllers import feedback
 from controllers import volunteer
+from controllers import circular
 from controllers import formulae
 from controllers import contractor_analytics
 from database import get_db
@@ -184,6 +185,11 @@ fastapi_app.include_router(
     volunteer.router,
     prefix="/api/v1/volunteers",
     tags=["Volunteer Management"],
+)
+fastapi_app.include_router(
+    circular.router,
+    prefix="/api/v1/circulars",
+    tags=["Circular Management"],
 )
 fastapi_app.include_router(
     formulae.router,

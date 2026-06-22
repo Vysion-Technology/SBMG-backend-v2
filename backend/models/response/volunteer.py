@@ -1,6 +1,6 @@
 from datetime import date
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class VolunteerResponse(BaseModel):
@@ -11,6 +11,7 @@ class VolunteerResponse(BaseModel):
     full_name: str
     date_of_birth: date
     gender: str
+    aadhar_number: str
     mobile_number: str
     alternate_mobile: Optional[str] = None
     email: Optional[str] = None
@@ -19,9 +20,9 @@ class VolunteerResponse(BaseModel):
     # Address
     state: str
     district_name: str
-    block_name: str
-    gp_name: str
-    village_name: str
+    block_name: Optional[str] = None
+    gp_name: Optional[str] = None
+    village_name: Optional[str] = None
     ward_number: Optional[str] = None
     full_address: str
     pin_code: str
@@ -45,6 +46,13 @@ class VolunteerResponse(BaseModel):
     additional_volunteers_count: int
 
     category: str
+
+    @field_validator("photo_url")
+    @classmethod
+    def format_photo_url(cls, v: Optional[str]) -> Optional[str]:
+        if v and not v.startswith("/") and not v.startswith("http"):
+            return f"/{v}"
+        return v
     
     class Config:
         from_attributes = True

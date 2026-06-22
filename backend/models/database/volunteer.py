@@ -27,9 +27,9 @@ class VolunteerRegistration(Base):
     # Address Details
     state: Mapped[str] = mapped_column(String, default="Rajasthan")
     district_id: Mapped[int] = mapped_column(Integer, ForeignKey("districts.id"), nullable=False)
-    block_id: Mapped[int] = mapped_column(Integer, ForeignKey("blocks.id"), nullable=False)
-    gp_id: Mapped[int] = mapped_column(Integer, ForeignKey("gram_panchayats.id"), nullable=False)
-    village_name: Mapped[str] = mapped_column(String, nullable=False)
+    block_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("blocks.id"), nullable=True)
+    gp_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("gram_panchayats.id"), nullable=True)
+    village_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     ward_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     full_address: Mapped[str] = mapped_column(Text, nullable=False)
     pin_code: Mapped[str] = mapped_column(String, nullable=False)
@@ -63,13 +63,13 @@ class VolunteerRegistration(Base):
     gp = relationship("GramPanchayat")
 
     @property
-    def district_name(self) -> str:
-        return self.district.name if self.district else ""
+    def district_name(self) -> Optional[str]:
+        return self.district.name if self.district else None
 
     @property
-    def block_name(self) -> str:
-        return self.block.name if self.block else ""
+    def block_name(self) -> Optional[str]:
+        return self.block.name if self.block else None
 
     @property
-    def gp_name(self) -> str:
-        return self.gp.name if self.gp else ""
+    def gp_name(self) -> Optional[str]:
+        return self.gp.name if self.gp else None

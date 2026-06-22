@@ -3,7 +3,7 @@ Response Models for Annual Survey Analytics
 """
 
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SchemeTargetAchievement(BaseModel):
@@ -215,10 +215,21 @@ class GobardhanStats(BaseModel):
     gas_production: float
 
 
+class WorkFrequencyCount(BaseModel):
+    none: int = 0
+    weekly: int = 0
+    fifteen_days: int = Field(0, alias="15 days")
+    monthly: int = 0
+
+    class Config:
+        populate_by_name = True
+
+
 class D2DActivitiesStats(BaseModel):
     total_gps: int
     gps_with_d2d_active: int
     not_started_gps: int
+    running_started_gps: int
     sanctioned_tender: int
     sanctioned_self_gp: int
     sanctioned_csr_ngo: int
@@ -231,6 +242,7 @@ class D2DActivitiesStats(BaseModel):
     status_start: int
     status_running: int
     status_completed: int
+    work_frequency_count: WorkFrequencyCount
 
 
 class BartanBankStats(BaseModel):
@@ -257,6 +269,7 @@ class AssetsDashboardResponse(BaseModel):
     d2d_activities: D2DActivitiesStats
     bartan_bank: BartanBankStats
     vehicle_assets: VehicleStats
+    contracts_ending_next_month: int = 0
 
     class Config:
         from_attributes = True
