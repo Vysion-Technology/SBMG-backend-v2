@@ -10,6 +10,7 @@ from models.database.survey_master import (
     FundHead,
     CollectionFrequency,
     CleaningFrequency,
+    WorkFrequency,
 )
 
 
@@ -174,6 +175,7 @@ class D2DActivitiesResponse(BaseModel):
     """Response model for D2D activities details."""
     id: int
     is_active: bool
+    work_frequency: WorkFrequency
     sanctioned_tender: int
     sanctioned_self_gp: int
     sanctioned_csr_ngo: int

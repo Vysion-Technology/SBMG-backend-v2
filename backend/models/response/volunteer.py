@@ -11,6 +11,7 @@ class VolunteerResponse(BaseModel):
     full_name: str
     date_of_birth: date
     gender: str
+    aadhar_number: str
     mobile_number: str
     alternate_mobile: Optional[str] = None
     email: Optional[str] = None

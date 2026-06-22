@@ -3,10 +3,12 @@ Contractor Analytics Service
 Handles business logic for contractor coverage analytics using database-level aggregations
 """
 
+import calendar
+from datetime import date, datetime
 from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, distinct
+from sqlalchemy import select, func, distinct, and_, case
 from sqlalchemy.orm import selectinload
 
 from models.database.contractor import Contractor
@@ -18,6 +20,7 @@ from models.response.contractor_analytics import (
     ContractorBlockAnalytics,
     ContractorGPAnalytics,
     ContractorSummary,
+    ContractorGeographyCoverage,
 )
 
 
@@ -27,8 +30,24 @@ class ContractorAnalyticsService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    def _get_next_month_dates(self):
+        """Helper to get next month start and end dates."""
+        today = date.today()
+        if today.month == 12:
+            next_month = 1
+            next_year = today.year + 1
+        else:
+            next_month = today.month + 1
+            next_year = today.year
+            
+        start_date = datetime(next_year, next_month, 1, 0, 0, 0)
+        last_day = calendar.monthrange(next_year, next_month)[1]
+        end_date = datetime(next_year, next_month, last_day, 23, 59, 59)
+        return start_date, end_date
+
     async def get_state_analytics(self) -> ContractorStateAnalytics:
         """Get state-level contractor analytics."""
+        start_date, end_date = self._get_next_month_dates()
 
         # Main aggregation query
         agg_query = (
@@ -36,6 +55,15 @@ class ContractorAnalyticsService:
                 func.count(distinct(Contractor.gp_id)).label("gps_with_data"),  # type: ignore
                 func.count(Contractor.id).label("total_contractors"),  # type: ignore
                 func.coalesce(func.sum(Contractor.contract_amount), 0).label("total_contract_amount"),  # type: ignore
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (and_(Contractor.contract_end_date >= start_date, Contractor.contract_end_date <= end_date), 1),
+                            else_=0
+                        )
+                    ),
+                    0
+                ).label("ending_next_month"),
             )
             .select_from(Contractor)
         )
@@ -61,11 +89,13 @@ class ContractorAnalyticsService:
             coverage_percentage=round(coverage_percentage, 2),
             total_contractors=row.total_contractors or 0,
             total_contract_amount=round(float(row.total_contract_amount or 0), 2),
+            contracts_ending_next_month=row.ending_next_month or 0,
             district_wise_coverage=district_wise_coverage,
         )
 
     async def get_district_analytics(self, district_id: int) -> ContractorDistrictAnalytics:
         """Get district-level contractor analytics."""
+        start_date, end_date = self._get_next_month_dates()
 
         # Get district info
         district_result = await self.db.execute(
@@ -81,6 +111,15 @@ class ContractorAnalyticsService:
                 func.count(distinct(Contractor.gp_id)).label("gps_with_data"),  # type: ignore
                 func.count(Contractor.id).label("total_contractors"),  # type: ignore
                 func.coalesce(func.sum(Contractor.contract_amount), 0).label("total_contract_amount"),  # type: ignore
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (and_(Contractor.contract_end_date >= start_date, Contractor.contract_end_date <= end_date), 1),
+                            else_=0
+                        )
+                    ),
+                    0
+                ).label("ending_next_month"),
             )
             .select_from(Contractor)
             .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
@@ -114,11 +153,13 @@ class ContractorAnalyticsService:
             coverage_percentage=round(coverage_percentage, 2),
             total_contractors=row.total_contractors or 0,
             total_contract_amount=round(float(row.total_contract_amount or 0), 2),
+            contracts_ending_next_month=row.ending_next_month or 0,
             block_wise_coverage=block_wise_coverage,
         )
 
     async def get_block_analytics(self, block_id: int) -> ContractorBlockAnalytics:
         """Get block-level contractor analytics."""
+        start_date, end_date = self._get_next_month_dates()
 
         # Get block info with district
         block_result = await self.db.execute(
@@ -134,6 +175,15 @@ class ContractorAnalyticsService:
                 func.count(distinct(Contractor.gp_id)).label("gps_with_data"),  # type: ignore
                 func.count(Contractor.id).label("total_contractors"),  # type: ignore
                 func.coalesce(func.sum(Contractor.contract_amount), 0).label("total_contract_amount"),  # type: ignore
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (and_(Contractor.contract_end_date >= start_date, Contractor.contract_end_date <= end_date), 1),
+                            else_=0
+                        )
+                    ),
+                    0
+                ).label("ending_next_month"),
             )
             .select_from(Contractor)
             .join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
@@ -169,11 +219,13 @@ class ContractorAnalyticsService:
             coverage_percentage=round(coverage_percentage, 2),
             total_contractors=row.total_contractors or 0,
             total_contract_amount=round(float(row.total_contract_amount or 0), 2),
+            contracts_ending_next_month=row.ending_next_month or 0,
             gp_wise_coverage=gp_wise_coverage,
         )
 
     async def get_gp_analytics(self, gp_id: int) -> ContractorGPAnalytics:
         """Get GP-level contractor analytics."""
+        start_date, end_date = self._get_next_month_dates()
 
         # Get GP info with block and district
         gp_result = await self.db.execute(
@@ -212,6 +264,11 @@ class ContractorAnalyticsService:
             for c in contractors
         ]
 
+        contracts_ending_next_month = sum(
+            1 for c in contractors 
+            if c.contract_end_date and start_date <= c.contract_end_date <= end_date
+        )
+
         return ContractorGPAnalytics(
             gp_id=gp.id,
             gp_name=gp.name,
@@ -223,13 +280,15 @@ class ContractorAnalyticsService:
             contractor_data_status="Available" if has_contractor else "Not Available",
             total_contractors=len(contractors),
             total_contract_amount=round(total_contract_amount, 2),
+            contracts_ending_next_month=contracts_ending_next_month,
             contractors=contractor_summaries,
         )
 
     # ---- Private helper methods ----
 
-    async def _get_district_coverage(self) -> List[VillageMasterDataCoverage]:
+    async def _get_district_coverage(self) -> List[ContractorGeographyCoverage]:
         """Get district-wise contractor coverage using database aggregation."""
+        start_date, end_date = self._get_next_month_dates()
 
         coverage_query = (
             select(
@@ -237,6 +296,15 @@ class ContractorAnalyticsService:
                 District.name.label("district_name"),
                 func.count(distinct(GramPanchayat.id)).label("total_gps"),  # type: ignore
                 func.count(distinct(Contractor.gp_id)).label("gps_with_data"),  # type: ignore
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (and_(Contractor.contract_end_date >= start_date, Contractor.contract_end_date <= end_date), 1),
+                            else_=0
+                        )
+                    ),
+                    0
+                ).label("ending_next_month"),
             )
             .select_from(District)
             .join(GramPanchayat, District.id == GramPanchayat.district_id)
@@ -248,7 +316,7 @@ class ContractorAnalyticsService:
         rows = result.all()
 
         return [
-            VillageMasterDataCoverage(
+            ContractorGeographyCoverage(
                 geography_id=row.district_id,
                 geography_name=row.district_name,
                 total_gps=row.total_gps or 0,
@@ -257,12 +325,14 @@ class ContractorAnalyticsService:
                     (row.gps_with_data / row.total_gps * 100) if row.total_gps and row.total_gps > 0 else 0.0, 2
                 ),
                 master_data_status="Available" if row.gps_with_data and row.gps_with_data > 0 else "Not Available",
+                contracts_ending_next_month=row.ending_next_month or 0,
             )
             for row in rows
         ]
 
-    async def _get_block_coverage(self, district_id: int) -> List[VillageMasterDataCoverage]:
+    async def _get_block_coverage(self, district_id: int) -> List[ContractorGeographyCoverage]:
         """Get block-wise contractor coverage using database aggregation."""
+        start_date, end_date = self._get_next_month_dates()
 
         coverage_query = (
             select(
@@ -270,6 +340,15 @@ class ContractorAnalyticsService:
                 Block.name.label("block_name"),
                 func.count(distinct(GramPanchayat.id)).label("total_gps"),  # type: ignore
                 func.count(distinct(Contractor.gp_id)).label("gps_with_data"),  # type: ignore
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (and_(Contractor.contract_end_date >= start_date, Contractor.contract_end_date <= end_date), 1),
+                            else_=0
+                        )
+                    ),
+                    0
+                ).label("ending_next_month"),
             )
             .select_from(Block)
             .join(GramPanchayat, Block.id == GramPanchayat.block_id)
@@ -282,7 +361,7 @@ class ContractorAnalyticsService:
         rows = result.all()
 
         return [
-            VillageMasterDataCoverage(
+            ContractorGeographyCoverage(
                 geography_id=row.block_id,
                 geography_name=row.block_name,
                 total_gps=row.total_gps or 0,
@@ -291,18 +370,29 @@ class ContractorAnalyticsService:
                     (row.gps_with_data / row.total_gps * 100) if row.total_gps and row.total_gps > 0 else 0.0, 2
                 ),
                 master_data_status="Available" if row.gps_with_data and row.gps_with_data > 0 else "Not Available",
+                contracts_ending_next_month=row.ending_next_month or 0,
             )
             for row in rows
         ]
 
-    async def _get_gp_coverage(self, block_id: int) -> List[VillageMasterDataCoverage]:
+    async def _get_gp_coverage(self, block_id: int) -> List[ContractorGeographyCoverage]:
         """Get GP-wise contractor coverage using database aggregation."""
+        start_date, end_date = self._get_next_month_dates()
 
         coverage_query = (
             select(
                 GramPanchayat.id.label("gp_id"),
                 GramPanchayat.name.label("gp_name"),
                 func.count(Contractor.id).label("contractor_count"),  # type: ignore
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (and_(Contractor.contract_end_date >= start_date, Contractor.contract_end_date <= end_date), 1),
+                            else_=0
+                        )
+                    ),
+                    0
+                ).label("ending_next_month"),
             )
             .select_from(GramPanchayat)
             .outerjoin(Contractor, Contractor.gp_id == GramPanchayat.id)
@@ -314,13 +404,14 @@ class ContractorAnalyticsService:
         rows = result.all()
 
         return [
-            VillageMasterDataCoverage(
+            ContractorGeographyCoverage(
                 geography_id=row.gp_id,
                 geography_name=row.gp_name,
                 total_gps=1,
                 gps_with_data=1 if row.contractor_count and row.contractor_count > 0 else 0,
                 coverage_percentage=100.0 if row.contractor_count and row.contractor_count > 0 else 0.0,
                 master_data_status="Available" if row.contractor_count and row.contractor_count > 0 else "Not Available",
+                contracts_ending_next_month=row.ending_next_month or 0,
             )
             for row in rows
         ]

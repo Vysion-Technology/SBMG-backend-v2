@@ -9,6 +9,7 @@ from models.database.survey_master import (
     FundHead,
     CollectionFrequency,
     CleaningFrequency,
+    WorkFrequency,
 )
 
 
@@ -119,6 +120,7 @@ class GobardhanProjectRequest(BaseModel):
 class D2DActivitiesRequest(BaseModel):
     """Request model for D2D activities details."""
     is_active: bool = False
+    work_frequency: WorkFrequency = WorkFrequency.NONE
     sanctioned_tender: int = 0
     sanctioned_self_gp: int = 0
     sanctioned_csr_ngo: int = 0
@@ -131,6 +133,12 @@ class D2DActivitiesRequest(BaseModel):
     status_start: int = 0
     status_running: int = 0
     status_completed: int = 0
+
+    @model_validator(mode="after")
+    def validate_work_frequency(self):
+        if not self.is_active and self.work_frequency != WorkFrequency.NONE:
+            raise ValueError("work_frequency must be 'none' if is_active is False")
+        return self
 
 
 class BartanBankRequest(BaseModel):

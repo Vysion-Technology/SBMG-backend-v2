@@ -50,6 +50,15 @@ class CleaningFrequency(str, PyEnum):
     NONE = "NONE"
 
 
+class WorkFrequency(str, PyEnum):
+    """Work frequency for door-to-door activities"""
+
+    NONE = "none"
+    WEEKLY = "weekly"
+    FIFTEEN_DAYS = "15 days"
+    MONTHLY = "monthly"
+
+
 class AnnualSurveyFY(Base): # type: ignore
     """Annual Survey Financial Year."""
 
@@ -483,6 +492,9 @@ class D2DActivities(Base):
     id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
     
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    work_frequency: Mapped[WorkFrequency] = mapped_column(
+        Enum(WorkFrequency, name="work_frequency", values_callable=lambda x: [e.value for e in x]), nullable=False, default=WorkFrequency.NONE, server_default="none"
+    )
     
     # Sanctioned Status
     sanctioned_tender: Mapped[int] = mapped_column(Integer, default=0)
