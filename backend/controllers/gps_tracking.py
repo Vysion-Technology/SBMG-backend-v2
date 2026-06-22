@@ -6,6 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from auth_utils import require_reconfirmed_vdo
 from database import get_db
 from models.internal import GeoTypeEnum
 from models.requests.gps import AddVehicleRequest
@@ -18,7 +19,7 @@ from models.response.gps import (
 from services.geography import GeographyService
 from services.gps_tracking import GPSTrackingService
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
 
 
 @router.post("/vehicles", response_model=VehicleResponse)

@@ -32,3 +32,8 @@ class CitizenStatusUpdateRequest(BaseModel):
     mobile_number: str
     new_status: str  # Should be "VERIFIED" or "RESOLVED"
 
+
+class ComplaintTypeRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+

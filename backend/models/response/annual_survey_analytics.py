@@ -3,7 +3,7 @@ Response Models for Annual Survey Analytics
 """
 
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SchemeTargetAchievement(BaseModel):
@@ -160,3 +160,129 @@ class VillageAnalytics(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# --- Assets Dashboard Models ---
+
+class ODFSustainabilityStats(BaseModel):
+    ihhl: int
+    retrofitting: int
+    csc: int
+    csc_shala_darpan: int
+
+
+class SWMAssetsStats(BaseModel):
+    bins_hh_level: int
+    bins_public_places: int
+    community_compost_pits: int
+    hh_compost_pit: int
+    segregation_sheds: int
+    tricycles_manual: int
+    e_rickshaws: int
+    motorized_vehicles: int
+
+
+class LWMAssetsStats(BaseModel):
+    pits_hh_level: int
+    community_pits: int
+    wsp: int
+    dewats: int
+    wetlands: int
+    other_treatments: int
+    drainage_channels: int
+
+
+class PWMUStats(BaseModel):
+    established_pwmu: int
+    blocks_covered_pwmu: int
+    urban_mrfs: int
+    blocks_covered_urban_mrf: int
+
+
+class FSMStats(BaseModel):
+    twin_pit_toilets: int
+    single_pit_toilets: int
+    septic_tank_toilets: int
+    retrofitted_toilets: int
+    mechanized_desludging: int
+    fstps_rural: int
+    fstps_urban: int
+
+
+class GobardhanStats(BaseModel):
+    total_sanctioned: int
+    total_functional: int
+    gas_production: float
+
+
+class WorkFrequencyCount(BaseModel):
+    none: int = 0
+    weekly: int = 0
+    fifteen_days: int = Field(0, alias="15 days")
+    monthly: int = 0
+
+    class Config:
+        populate_by_name = True
+
+
+class D2DActivitiesStats(BaseModel):
+    total_gps: int
+    gps_with_d2d_active: int
+    not_started_gps: int
+    running_started_gps: int
+    sanctioned_tender: int
+    sanctioned_self_gp: int
+    sanctioned_csr_ngo: int
+    sanctioned_shg: int
+    sanctioned_mixed_model: int
+    total_expenditure: float
+    vehicles_deployed: int
+    persons_deployed: int
+    households_covered: int
+    status_start: int
+    status_running: int
+    status_completed: int
+    work_frequency_count: WorkFrequencyCount
+
+
+class BartanBankStats(BaseModel):
+    established_banks: int
+
+
+class VehicleStats(BaseModel):
+    owned_tricycles: int
+    owned_e_rickshaws: int
+    owned_motorized_vehicles: int
+    contractor_tricycles: int
+    contractor_e_rickshaws: int
+    contractor_motorized_vehicles: int
+
+
+class AssetsDashboardResponse(BaseModel):
+    """Unified response model for the Assets Dashboard."""
+    odf_sustainability: ODFSustainabilityStats
+    swm_assets: SWMAssetsStats
+    lwm_assets: LWMAssetsStats
+    pwmu: PWMUStats
+    fsm: FSMStats
+    gobardhan: GobardhanStats
+    d2d_activities: D2DActivitiesStats
+    bartan_bank: BartanBankStats
+    vehicle_assets: VehicleStats
+    contracts_ending_next_month: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class GeographyAssetBreakdown(BaseModel):
+    """Asset breakdown for a specific geography (District/Block/GP)."""
+    geography_id: int
+    geography_name: str
+    assets: AssetsDashboardResponse
+
+
+class HierarchicalAssetsResponse(BaseModel):
+    """Response model for hierarchical asset analytics."""
+    geography_type: str  # "district", "block", or "gp"
+    items: List[GeographyAssetBreakdown]

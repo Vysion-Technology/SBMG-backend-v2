@@ -153,6 +153,10 @@ class ComplaintService:
                 village_name=complaint.gp.name if complaint.gp else None,
                 block_name=complaint.block.name if complaint.block else None,
                 district_name=complaint.district.name if complaint.district else None,
+                village_id=complaint.gp_id,
+                block_id=complaint.block_id,
+                district_id=complaint.district_id,
+                last_sla_breach_level=complaint.last_sla_breach_level,
                 media_urls=[media.media_url for media in complaint.media] if complaint.media else [],
                 media=[
                     MediaResponse(
@@ -171,12 +175,14 @@ class ComplaintService:
                         comment=comment.comment,
                         commented_at=comment.commented_at,
                         user_name=comment.user.name if comment.user else "",
+                        is_system_generated=comment.is_system_generated,
                     )
                     for comment in complaint.comments
                 ],
                 resolved_at=complaint.resolved_at,
                 verified_at=complaint.verified_at,
                 closed_at=complaint.closed_at,
+                closed_by_info=complaint.closed_by_info,
             )
             for complaint in complaints
         ]

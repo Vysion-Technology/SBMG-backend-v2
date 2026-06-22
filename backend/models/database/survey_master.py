@@ -50,6 +50,15 @@ class CleaningFrequency(str, PyEnum):
     NONE = "NONE"
 
 
+class WorkFrequency(str, PyEnum):
+    """Work frequency for door-to-door activities"""
+
+    NONE = "none"
+    WEEKLY = "weekly"
+    FIFTEEN_DAYS = "15 days"
+    MONTHLY = "monthly"
+
+
 class AnnualSurveyFY(Base): # type: ignore
     """Annual Survey Financial Year."""
 
@@ -102,6 +111,11 @@ class AnnualSurvey(Base):  # type: ignore
         Integer, ForeignKey("authority_holder_persons.id"), nullable=False
     )
     vdo_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True) # type: ignore
+    vdo_contact_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True) # type: ignore
+
+    last_reconfirmed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.now
+    )
 
     # 2. Sarpanch Details
     sarpanch_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # type: ignore
@@ -170,8 +184,65 @@ class AnnualSurvey(Base):  # type: ignore
         cascade="all, delete-orphan",
     )
 
-    swm_assets: Mapped[Optional["SWMAssets"]] = relationship(
-        "SWMAssets",
+    # New categorized assets
+    odf_sustainability: Mapped[Optional["ODFSustainability"]] = relationship(
+        "ODFSustainability",
+        back_populates="survey",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    swm_assets: Mapped[Optional["SWMAssetsCategory"]] = relationship(
+        "SWMAssetsCategory",
+        back_populates="survey",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    lwm_assets: Mapped[Optional["LWMAssets"]] = relationship(
+        "LWMAssets",
+        back_populates="survey",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    pwmu_details: Mapped[Optional["PWMUDetails"]] = relationship(
+        "PWMUDetails",
+        back_populates="survey",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    fsm_details: Mapped[Optional["FSMDetails"]] = relationship(
+        "FSMDetails",
+        back_populates="survey",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    gobardhan_projects: Mapped[Optional["GobardhanProject"]] = relationship(
+        "GobardhanProject",
+        back_populates="survey",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    d2d_activities: Mapped[Optional["D2DActivities"]] = relationship(
+        "D2DActivities",
+        back_populates="survey",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    bartan_bank: Mapped[Optional["BartanBank"]] = relationship(
+        "BartanBank",
+        back_populates="survey",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    vehicle_assets: Mapped[Optional["VehicleAssets"]] = relationship(
+        "VehicleAssets",
         back_populates="survey",
         uselist=False,
         cascade="all, delete-orphan",
@@ -320,22 +391,163 @@ class CSCDetails(Base):  # type: ignore
     survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="csc_details")
 
 
-class SWMAssets(Base):  # type: ignore
-    """
-    Solid Waste Management (SWM) Assets
-    """
+# --- New Asset Category Tables ---
 
-    __tablename__ = "survey_swm_assets"
-
+class ODFSustainability(Base):
+    """ODF Sustainability Details"""
+    __tablename__ = "survey_odf_sustainability"
     id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
+    
+    ihhl: Mapped[int] = mapped_column(Integer, default=0)
+    retrofitting: Mapped[int] = mapped_column(Integer, default=0)
+    csc: Mapped[int] = mapped_column(Integer, default=0)
+    csc_shala_darpan: Mapped[int] = mapped_column(Integer, default=0) # Total No. of CSCs in Schools
 
-    rrc: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Resource Recovery Center
-    pwmu: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Plastic Waste Management Unit
-    compost_pit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    collection_vehicle: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # 1:1 relationship back to survey
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="odf_sustainability")
+
+
+class SWMAssetsCategory(Base):
+    """Solid Waste Management Assets"""
+    __tablename__ = "survey_swm_assets_new"
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
+    
+    bins_hh_level: Mapped[int] = mapped_column(Integer, default=0)
+    bins_public_places: Mapped[int] = mapped_column(Integer, default=0)
+    community_compost_pits: Mapped[int] = mapped_column(Integer, default=0)
+    hh_compost_pit: Mapped[int] = mapped_column(Integer, default=0)
+    segregation_sheds: Mapped[int] = mapped_column(Integer, default=0) # RRC
+    tricycles_manual: Mapped[int] = mapped_column(Integer, default=0)
+    e_rickshaws: Mapped[int] = mapped_column(Integer, default=0)
+    motorized_vehicles: Mapped[int] = mapped_column(Integer, default=0)
 
     # 1:1 relationship back to survey
     survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="swm_assets")
+
+
+class LWMAssets(Base):
+    """Liquid Waste Management Assets"""
+    __tablename__ = "survey_lwm_assets"
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
+    
+    pits_hh_level: Mapped[int] = mapped_column(Integer, default=0) # Soak/Magic/Leach
+    community_pits: Mapped[int] = mapped_column(Integer, default=0)
+    wsp: Mapped[int] = mapped_column(Integer, default=0) # Waste Stabilization Pond
+    dewats: Mapped[int] = mapped_column(Integer, default=0)
+    wetlands: Mapped[int] = mapped_column(Integer, default=0)
+    other_treatments: Mapped[int] = mapped_column(Integer, default=0) # Trenching, etc.
+    drainage_channels: Mapped[int] = mapped_column(Integer, default=0)
+
+    # 1:1 relationship back to survey
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="lwm_assets")
+
+
+class PWMUDetails(Base):
+    """Plastic Waste Management Units"""
+    __tablename__ = "survey_pwmu_details"
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
+    
+    established_pwmu: Mapped[int] = mapped_column(Integer, default=0)
+    blocks_covered_pwmu: Mapped[int] = mapped_column(Integer, default=0)
+    urban_mrfs: Mapped[int] = mapped_column(Integer, default=0)
+    blocks_covered_urban_mrf: Mapped[int] = mapped_column(Integer, default=0)
+
+    # 1:1 relationship back to survey
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="pwmu_details")
+
+
+class FSMDetails(Base):
+    """Fecal Sludge Management Details"""
+    __tablename__ = "survey_fsm_details"
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
+    
+    twin_pit_toilets: Mapped[int] = mapped_column(Integer, default=0)
+    single_pit_toilets: Mapped[int] = mapped_column(Integer, default=0)
+    septic_tank_toilets: Mapped[int] = mapped_column(Integer, default=0)
+    retrofitted_toilets: Mapped[int] = mapped_column(Integer, default=0)
+    mechanized_desludging: Mapped[int] = mapped_column(Integer, default=0)
+    fstps_rural: Mapped[int] = mapped_column(Integer, default=0)
+    fstps_urban: Mapped[int] = mapped_column(Integer, default=0)
+
+    # 1:1 relationship back to survey
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="fsm_details")
+
+
+class GobardhanProject(Base):
+    """GOBAR-dhan Project Details"""
+    __tablename__ = "survey_gobardhan_projects"
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
+    
+    total_sanctioned: Mapped[int] = mapped_column(Integer, default=0)
+    total_functional: Mapped[int] = mapped_column(Integer, default=0)
+    gas_production: Mapped[float] = mapped_column(Numeric(15, 2), default=0.0)
+
+    # 1:1 relationship back to survey
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="gobardhan_projects")
+
+
+class D2DActivities(Base):
+    """Door to Door Activities & Expenditure"""
+    __tablename__ = "survey_d2d_activities"
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
+    
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    work_frequency: Mapped[WorkFrequency] = mapped_column(
+        Enum(WorkFrequency, name="work_frequency", values_callable=lambda x: [e.value for e in x]), nullable=False, default=WorkFrequency.NONE, server_default="none"
+    )
+    
+    # Sanctioned Status
+    sanctioned_tender: Mapped[int] = mapped_column(Integer, default=0)
+    sanctioned_self_gp: Mapped[int] = mapped_column(Integer, default=0)
+    sanctioned_csr_ngo: Mapped[int] = mapped_column(Integer, default=0)
+    sanctioned_shg: Mapped[int] = mapped_column(Integer, default=0)
+    sanctioned_mixed_model: Mapped[int] = mapped_column(Integer, default=0)
+    
+    total_expenditure: Mapped[float] = mapped_column(Numeric(15, 2), default=0.0)
+    vehicles_deployed: Mapped[int] = mapped_column(Integer, default=0)
+    persons_deployed: Mapped[int] = mapped_column(Integer, default=0)
+    households_covered: Mapped[int] = mapped_column(Integer, default=0)
+    
+    # Work Status
+    status_start: Mapped[int] = mapped_column(Integer, default=0)
+    status_running: Mapped[int] = mapped_column(Integer, default=0)
+    status_completed: Mapped[int] = mapped_column(Integer, default=0)
+
+    # 1:1 relationship back to survey
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="d2d_activities")
+
+
+class BartanBank(Base):
+    """Bartan Bank Details"""
+    __tablename__ = "survey_bartan_banks"
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
+    
+    established_banks: Mapped[int] = mapped_column(Integer, default=0)
+
+    # 1:1 relationship back to survey
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="bartan_bank")
+
+
+class VehicleAssets(Base):
+    """Categorized Vehicle Assets"""
+    __tablename__ = "survey_vehicle_assets"
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
+    
+    # Owned Vehicles
+    owned_tricycles: Mapped[int] = mapped_column(Integer, default=0)
+    owned_e_rickshaws: Mapped[int] = mapped_column(Integer, default=0)
+    owned_motorized_vehicles: Mapped[int] = mapped_column(Integer, default=0)
+    
+    # Contractor Vehicles
+    contractor_tricycles: Mapped[int] = mapped_column(Integer, default=0)
+    contractor_e_rickshaws: Mapped[int] = mapped_column(Integer, default=0)
+    contractor_motorized_vehicles: Mapped[int] = mapped_column(Integer, default=0)
+
+    # 1:1 relationship back to survey
+    survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="vehicle_assets")
+
+
+# --- End of New Asset Category Tables ---
 
 
 class SBMGYearTargets(Base):  # type: ignore

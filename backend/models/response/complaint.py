@@ -15,6 +15,7 @@ class ComplaintCommentResponse(BaseModel):
     comment: str
     commented_at: datetime
     user_name: str
+    is_system_generated: bool = False
 
 class ComplaintResponse(BaseModel):
     id: int
@@ -24,6 +25,9 @@ class ComplaintResponse(BaseModel):
     village_name: str
     block_name: str
     district_name: str
+    village_id: Optional[int] = None
+    block_id: Optional[int] = None
+    district_id: Optional[int] = None
     lat: float
     long: float
     location: str
@@ -32,6 +36,7 @@ class ComplaintResponse(BaseModel):
     resolved_at: Optional[datetime] = None
     verified_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None
+    closed_by_info: Optional[str] = None
     media_urls: List[str] = []
     media: List[MediaResponse] = []
     comments: List[ComplaintCommentResponse] = []
@@ -77,12 +82,17 @@ class DetailedComplaintResponse(BaseModel):
     resolved_at: Optional[datetime] = None
     verified_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None
+    closed_by_info: Optional[str] = None
     complaint_type: Optional[str] = None
     status: Optional[str] = None
     village_name: Optional[str] = None
     block_name: Optional[str] = None
     district_name: Optional[str] = None
+    village_id: Optional[int] = None
+    block_id: Optional[int] = None
+    district_id: Optional[int] = None
     updated_at: Optional[datetime]
+    last_sla_breach_level: Optional[str] = None
     media_urls: List[str] = []
     media: List[MediaResponse] = []
     comments: List[ComplaintCommentResponse] = []
@@ -95,3 +105,9 @@ class CitizenStatusUpdateResponse(BaseModel):
     complaint_id: int
     new_status: str
     updated_at: datetime
+
+
+class ComplaintTypeResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None

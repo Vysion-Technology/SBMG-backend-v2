@@ -3,31 +3,56 @@ Annual Survey Analytics Service (Optimized)
 Handles business logic for annual survey analytics using database-level aggregations
 """
 
+import calendar
+from datetime import date, datetime
 from typing import List, Optional
 
+from sqlalchemy import and_, case, distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, distinct, and_
 from sqlalchemy.orm import selectinload
 
+from models.database.geography import Block, District, GramPanchayat
+from models.database.contractor import Contractor
 from models.database.survey_master import (
     AnnualSurvey,
-    VillageData,
-    VillageSBMGAssets,
-    VillageGWMAssets,
-    SBMGYearTargets,
-    WorkOrderDetails,
-    FundSanctioned,
+    D2DActivities,
     DoorToDoorCollectionDetails,
+    FSMDetails,
+    FundSanctioned,
+    GobardhanProject,
+    LWMAssets,
+    ODFSustainability,
+    PWMUDetails,
+    SBMGYearTargets,
+    SWMAssetsCategory,
+    VillageData,
+    VillageGWMAssets,
+    VillageSBMGAssets,
+    WorkOrderDetails,
+    BartanBank,
+    VehicleAssets,
 )
-from models.database.geography import District, Block, GramPanchayat
 from models.response.annual_survey_analytics import (
-    StateAnalytics,
-    DistrictAnalytics,
-    BlockAnalytics,
-    GPAnalytics,
-    SchemeTargetAchievement,
-    VillageMasterDataCoverage,
     AnnualOverview,
+    AssetsDashboardResponse,
+    BlockAnalytics,
+    D2DActivitiesStats,
+    DistrictAnalytics,
+    FSMStats,
+    GobardhanStats,
+    GPAnalytics,
+    LWMAssetsStats,
+    ODFSustainabilityStats,
+    PWMUStats,
+    SchemeTargetAchievement,
+    StateAnalytics,
+    SWMAssetsStats,
+    VillageMasterDataCoverage,
+    HierarchicalAssetsResponse,
+    GeographyAssetBreakdown,
+    BartanBankStats,
+    VehicleStats,
+    WorkFrequencyCount,
 )
 
 
@@ -36,6 +61,485 @@ class AnnualSurveyAnalyticsServiceOptimized:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def get_assets_dashboard_totals(
+        self,
+        fy_id: Optional[int] = None,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
+    ) -> AssetsDashboardResponse:
+        """Get aggregated totals for the Assets Dashboard."""
+
+        # Build base filters based on jurisdiction and FY
+        filters = []
+        if fy_id:
+            filters.append(AnnualSurvey.fy_id == fy_id)
+        if district_id:
+            filters.append(GramPanchayat.district_id == district_id)
+        if block_id:
+            filters.append(GramPanchayat.block_id == block_id)
+        if gp_id:
+            filters.append(AnnualSurvey.gp_id == gp_id)
+
+        has_filters = len(filters) > 0
+        needs_gp_join = bool(district_id or block_id)
+
+        # Helper function to apply dynamic joins and filters
+        def apply_filters(query, model_class):
+            if has_filters:
+                # Join AnnualSurvey to access fy_id and gp_id
+                query = query.select_from(model_class).join(
+                    AnnualSurvey, AnnualSurvey.id == model_class.id
+                )
+                # Join GramPanchayat if we need to filter by block_id or district_id
+                if needs_gp_join:
+                    query = query.join(
+                        GramPanchayat, AnnualSurvey.gp_id == GramPanchayat.id
+                    )
+                query = query.where(and_(*filters))
+            return query
+
+        # 1. ODF Sustainability
+        odf_query = select(
+            func.coalesce(func.sum(ODFSustainability.ihhl), 0).label("ihhl"),
+            func.coalesce(func.sum(ODFSustainability.retrofitting), 0).label(
+                "retrofitting"
+            ),
+            func.coalesce(func.sum(ODFSustainability.csc), 0).label("csc"),
+            func.coalesce(func.sum(ODFSustainability.csc_shala_darpan), 0).label(
+                "csc_shala_darpan"
+            ),
+        )
+        odf_query = apply_filters(odf_query, ODFSustainability)
+
+        # 2. SWM Assets
+        swm_query = select(
+            func.coalesce(func.sum(SWMAssetsCategory.bins_hh_level), 0).label(
+                "bins_hh_level"
+            ),
+            func.coalesce(func.sum(SWMAssetsCategory.bins_public_places), 0).label(
+                "bins_public_places"
+            ),
+            func.coalesce(func.sum(SWMAssetsCategory.community_compost_pits), 0).label(
+                "community_compost_pits"
+            ),
+            func.coalesce(func.sum(SWMAssetsCategory.hh_compost_pit), 0).label(
+                "hh_compost_pit"
+            ),
+            func.coalesce(func.sum(SWMAssetsCategory.segregation_sheds), 0).label(
+                "segregation_sheds"
+            ),
+            func.coalesce(func.sum(SWMAssetsCategory.tricycles_manual), 0).label(
+                "tricycles_manual"
+            ),
+            func.coalesce(func.sum(SWMAssetsCategory.e_rickshaws), 0).label(
+                "e_rickshaws"
+            ),
+            func.coalesce(func.sum(SWMAssetsCategory.motorized_vehicles), 0).label(
+                "motorized_vehicles"
+            ),
+        )
+        swm_query = apply_filters(swm_query, SWMAssetsCategory)
+
+        # 3. LWM Assets
+        lwm_query = select(
+            func.coalesce(func.sum(LWMAssets.pits_hh_level), 0).label("pits_hh_level"),
+            func.coalesce(func.sum(LWMAssets.community_pits), 0).label(
+                "community_pits"
+            ),
+            func.coalesce(func.sum(LWMAssets.wsp), 0).label("wsp"),
+            func.coalesce(func.sum(LWMAssets.dewats), 0).label("dewats"),
+            func.coalesce(func.sum(LWMAssets.wetlands), 0).label("wetlands"),
+            func.coalesce(func.sum(LWMAssets.other_treatments), 0).label(
+                "other_treatments"
+            ),
+            func.coalesce(func.sum(LWMAssets.drainage_channels), 0).label(
+                "drainage_channels"
+            ),
+        )
+        lwm_query = apply_filters(lwm_query, LWMAssets)
+
+        # 4. PWMU Details
+        pwmu_query = select(
+            func.coalesce(func.sum(PWMUDetails.established_pwmu), 0).label(
+                "established_pwmu"
+            ),
+            func.coalesce(func.sum(PWMUDetails.blocks_covered_pwmu), 0).label(
+                "blocks_covered_pwmu"
+            ),
+            func.coalesce(func.sum(PWMUDetails.urban_mrfs), 0).label("urban_mrfs"),
+            func.coalesce(func.sum(PWMUDetails.blocks_covered_urban_mrf), 0).label(
+                "blocks_covered_urban_mrf"
+            ),
+        )
+        pwmu_query = apply_filters(pwmu_query, PWMUDetails)
+
+        # 5. FSM Details
+        fsm_query = select(
+            func.coalesce(func.sum(FSMDetails.twin_pit_toilets), 0).label(
+                "twin_pit_toilets"
+            ),
+            func.coalesce(func.sum(FSMDetails.single_pit_toilets), 0).label(
+                "single_pit_toilets"
+            ),
+            func.coalesce(func.sum(FSMDetails.septic_tank_toilets), 0).label(
+                "septic_tank_toilets"
+            ),
+            func.coalesce(func.sum(FSMDetails.retrofitted_toilets), 0).label(
+                "retrofitted_toilets"
+            ),
+            func.coalesce(func.sum(FSMDetails.mechanized_desludging), 0).label(
+                "mechanized_desludging"
+            ),
+            func.coalesce(func.sum(FSMDetails.fstps_rural), 0).label("fstps_rural"),
+            func.coalesce(func.sum(FSMDetails.fstps_urban), 0).label("fstps_urban"),
+        )
+        fsm_query = apply_filters(fsm_query, FSMDetails)
+
+        # 6. Gobardhan Project
+        gobardhan_query = select(
+            func.coalesce(func.sum(GobardhanProject.total_sanctioned), 0).label(
+                "total_sanctioned"
+            ),
+            func.coalesce(func.sum(GobardhanProject.total_functional), 0).label(
+                "total_functional"
+            ),
+            func.coalesce(func.sum(GobardhanProject.gas_production), 0).label(
+                "gas_production"
+            ),
+        )
+        gobardhan_query = apply_filters(gobardhan_query, GobardhanProject)
+
+        # 7. D2D Activities (Special case since it queries directly from AnnualSurvey)
+        d2d_query = (
+            select(
+                func.count(distinct(AnnualSurvey.gp_id)).label("total_gps"),
+                func.count(
+                    distinct(
+                        case(
+                            (D2DActivities.is_active.is_(True), AnnualSurvey.gp_id),
+                            else_=None,
+                        )
+                    )
+                ).label("gps_with_d2d_active"),
+                func.count(
+                    distinct(
+                        case(
+                            (D2DActivities.is_active.is_(True), AnnualSurvey.gp_id),
+                            else_=None,
+                        )
+                    )
+                ).label("running_started_gps"),
+                func.count(
+                    distinct(
+                        case(
+                            (
+                                (D2DActivities.is_active.is_(False)) | (D2DActivities.id.is_(None)),
+                                AnnualSurvey.gp_id,
+                            ),
+                            else_=None,
+                        )
+                    )
+                ).label("not_started_gps"),
+                func.count(
+                    distinct(
+                        case(
+                            (
+                                (D2DActivities.work_frequency == "none") | (D2DActivities.id.is_(None)),
+                                AnnualSurvey.gp_id,
+                            ),
+                            else_=None,
+                        )
+                    )
+                ).label("freq_none"),
+                func.count(
+                    distinct(
+                        case(
+                            (D2DActivities.work_frequency == "weekly", AnnualSurvey.gp_id),
+                            else_=None,
+                        )
+                    )
+                ).label("freq_weekly"),
+                func.count(
+                    distinct(
+                        case(
+                            (D2DActivities.work_frequency == "15 days", AnnualSurvey.gp_id),
+                            else_=None,
+                        )
+                    )
+                ).label("freq_fifteen_days"),
+                func.count(
+                    distinct(
+                        case(
+                            (D2DActivities.work_frequency == "monthly", AnnualSurvey.gp_id),
+                            else_=None,
+                        )
+                    )
+                ).label("freq_monthly"),
+                func.coalesce(func.sum(D2DActivities.sanctioned_tender), 0).label(
+                    "sanctioned_tender"
+                ),
+                func.coalesce(func.sum(D2DActivities.sanctioned_self_gp), 0).label(
+                    "sanctioned_self_gp"
+                ),
+                func.coalesce(func.sum(D2DActivities.sanctioned_csr_ngo), 0).label(
+                    "sanctioned_csr_ngo"
+                ),
+                func.coalesce(func.sum(D2DActivities.sanctioned_shg), 0).label(
+                    "sanctioned_shg"
+                ),
+                func.coalesce(func.sum(D2DActivities.sanctioned_mixed_model), 0).label(
+                    "sanctioned_mixed_model"
+                ),
+                func.coalesce(func.sum(D2DActivities.total_expenditure), 0).label(
+                    "total_expenditure"
+                ),
+                func.coalesce(func.sum(D2DActivities.vehicles_deployed), 0).label(
+                    "vehicles_deployed"
+                ),
+                func.coalesce(func.sum(D2DActivities.persons_deployed), 0).label(
+                    "persons_deployed"
+                ),
+                func.coalesce(func.sum(D2DActivities.households_covered), 0).label(
+                    "households_covered"
+                ),
+                func.coalesce(func.sum(D2DActivities.status_start), 0).label(
+                    "status_start"
+                ),
+                func.coalesce(func.sum(D2DActivities.status_running), 0).label(
+                    "status_running"
+                ),
+                func.coalesce(func.sum(D2DActivities.status_completed), 0).label(
+                    "status_completed"
+                ),
+            )
+            .select_from(AnnualSurvey)
+            .outerjoin(D2DActivities, AnnualSurvey.id == D2DActivities.id)
+        )
+
+        if needs_gp_join:
+            d2d_query = d2d_query.join(
+                GramPanchayat, AnnualSurvey.gp_id == GramPanchayat.id
+            )
+
+        if has_filters:
+            d2d_query = d2d_query.where(and_(*filters))
+
+        # 8. Bartan Bank
+        bartan_query = select(
+            func.coalesce(func.sum(BartanBank.established_banks), 0).label(
+                "established_banks"
+            )
+        )
+        bartan_query = apply_filters(bartan_query, BartanBank)
+
+        # 9. Vehicle Assets
+        vehicle_query = select(
+            func.coalesce(func.sum(VehicleAssets.owned_tricycles), 0).label(
+                "owned_tricycles"
+            ),
+            func.coalesce(func.sum(VehicleAssets.owned_e_rickshaws), 0).label(
+                "owned_e_rickshaws"
+            ),
+            func.coalesce(func.sum(VehicleAssets.owned_motorized_vehicles), 0).label(
+                "owned_motorized_vehicles"
+            ),
+            func.coalesce(func.sum(VehicleAssets.contractor_tricycles), 0).label(
+                "contractor_tricycles"
+            ),
+            func.coalesce(func.sum(VehicleAssets.contractor_e_rickshaws), 0).label(
+                "contractor_e_rickshaws"
+            ),
+            func.coalesce(func.sum(VehicleAssets.contractor_motorized_vehicles), 0).label(
+                "contractor_motorized_vehicles"
+            ),
+        )
+        vehicle_query = apply_filters(vehicle_query, VehicleAssets)
+
+        # Execute all queries
+        odf_res = (await self.db.execute(odf_query)).one()
+        swm_res = (await self.db.execute(swm_query)).one()
+        lwm_res = (await self.db.execute(lwm_query)).one()
+        pwmu_res = (await self.db.execute(pwmu_query)).one()
+        fsm_res = (await self.db.execute(fsm_query)).one()
+        gob_res = (await self.db.execute(gobardhan_query)).one()
+        d2d_res = (await self.db.execute(d2d_query)).one()
+        bartan_res = (await self.db.execute(bartan_query)).one()
+        vehicle_res = (await self.db.execute(vehicle_query)).one()
+
+        # Calculate contracts ending next month
+        today = date.today()
+        if today.month == 12:
+            next_month = 1
+            next_year = today.year + 1
+        else:
+            next_month = today.month + 1
+            next_year = today.year
+
+        start_date = datetime(next_year, next_month, 1, 0, 0, 0)
+        last_day = calendar.monthrange(next_year, next_month)[1]
+        end_date = datetime(next_year, next_month, last_day, 23, 59, 59)
+
+        contractor_filters = [
+            Contractor.contract_end_date >= start_date,
+            Contractor.contract_end_date <= end_date
+        ]
+
+        if gp_id:
+            contractor_filters.append(Contractor.gp_id == gp_id)
+
+        contractor_query = select(func.count(Contractor.id))
+
+        if district_id or block_id:
+            contractor_query = contractor_query.join(GramPanchayat, Contractor.gp_id == GramPanchayat.id)
+            if district_id:
+                contractor_filters.append(GramPanchayat.district_id == district_id)
+            if block_id:
+                contractor_filters.append(GramPanchayat.block_id == block_id)
+
+        contractor_query = contractor_query.where(and_(*contractor_filters))
+        contracts_ending_next_month = (await self.db.execute(contractor_query)).scalar_one() or 0
+
+        return AssetsDashboardResponse(
+            odf_sustainability=ODFSustainabilityStats(
+                ihhl=odf_res.ihhl,
+                retrofitting=odf_res.retrofitting,
+                csc=odf_res.csc,
+                csc_shala_darpan=odf_res.csc_shala_darpan,
+            ),
+            swm_assets=SWMAssetsStats(
+                bins_hh_level=swm_res.bins_hh_level,
+                bins_public_places=swm_res.bins_public_places,
+                community_compost_pits=swm_res.community_compost_pits,
+                hh_compost_pit=swm_res.hh_compost_pit,
+                segregation_sheds=swm_res.segregation_sheds,
+                tricycles_manual=swm_res.tricycles_manual,
+                e_rickshaws=swm_res.e_rickshaws,
+                motorized_vehicles=swm_res.motorized_vehicles,
+            ),
+            lwm_assets=LWMAssetsStats(
+                pits_hh_level=lwm_res.pits_hh_level,
+                community_pits=lwm_res.community_pits,
+                wsp=lwm_res.wsp,
+                dewats=lwm_res.dewats,
+                wetlands=lwm_res.wetlands,
+                other_treatments=lwm_res.other_treatments,
+                drainage_channels=lwm_res.drainage_channels,
+            ),
+            pwmu=PWMUStats(
+                established_pwmu=pwmu_res.established_pwmu,
+                blocks_covered_pwmu=pwmu_res.blocks_covered_pwmu,
+                urban_mrfs=pwmu_res.urban_mrfs,
+                blocks_covered_urban_mrf=pwmu_res.blocks_covered_urban_mrf,
+            ),
+            fsm=FSMStats(
+                twin_pit_toilets=fsm_res.twin_pit_toilets,
+                single_pit_toilets=fsm_res.single_pit_toilets,
+                septic_tank_toilets=fsm_res.septic_tank_toilets,
+                retrofitted_toilets=fsm_res.retrofitted_toilets,
+                mechanized_desludging=fsm_res.mechanized_desludging,
+                fstps_rural=fsm_res.fstps_rural,
+                fstps_urban=fsm_res.fstps_urban,
+            ),
+            gobardhan=GobardhanStats(
+                total_sanctioned=gob_res.total_sanctioned,
+                total_functional=gob_res.total_functional,
+                gas_production=float(gob_res.gas_production),
+            ),
+            d2d_activities=D2DActivitiesStats(
+                total_gps=d2d_res.total_gps,
+                gps_with_d2d_active=d2d_res.gps_with_d2d_active or 0,
+                not_started_gps=d2d_res.not_started_gps or 0,
+                running_started_gps=d2d_res.running_started_gps or 0,
+                sanctioned_tender=d2d_res.sanctioned_tender,
+                sanctioned_self_gp=d2d_res.sanctioned_self_gp,
+                sanctioned_csr_ngo=d2d_res.sanctioned_csr_ngo,
+                sanctioned_shg=d2d_res.sanctioned_shg,
+                sanctioned_mixed_model=d2d_res.sanctioned_mixed_model,
+                total_expenditure=float(d2d_res.total_expenditure),
+                vehicles_deployed=d2d_res.vehicles_deployed,
+                persons_deployed=d2d_res.persons_deployed,
+                households_covered=d2d_res.households_covered,
+                status_start=d2d_res.status_start,
+                status_running=d2d_res.status_running,
+                status_completed=d2d_res.status_completed,
+                work_frequency_count=WorkFrequencyCount(
+                    none=d2d_res.freq_none or 0,
+                    weekly=d2d_res.freq_weekly or 0,
+                    fifteen_days=d2d_res.freq_fifteen_days or 0,
+                    monthly=d2d_res.freq_monthly or 0,
+                ),
+            ),
+            bartan_bank=BartanBankStats(
+                established_banks=bartan_res.established_banks,
+            ),
+            vehicle_assets=VehicleStats(
+                owned_tricycles=vehicle_res.owned_tricycles,
+                owned_e_rickshaws=vehicle_res.owned_e_rickshaws,
+                owned_motorized_vehicles=vehicle_res.owned_motorized_vehicles,
+                contractor_tricycles=vehicle_res.contractor_tricycles,
+                contractor_e_rickshaws=vehicle_res.contractor_e_rickshaws,
+                contractor_motorized_vehicles=vehicle_res.contractor_motorized_vehicles,
+            ),
+            contracts_ending_next_month=contracts_ending_next_month,
+        )
+
+    async def get_assets_drill_down(
+        self,
+        fy_id: Optional[int] = None,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+    ) -> HierarchicalAssetsResponse:
+        """Get hierarchical asset analytics breakdown (District -> Block -> GP)."""
+
+        # Determine the level of breakdown and the grouping entity
+        if block_id:
+            # Level: GP
+            geography_type = "gp"
+            group_by_entity = GramPanchayat
+            filters = [GramPanchayat.block_id == block_id]
+        elif district_id:
+            # Level: Block
+            geography_type = "block"
+            group_by_entity = Block
+            filters = [Block.district_id == district_id]
+        else:
+            # Level: District
+            geography_type = "district"
+            group_by_entity = District
+            filters = []
+
+        # Fetch all geography items for the target level
+        geo_query = select(group_by_entity.id, group_by_entity.name)
+        if filters:
+            geo_query = geo_query.where(and_(*filters))
+        
+        geo_result = await self.db.execute(geo_query)
+        geo_items = geo_result.all()
+
+        results = []
+        for geo in geo_items:
+            # Call the existing optimized total method for each geography item
+            if geography_type == "district":
+                assets = await self.get_assets_dashboard_totals(fy_id=fy_id, district_id=geo.id)
+            elif geography_type == "block":
+                assets = await self.get_assets_dashboard_totals(fy_id=fy_id, block_id=geo.id)
+            else:  # gp
+                assets = await self.get_assets_dashboard_totals(fy_id=fy_id, gp_id=geo.id)
+            
+            results.append(
+                GeographyAssetBreakdown(
+                    geography_id=geo.id,
+                    geography_name=geo.name,
+                    assets=assets
+                )
+            )
+
+        return HierarchicalAssetsResponse(
+            geography_type=geography_type,
+            items=results
+        )
 
     async def get_state_analytics(self, fy_id: Optional[int] = None) -> StateAnalytics:
         """Get state-level analytics for annual surveys."""

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from controllers.auth import get_current_active_user
+from auth_utils import require_reconfirmed_vdo
 from database import get_db
 
 from services.contractor import ContractorService
@@ -14,7 +15,7 @@ from models.database.auth import User
 from models.requests.contractor import CreateAgencyRequest, CreateContractorRequest, UpdateContractorRequest
 from models.response.contractor import AgencyResponse, ContractorResponse
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
 
 
 @router.get("/agencies", response_model=List[AgencyResponse])

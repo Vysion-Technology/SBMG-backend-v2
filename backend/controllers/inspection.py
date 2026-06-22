@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from auth_utils import UserRole, require_staff_role
+from auth_utils import UserRole, require_staff_role, require_reconfirmed_vdo
 from database import get_db
 from models.database.auth import PositionHolder, User
 from models.database.geography import GramPanchayat
@@ -40,7 +40,7 @@ from models.response.inspection import (
 )
 from services.inspection import InspectionService
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
 
 
 @router.get("/performance-report", response_model=PerformanceReportResponse)
@@ -265,6 +265,9 @@ async def get_my_inspections(
                 selectinload(PositionHolder.role),
                 selectinload(PositionHolder.user),
                 selectinload(PositionHolder.employee),
+                selectinload(PositionHolder.gp),
+                selectinload(PositionHolder.block),
+                selectinload(PositionHolder.district),
             )
             .where(PositionHolder.id == inspection.position_holder_id)
         )
@@ -385,6 +388,9 @@ async def get_inspections(
                 selectinload(PositionHolder.role),
                 selectinload(PositionHolder.user),
                 selectinload(PositionHolder.employee),
+                selectinload(PositionHolder.gp),
+                selectinload(PositionHolder.block),
+                selectinload(PositionHolder.district),
             )
             .where(PositionHolder.id == inspection.position_holder_id)
         )
@@ -452,6 +458,9 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
             selectinload(PositionHolder.role),
             selectinload(PositionHolder.user),
             selectinload(PositionHolder.employee),
+            selectinload(PositionHolder.gp),
+            selectinload(PositionHolder.block),
+            selectinload(PositionHolder.district),
         )
         .where(PositionHolder.id == inspection.position_holder_id)
     )

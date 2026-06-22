@@ -84,8 +84,20 @@ class NoticeService:
                 selectinload(Notice.media),
                 selectinload(Notice.type),
                 selectinload(Notice.sender).selectinload(PositionHolder.employee),
+                selectinload(Notice.sender).selectinload(PositionHolder.role),
+                selectinload(Notice.sender).selectinload(PositionHolder.gp),
+                selectinload(Notice.sender).selectinload(PositionHolder.block),
+                selectinload(Notice.sender).selectinload(PositionHolder.district),
                 selectinload(Notice.receiver).selectinload(PositionHolder.employee),
+                selectinload(Notice.receiver).selectinload(PositionHolder.role),
+                selectinload(Notice.receiver).selectinload(PositionHolder.gp),
+                selectinload(Notice.receiver).selectinload(PositionHolder.block),
+                selectinload(Notice.receiver).selectinload(PositionHolder.district),
                 selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.employee),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.role),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.gp),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.block),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.district),
             )
             .where(Notice.sender_id.in_(sender_ids))
             .offset(skip)
@@ -141,8 +153,20 @@ class NoticeService:
                 selectinload(Notice.media),
                 selectinload(Notice.type),
                 selectinload(Notice.sender).selectinload(PositionHolder.employee),
+                selectinload(Notice.sender).selectinload(PositionHolder.role),
+                selectinload(Notice.sender).selectinload(PositionHolder.gp),
+                selectinload(Notice.sender).selectinload(PositionHolder.block),
+                selectinload(Notice.sender).selectinload(PositionHolder.district),
                 selectinload(Notice.receiver).selectinload(PositionHolder.employee),
+                selectinload(Notice.receiver).selectinload(PositionHolder.role),
+                selectinload(Notice.receiver).selectinload(PositionHolder.gp),
+                selectinload(Notice.receiver).selectinload(PositionHolder.block),
+                selectinload(Notice.receiver).selectinload(PositionHolder.district),
                 selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.employee),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.role),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.gp),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.block),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.district),
             )
             .where(Notice.receiver_id.in_(list(all_relevant_position_ids)))
             .offset(skip)
@@ -161,8 +185,20 @@ class NoticeService:
                 selectinload(Notice.media),
                 selectinload(Notice.type),
                 selectinload(Notice.sender).selectinload(PositionHolder.employee),
+                selectinload(Notice.sender).selectinload(PositionHolder.role),
+                selectinload(Notice.sender).selectinload(PositionHolder.gp),
+                selectinload(Notice.sender).selectinload(PositionHolder.block),
+                selectinload(Notice.sender).selectinload(PositionHolder.district),
                 selectinload(Notice.receiver).selectinload(PositionHolder.employee),
+                selectinload(Notice.receiver).selectinload(PositionHolder.role),
+                selectinload(Notice.receiver).selectinload(PositionHolder.gp),
+                selectinload(Notice.receiver).selectinload(PositionHolder.block),
+                selectinload(Notice.receiver).selectinload(PositionHolder.district),
                 selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.employee),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.role),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.gp),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.block),
+                selectinload(Notice.replies).selectinload(NoticeReply.replier).selectinload(PositionHolder.district),
             )
         )
         notice = result.scalar_one_or_none()
@@ -200,7 +236,15 @@ class NoticeService:
         result = await self.db.execute(
             select(NoticeReply)
             .where(NoticeReply.id == reply_id)
-            .options(selectinload(NoticeReply.replier).selectinload(PositionHolder.employee))
+            .options(
+                selectinload(NoticeReply.replier).options(
+                    selectinload(PositionHolder.employee),
+                    selectinload(PositionHolder.role),
+                    selectinload(PositionHolder.gp),
+                    selectinload(PositionHolder.block),
+                    selectinload(PositionHolder.district),
+                )
+            )
         )
         return result.scalar_one_or_none()
 

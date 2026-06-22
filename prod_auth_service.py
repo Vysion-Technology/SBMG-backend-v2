@@ -22,7 +22,6 @@ from models.database.auth import (
     PublicUserOTP,
     PublicUserToken,
     UserPasswordResetOTP,
-    Employee,
 )
 from config import settings
 
@@ -134,7 +133,6 @@ class AuthService:
                 selectinload(User.positions).selectinload(PositionHolder.gp),
                 selectinload(User.positions).selectinload(PositionHolder.block),
                 selectinload(User.positions).selectinload(PositionHolder.district),
-                selectinload(User.positions).selectinload(PositionHolder.employee),
             )
             .where(User.username == username)
         )
@@ -150,7 +148,6 @@ class AuthService:
                 selectinload(User.positions).selectinload(PositionHolder.gp),
                 selectinload(User.positions).selectinload(PositionHolder.block),
                 selectinload(User.positions).selectinload(PositionHolder.district),
-                selectinload(User.positions).selectinload(PositionHolder.employee),
             )
             .where(User.id == user_id)
         )
@@ -283,13 +280,19 @@ class AuthService:
 
     async def send_otp(self, mobile_number: str) -> bool:
         """Send OTP to the given phone number."""
-        import secrets
+        # Placeholder implementation - integrate with actual SMS service
 
-        # Generate a random 6-digit OTP
-        if mobile_number in ["9999999999", "8888888888"]:
-            otp = "123456"
-        else:
-            otp = f"{secrets.randbelow(900000) + 100000}"
+        otp = 123456  # For testing, use a fixed OTP
+        # Check if the OTP exists for the phone number
+        existing_otp = (
+            await self.db.execute(
+                select(PublicUserOTP).where(
+                    PublicUserOTP.public_user.has(mobile_number=mobile_number)
+                )
+            )
+        ).scalar_one_or_none()
+        if existing_otp:
+            otp = existing_otp.otp  # Reuse existing OTP
 
         print(f"Sending OTP {otp} to phone number {mobile_number}")
         # Check if phone number exists in PublicUser table
@@ -346,36 +349,36 @@ class AuthService:
         stored_otp = stored_otp.scalar_one_or_none()
         if not stored_otp or stored_otp.otp != otp:
             raise ValueError("You had not requested an OTP earlier or OTP is incorrect")
-        # Delete any existing tokens for this user to ensure a fresh session
-        await self.db.execute(
-            delete(PublicUserToken).where(
+        # Check if a token already exists for this public user
+        existing_token = await self.db.execute(
+            select(PublicUserToken).where(
                 PublicUserToken.public_user_id == public_user.id
             )
         )
-        
-        # Create a fresh token for the public user
-        token_val = str(uuid.uuid4())
-        
-        await self.db.execute(
+        existing_token = existing_token.scalar_one_or_none()
+        if existing_token:
+            return existing_token.token
+        # Create a token for the public user
+        token = await self.db.execute(
             insert(PublicUserToken)
             .values(
-                id=public_user.id, # Maintain the 1-to-1 ID mapping from prod to avoid sequence conflicts
+                id=public_user.id,
                 public_user_id=public_user.id,
-                token=token_val,
+                token=str(uuid.uuid4()),
                 created_at=datetime.now(tz=timezone.utc),
                 expires_at=datetime.now(tz=timezone.utc) + timedelta(days=365),
             )
+            .returning(PublicUserToken.token)
         )
-        
         # Change the OTP to verified
         await self.db.execute(
             update(PublicUserOTP)
             .where(PublicUserOTP.id == stored_otp.id)
             .values(is_verified=True)
         )
-        
+        token = token.scalar_one()
         await self.db.commit()
-        return token_val
+        return token
 
     @staticmethod
     def get_role_by_user(user: User) -> Optional[UserRole]:
@@ -423,24 +426,15 @@ class AuthService:
     ) -> Optional[PositionHolder]:
         """Get the current position holder for the user."""
         result: Optional[Any] = None
-        options = [
-            selectinload(PositionHolder.role),
-            selectinload(PositionHolder.gp),
-            selectinload(PositionHolder.block),
-            selectinload(PositionHolder.district),
-            selectinload(PositionHolder.employee),
-        ]
         if gp_id is not None:
             result = await self.db.execute(
-                select(PositionHolder)
-                .options(*options)
-                .where(PositionHolder.gp_id == gp_id, PositionHolder.end_date.is_(None))
+                select(PositionHolder).where(
+                    PositionHolder.gp_id == gp_id, PositionHolder.end_date.is_(None)
+                )
             )
         elif block_id is not None:
             result = await self.db.execute(
-                select(PositionHolder)
-                .options(*options)
-                .where(
+                select(PositionHolder).where(
                     PositionHolder.block_id == block_id,
                     PositionHolder.gp_id.is_(None),
                     PositionHolder.end_date.is_(None),
@@ -448,9 +442,7 @@ class AuthService:
             )
         elif district_id is not None:
             result = await self.db.execute(
-                select(PositionHolder)
-                .options(*options)
-                .where(
+                select(PositionHolder).where(
                     PositionHolder.district_id == district_id,
                     PositionHolder.block_id.is_(None),
                     PositionHolder.gp_id.is_(None),
@@ -459,9 +451,7 @@ class AuthService:
             )
         else:
             result = await self.db.execute(
-                select(PositionHolder)
-                .options(*options)
-                .where(
+                select(PositionHolder).where(
                     PositionHolder.district_id.is_(None),
                     PositionHolder.block_id.is_(None),
                     PositionHolder.gp_id.is_(None),
@@ -476,28 +466,13 @@ class AuthService:
 
     async def send_password_reset_otp(self, user_id: int) -> bool:
         """Send OTP to user for password reset."""
-        import secrets
-
         # Check if user exists
         user = await self.get_user_by_id(user_id)
         if not user:
             raise ValueError("User not found")
 
-        # Find associated mobile number through user's employee profile
-        mobile_number = None
-        for position in getattr(user, "positions", []):
-            if position.employee and position.employee.mobile_number:
-                mobile_number = position.employee.mobile_number
-                break
-
-        if not mobile_number:
-            raise ValueError("No mobile number associated with this user's profile")
-
-        # Generate a random 6-digit OTP
-        if user.username == "admin" or mobile_number in ["9999999999", "8888888888"]:
-            otp = "123456"
-        else:
-            otp = f"{secrets.randbelow(900000) + 100000}"
+        # Default OTP for testing
+        otp = "123456"
 
         # Delete any existing OTPs for this user
         await self.db.execute(
@@ -515,8 +490,7 @@ class AuthService:
         )
         await self.db.commit()
 
-        # Send the OTP via SMS gateway
-        send_otp(mobile_number, otp)
+        # In production, you would send the OTP via SMS/email here
         print(f"Password reset OTP for user {user_id}: {otp}")
 
         return True
@@ -569,66 +543,6 @@ class AuthService:
 
         await self.db.commit()
 
-        return True
-
-    async def update_user_profile(
-        self,
-        user_id: int,
-        first_name: Optional[str] = None,
-        middle_name: Optional[str] = None,
-        last_name: Optional[str] = None,
-        email: Optional[str] = None,
-        mobile_number: Optional[str] = None,
-    ) -> bool:
-        """Update user profile and associated employee details."""
-        user = await self.get_user_by_id(user_id)
-        if not user:
-            raise ValueError("User not found")
-
-        # Update User email if provided
-        if email:
-            user.email = email
-
-        # Get active position holder to find the linked employee
-        position = await self.get_user_active_position(user)
-        if position:
-            # If position holder exists, ensure it has an employee record
-            # In this system, PositionHolder has an employee_id
-            result = await self.db.execute(
-                select(Employee).where(Employee.id == position.employee_id)
-            )
-            employee = result.scalar_one_or_none()
-            
-            if employee:
-                if first_name:
-                    employee.first_name = first_name
-                if middle_name is not None:
-                    employee.middle_name = middle_name
-                if last_name:
-                    employee.last_name = last_name
-                if mobile_number:
-                    # Check if mobile number is already taken by another employee
-                    if mobile_number != employee.mobile_number:
-                        existing_employee = await self.db.execute(
-                            select(Employee).where(Employee.mobile_number == mobile_number)
-                        )
-                        if existing_employee.scalar_one_or_none():
-                            raise ValueError("Mobile number already in use by another authority member")
-                        employee.mobile_number = mobile_number
-            else:
-                # If no employee record exists, create one (should not happen normally)
-                new_employee = Employee(
-                    first_name=first_name or "Unknown",
-                    middle_name=middle_name,
-                    last_name=last_name or "Unknown",
-                    mobile_number=mobile_number or "0000000000",
-                    email=email or user.email or f"{user.username}@placeholder.com"
-                )
-                self.db.add(new_employee)
-                await self.db.flush()
-                position.employee_id = new_employee.id
-
-        await self.db.commit()
         return True
 
     async def get_ceo_users(self) -> List[User]:
@@ -711,54 +625,32 @@ class AuthService:
 
 
 def send_otp(mobile_number: str, otp: int | str) -> bool:
-    """Send OTP to the given phone number using Rajasthan eSanchar API."""
-    import logging
-    logger = logging.getLogger(__name__)
+    """Send OTP to the given phone number."""
 
-    client_id = settings.sms_client_id or "59c05392fe26d67f65633bbbbb8320"
-    password = settings.sms_password or "sw9YU-28Bm&_%p"
-    username = settings.sms_username or "SBMOTP"
+    url = "https://www.fast2sms.com/dev/bulkV2"
 
-    url = "https://api.sewadwaar.rajasthan.gov.in/app/live/eSanchar/Prod/Service/api/OBD/CreateOTP/Request"
-
+    # payload = f"variables_values={otp}&route=otp&numbers={mobile_number}"
     headers = {
+        "authorization": "wGrmheyagfiXCqP7sVAD2n8zURu5B6l1jZT4OLS9t3WKHbYNoJy6CTDn1XlmMYLeBsGOjfxVHi07apkE",
         "Content-Type": "application/json",
-        "username": username,
-        "password": password,
+        # "Content-Type": "application/x-www-form-urlencoded",
+        # "Cache-Control": "no-cache",
     }
 
-    message_text = f"Use OTP {otp} to verify your mobile number for SBM Grameen Rajasthan application login. This code is confidential and for one-time use only."
+    response = requests.request(
+        "POST",
+        url,
+        headers=headers,
+        json={
+            "route": "otp",
+            "variables_values": otp,
+            "numbers": mobile_number,
+        },
+        timeout=30,
+    )
 
-    payload = {
-        "UniqueID": "SBM_OTP",
-        "serviceName": "OTP",
-        "language": "ENG",
-        "message": message_text,
-        "mobileNo": [mobile_number],
-        "entityID": "1401393050000077192",
-        "templateID": "1407176821936019129"
-    }
-
-    try:
-        response = requests.post(
-            url,
-            params={"client_id": client_id},
-            headers=headers,
-            json=payload,
-            timeout=30,
-        )
-        logger.info(f"eSanchar SMS response: {response.status_code} - {response.text}")
-        print(f"eSanchar SMS response: {response.status_code} - {response.text}")
-
-        if response.status_code == 200:
-            res_data = response.json()
-            if res_data.get("responseCode") == 200:
-                return True
-        return False
-    except Exception as e:
-        logger.error(f"Failed to send eSanchar SMS: {e}")
-        print(f"Failed to send eSanchar SMS: {e}")
-        return False
+    print(response.text)
+    return True
 
 
 class PublicUserService:

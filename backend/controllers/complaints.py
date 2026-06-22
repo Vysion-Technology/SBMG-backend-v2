@@ -2,7 +2,7 @@
 
 # pylint: disable=line-too-long
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from datetime import date, datetime, timezone
 
 from fastapi import (
@@ -15,6 +15,7 @@ from fastapi import (
     Form,
     Header,
     Query,
+    Request,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -27,9 +28,11 @@ from auth_utils import (
     PermissionChecker,
     UserRole,
     require_worker_role,
+    require_reconfirmed_vdo,
 )
 
-from models.database.auth import User
+from controllers.auth import get_current_active_user, get_current_any_user
+from models.database.auth import User, PublicUser
 from models.database.complaint import (
     Complaint,
     ComplaintStatus,
@@ -121,9 +124,14 @@ async def create_complaint_for_public_user(
         lat=complaint_with_relations.lat,
         long=complaint_with_relations.long,
         location=complaint_with_relations.location,
+        village_id=complaint_with_relations.gp_id,
+        block_id=complaint_with_relations.block_id,
+        district_id=complaint_with_relations.district_id,
+        last_sla_breach_level=complaint_with_relations.last_sla_breach_level,
         resolved_at=complaint_with_relations.resolved_at,
         verified_at=complaint_with_relations.verified_at,
         closed_at=complaint_with_relations.closed_at,
+        closed_by_info=complaint_with_relations.closed_by_info,
         complaint_type=complaint_with_relations.complaint_type.name
         if complaint_with_relations.complaint_type
         else None,
@@ -159,6 +167,7 @@ async def create_complaint_for_public_user(
                 comment=comment.comment,
                 commented_at=comment.commented_at,
                 user_name=comment.user.name if comment.user else "",
+                is_system_generated=comment.is_system_generated,
             )
             for comment in complaint_with_relations.comments
         ]
@@ -212,9 +221,14 @@ async def update_complaint_for_public_user(
         lat=complaint_with_relations.lat,
         long=complaint_with_relations.long,
         location=complaint_with_relations.location,
+        village_id=complaint_with_relations.gp_id,
+        block_id=complaint_with_relations.block_id,
+        district_id=complaint_with_relations.district_id,
+        last_sla_breach_level=complaint_with_relations.last_sla_breach_level,
         resolved_at=complaint_with_relations.resolved_at,
         verified_at=complaint_with_relations.verified_at,
         closed_at=complaint_with_relations.closed_at,
+        closed_by_info=complaint_with_relations.closed_by_info,
         complaint_type=complaint_with_relations.complaint_type.name
         if complaint_with_relations.complaint_type
         else None,
@@ -250,6 +264,7 @@ async def update_complaint_for_public_user(
                 comment=comment.comment,
                 commented_at=comment.commented_at,
                 user_name=comment.user.name if comment.user else "",
+                is_system_generated=comment.is_system_generated,
             )
             for comment in complaint_with_relations.comments
         ]
@@ -264,20 +279,20 @@ async def update_complaint_for_public_user(
 @router.get("/my", response_model=List[DetailedComplaintResponse])
 async def get_my_complaints(
     db: AsyncSession = Depends(get_db),
-    token: str = Header(..., description="Public user token"),
+    current_user: Union[User, PublicUser] = Depends(get_current_any_user),
     skip: int = Query(0, ge=0, le=10000),
     limit: int = Query(100, ge=1, le=1000),
     order_by: ComplaintOrderByEnum = ComplaintOrderByEnum.NEWEST,
 ) -> List[DetailedComplaintResponse]:
     """Get complaints created by the authenticated public user."""
-    # Verify the public user token
-    auth_service = AuthService(db)
-    user = await auth_service.get_public_user_by_token(token)
-    if not user:
+    # Ensure it's a public user
+    if not isinstance(current_user, PublicUser):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing user token",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only public users can access this endpoint",
         )
+
+    user = current_user
 
     # Query complaints by mobile number
     query = (
@@ -331,12 +346,15 @@ async def get_my_complaints(
             lat=complaint.lat,
             long=complaint.long,
             location=complaint.location,
+            village_id=complaint.gp_id,
+            block_id=complaint.block_id,
+            district_id=complaint.district_id,
+            last_sla_breach_level=complaint.last_sla_breach_level,
             resolved_at=complaint.resolved_at,
             verified_at=complaint.verified_at,
             closed_at=complaint.closed_at,
-            complaint_type=complaint.complaint_type.name
-            if complaint.complaint_type
-            else None,
+            closed_by_info=complaint.closed_by_info,
+            complaint_type=complaint.complaint_type.name if complaint.complaint_type else None,
             status=complaint.status.name if complaint.status else None,
             village_name=complaint.gp.name if complaint.gp else None,
             block_name=complaint.block.name if complaint.block else None,
@@ -399,9 +417,52 @@ async def update_complaint_status(
             status_code=status.HTTP_404_NOT_FOUND, detail="Status not found"
         )
 
+    # Prevent VDO from changing status to CLOSED
+    if new_status.name == "CLOSED" and PermissionChecker.user_has_role(
+        current_user, [UserRole.VDO]
+    ):
+        # Admins, CEOs, and BDOs might also pass user_has_role(VDO) in this implementation,
+        # but PermissionChecker.user_has_role for VDO returns True if user has gp_id.
+        # We should check if they have HIGHER roles first or check specifically for VDO role.
+        # However, looking at PermissionChecker, it's safer to check the roles directly from positions
+        # if we want to be strict.
+        user_roles = [pos.role.name for pos in current_user.positions if pos.role]
+        if UserRole.VDO in user_roles and not any(
+            role in [UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.CEO, UserRole.BDO]
+            for role in user_roles
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="VDOs are not allowed to close complaints. Only Citizens or higher authority can close them.",
+            )
+
     # Update complaint
     complaint.status_id = new_status.id
-    complaint.updated_at = datetime.now()  # type: ignore
+    complaint.updated_at = datetime.now(tz=timezone.utc)  # type: ignore
+
+    if new_status.name == "CLOSED":
+        complaint.closed_at = datetime.now(tz=timezone.utc)
+        complaint.closed_by_id = current_user.id
+        
+        # Construct role - place_name info
+        user_role = current_user.role
+        place_name = ""
+        
+        # Use positions to get the geographical name
+        if current_user.positions:
+            pos = current_user.positions[0]
+            if user_role == "VDO" and pos.gp:
+                place_name = pos.gp.name
+            elif user_role == "BDO" and pos.block:
+                place_name = pos.block.name
+            elif user_role == "CEO" and pos.district:
+                place_name = pos.district.name
+            elif user_role == "WORKER" and pos.gp:
+                place_name = pos.gp.name
+            elif user_role == "ADMIN":
+                place_name = "State"
+        
+        complaint.closed_by_info = f"{user_role} - {place_name}" if place_name else user_role
 
     await db.commit()
 
