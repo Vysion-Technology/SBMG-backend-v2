@@ -23,14 +23,14 @@ def upgrade() -> None:
     # 1. Rename enum value 'none' to 'daily' in postgres type
     op.execute("ALTER TYPE work_frequency RENAME VALUE 'none' TO 'daily'")
     
-    # 2. Update existing inactive D2D activities to have NULL frequency
-    op.execute("UPDATE survey_d2d_activities SET work_frequency = NULL WHERE is_active = false")
-    
-    # 3. Make work_frequency column nullable and drop its default value
+    # 2. Make work_frequency column nullable and drop its default value
     op.alter_column('survey_d2d_activities', 'work_frequency',
                existing_type=sa.Enum('daily', 'weekly', '15 days', 'monthly', name='work_frequency'),
                nullable=True,
                server_default=None)
+               
+    # 3. Update existing inactive D2D activities to have NULL frequency
+    op.execute("UPDATE survey_d2d_activities SET work_frequency = NULL WHERE is_active = false")
 
 
 def downgrade() -> None:
