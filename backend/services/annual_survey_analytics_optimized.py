@@ -245,14 +245,11 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 func.count(
                     distinct(
                         case(
-                            (
-                                (D2DActivities.work_frequency == "none") | (D2DActivities.id.is_(None)),
-                                AnnualSurvey.gp_id,
-                            ),
+                            (D2DActivities.work_frequency == "daily", AnnualSurvey.gp_id),
                             else_=None,
                         )
                     )
-                ).label("freq_none"),
+                ).label("freq_daily"),
                 func.count(
                     distinct(
                         case(
@@ -465,7 +462,7 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 status_running=d2d_res.status_running,
                 status_completed=d2d_res.status_completed,
                 work_frequency_count=WorkFrequencyCount(
-                    none=d2d_res.freq_none or 0,
+                    daily=d2d_res.freq_daily or 0,
                     weekly=d2d_res.freq_weekly or 0,
                     fifteen_days=d2d_res.freq_fifteen_days or 0,
                     monthly=d2d_res.freq_monthly or 0,

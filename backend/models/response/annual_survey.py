@@ -175,7 +175,7 @@ class D2DActivitiesResponse(BaseModel):
     """Response model for D2D activities details."""
     id: int
     is_active: bool
-    work_frequency: WorkFrequency
+    work_frequency: Optional[WorkFrequency]
     sanctioned_tender: int
     sanctioned_self_gp: int
     sanctioned_csr_ngo: int
