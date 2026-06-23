@@ -146,6 +146,7 @@ class D2DActivitiesRequest(BaseModel):
 class BartanBankRequest(BaseModel):
     """Request model for Bartan Bank details."""
     established_banks: int = 0
+    revenue: float = 0.0
 
 
 class VehicleAssetsRequest(BaseModel):

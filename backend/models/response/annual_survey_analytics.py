@@ -247,6 +247,7 @@ class D2DActivitiesStats(BaseModel):
 
 class BartanBankStats(BaseModel):
     established_banks: int
+    revenue: float
 
 
 class VehicleStats(BaseModel):

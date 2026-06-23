@@ -327,7 +327,8 @@ class AnnualSurveyAnalyticsServiceOptimized:
         bartan_query = select(
             func.coalesce(func.sum(BartanBank.established_banks), 0).label(
                 "established_banks"
-            )
+            ),
+            func.coalesce(func.sum(BartanBank.revenue), 0).label("revenue"),
         )
         bartan_query = apply_filters(bartan_query, BartanBank)
 
@@ -470,6 +471,7 @@ class AnnualSurveyAnalyticsServiceOptimized:
             ),
             bartan_bank=BartanBankStats(
                 established_banks=bartan_res.established_banks,
+                revenue=float(bartan_res.revenue),
             ),
             vehicle_assets=VehicleStats(
                 owned_tricycles=vehicle_res.owned_tricycles,

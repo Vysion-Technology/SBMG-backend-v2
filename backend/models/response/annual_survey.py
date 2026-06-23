@@ -197,6 +197,7 @@ class BartanBankResponse(BaseModel):
     """Response model for Bartan Bank details."""
     id: int
     established_banks: int
+    revenue: float
 
     class Config:
         from_attributes = True

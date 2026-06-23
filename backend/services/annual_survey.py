@@ -289,6 +289,7 @@ class AnnualSurveyService:
             self.db.add(BartanBank(
                 id=survey.id,
                 established_banks=request.bartan_bank.established_banks,
+                revenue=request.bartan_bank.revenue,
             ))
 
         if request.vehicle_assets:
@@ -892,6 +893,7 @@ class AnnualSurveyService:
         self.db.add(BartanBank(
             id=survey.id,
             established_banks=random.randint(0, 5),
+            revenue=float(random.randint(5000, 20000)),
         ))
 
         self.db.add(VehicleAssets(

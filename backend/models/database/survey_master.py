@@ -523,6 +523,7 @@ class BartanBank(Base):
     id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
     
     established_banks: Mapped[int] = mapped_column(Integer, default=0)
+    revenue: Mapped[float] = mapped_column(Numeric(15, 2), default=0.0)
 
     # 1:1 relationship back to survey
     survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="bartan_bank")
