@@ -53,7 +53,7 @@ class CleaningFrequency(str, PyEnum):
 class WorkFrequency(str, PyEnum):
     """Work frequency for door-to-door activities"""
 
-    NONE = "none"
+    DAILY = "daily"
     WEEKLY = "weekly"
     FIFTEEN_DAYS = "15 days"
     MONTHLY = "monthly"
@@ -492,8 +492,8 @@ class D2DActivities(Base):
     id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
     
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
-    work_frequency: Mapped[WorkFrequency] = mapped_column(
-        Enum(WorkFrequency, name="work_frequency", values_callable=lambda x: [e.value for e in x]), nullable=False, default=WorkFrequency.NONE, server_default="none"
+    work_frequency: Mapped[Optional[WorkFrequency]] = mapped_column(
+        Enum(WorkFrequency, name="work_frequency", values_callable=lambda x: [e.value for e in x]), nullable=True, default=None, server_default=None
     )
     
     # Sanctioned Status
@@ -523,6 +523,7 @@ class BartanBank(Base):
     id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
     
     established_banks: Mapped[int] = mapped_column(Integer, default=0)
+    revenue: Mapped[float] = mapped_column(Numeric(15, 2), default=0.0)
 
     # 1:1 relationship back to survey
     survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="bartan_bank")

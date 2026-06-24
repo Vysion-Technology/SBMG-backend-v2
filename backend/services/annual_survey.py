@@ -270,7 +270,7 @@ class AnnualSurveyService:
             self.db.add(D2DActivities(
                 id=survey.id,
                 is_active=request.d2d_activities.is_active,
-                work_frequency=request.d2d_activities.work_frequency if request.d2d_activities.is_active else WorkFrequency.NONE,
+                work_frequency=request.d2d_activities.work_frequency if request.d2d_activities.is_active else None,
                 sanctioned_tender=request.d2d_activities.sanctioned_tender,
                 sanctioned_self_gp=request.d2d_activities.sanctioned_self_gp,
                 sanctioned_csr_ngo=request.d2d_activities.sanctioned_csr_ngo,
@@ -289,6 +289,7 @@ class AnnualSurveyService:
             self.db.add(BartanBank(
                 id=survey.id,
                 established_banks=request.bartan_bank.established_banks,
+                revenue=request.bartan_bank.revenue,
             ))
 
         if request.vehicle_assets:
@@ -444,7 +445,7 @@ class AnnualSurveyService:
         await upsert_section(GobardhanProject, request.gobardhan_projects, survey.gobardhan_projects)
         await upsert_section(D2DActivities, request.d2d_activities, survey.d2d_activities)
         if survey.d2d_activities and not survey.d2d_activities.is_active:
-            survey.d2d_activities.work_frequency = WorkFrequency.NONE
+            survey.d2d_activities.work_frequency = None
         await upsert_section(BartanBank, request.bartan_bank, survey.bartan_bank)
         await upsert_section(VehicleAssets, request.vehicle_assets, survey.vehicle_assets)
         
@@ -874,7 +875,7 @@ class AnnualSurveyService:
         self.db.add(D2DActivities(
             id=survey.id,
             is_active=is_active,
-            work_frequency=random.choice([WorkFrequency.WEEKLY, WorkFrequency.FIFTEEN_DAYS, WorkFrequency.MONTHLY]) if is_active else WorkFrequency.NONE,
+            work_frequency=random.choice([WorkFrequency.DAILY, WorkFrequency.WEEKLY, WorkFrequency.FIFTEEN_DAYS, WorkFrequency.MONTHLY]) if is_active else None,
             sanctioned_tender=random.randint(0, 5),
             sanctioned_self_gp=random.randint(0, 5),
             sanctioned_csr_ngo=random.randint(0, 2),
@@ -892,6 +893,7 @@ class AnnualSurveyService:
         self.db.add(BartanBank(
             id=survey.id,
             established_banks=random.randint(0, 5),
+            revenue=float(random.randint(5000, 20000)),
         ))
 
         self.db.add(VehicleAssets(

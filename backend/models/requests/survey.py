@@ -120,7 +120,7 @@ class GobardhanProjectRequest(BaseModel):
 class D2DActivitiesRequest(BaseModel):
     """Request model for D2D activities details."""
     is_active: bool = False
-    work_frequency: WorkFrequency = WorkFrequency.NONE
+    work_frequency: Optional[WorkFrequency] = None
     sanctioned_tender: int = 0
     sanctioned_self_gp: int = 0
     sanctioned_csr_ngo: int = 0
@@ -136,14 +136,17 @@ class D2DActivitiesRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_work_frequency(self):
-        if not self.is_active and self.work_frequency != WorkFrequency.NONE:
-            raise ValueError("work_frequency must be 'none' if is_active is False")
+        if not self.is_active:
+            self.work_frequency = None
+        elif self.is_active and self.work_frequency is None:
+            self.work_frequency = WorkFrequency.DAILY
         return self
 
 
 class BartanBankRequest(BaseModel):
     """Request model for Bartan Bank details."""
     established_banks: int = 0
+    revenue: float = 0.0
 
 
 class VehicleAssetsRequest(BaseModel):

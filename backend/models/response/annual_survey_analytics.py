@@ -216,7 +216,7 @@ class GobardhanStats(BaseModel):
 
 
 class WorkFrequencyCount(BaseModel):
-    none: int = 0
+    daily: int = 0
     weekly: int = 0
     fifteen_days: int = Field(0, alias="15 days")
     monthly: int = 0
@@ -247,6 +247,7 @@ class D2DActivitiesStats(BaseModel):
 
 class BartanBankStats(BaseModel):
     established_banks: int
+    revenue: float
 
 
 class VehicleStats(BaseModel):

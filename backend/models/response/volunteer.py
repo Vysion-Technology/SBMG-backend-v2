@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional
 from pydantic import BaseModel, field_validator
 
@@ -46,6 +46,7 @@ class VolunteerResponse(BaseModel):
     additional_volunteers_count: int
 
     category: str
+    created_at: datetime
 
     @field_validator("photo_url")
     @classmethod
