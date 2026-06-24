@@ -18,6 +18,7 @@ from models.response.gps import (
 )
 from services.geography import GeographyService
 from services.gps_tracking import GPSTrackingService
+from middleware.xss_protection import XSSProtectionRoute
 
 router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
 

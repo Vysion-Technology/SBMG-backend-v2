@@ -9,8 +9,9 @@ from models.database.auth import User, PublicUser, PublicUserToken
 from models.database.fcm_device import UserDeviceToken, PublicUserDeviceToken
 from models.requests.fcm_device import DeviceRegistrationRequest, DeviceRegistrationResponse
 from auth_utils import get_current_active_user
+from middleware.xss_protection import XSSProtectionRoute
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 logger = logging.getLogger(__name__)
 
 

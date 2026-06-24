@@ -28,8 +28,9 @@ from models.requests.admin import (
 from models.requests.complaint import ComplaintTypeRequest
 from models.response.admin import UserResponse, RoleResponse
 from models.response.complaint import ComplaintTypeResponse
+from middleware.xss_protection import XSSProtectionRoute
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 # User Management

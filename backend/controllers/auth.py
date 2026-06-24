@@ -13,13 +13,14 @@ from services.auth import AuthService
 from services.annual_survey import AnnualSurveyService
 from services.encryption import EncryptionService
 from config import settings
+from middleware.xss_protection import XSSProtectionRoute
 
 
 # Security
 security = HTTPBearer(auto_error=False)
 
 # Router
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 # Pydantic models for request/response

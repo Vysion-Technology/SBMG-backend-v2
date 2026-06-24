@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import DBAPIError, DataError
 
 from controllers import contractor
 from controllers import citizen, event, scheme
@@ -26,6 +27,7 @@ from controllers import formulae
 from controllers import contractor_analytics
 from database import get_db
 from middleware.security import SecurityHeadersMiddleware
+from middleware.auth import JWTSlidingWindowMiddleware
 from services.gps_tracking import GPSTrackingService
 from services.sla_service import SLAService
 
@@ -76,6 +78,7 @@ fastapi_app = FastAPI(
 
 # Add Security Headers Middleware
 fastapi_app.add_middleware(SecurityHeadersMiddleware)
+fastapi_app.add_middleware(JWTSlidingWindowMiddleware)
 
 # Add CORS middleware
 # Primary production origins
@@ -122,6 +125,7 @@ fastapi_app.add_middleware(
         "Access-Control-Request-Method",
         "Access-Control-Request-Headers",
     ],
+    expose_headers=["X-Refresh-Token"],
 )
 
 
@@ -230,6 +234,20 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "message": "Validation error",
             "errors": simplified_errors,
             "status_code": 422,
+        },
+    )
+
+
+@fastapi_app.exception_handler(DBAPIError)
+@fastapi_app.exception_handler(DataError)
+async def db_exception_handler(request: Request, exc: Exception):  # pylint: disable=unused-argument
+    """Handle database exceptions without leaking internal details."""
+    logger.error("Database exception occurred: %s", str(exc), exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "message": "Internal server error occurred.",
+            "status_code": 500,
         },
     )
 

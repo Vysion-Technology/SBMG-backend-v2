@@ -32,8 +32,9 @@ from models.response.complaint import (
 
 from services.geography import GeographyService
 from services.s3_service import s3_service
+from middleware.xss_protection import XSSProtectionRoute
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 # Pydantic models for responses
