@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_utils import require_staff_role
+from auth_utils import require_staff_role, require_reconfirmed_vdo
 from database import get_db
 
 from models.database.auth import User
@@ -22,7 +22,7 @@ from services.geography import GeographyService
 from services.contractor_analytics import ContractorAnalyticsService
 from middleware.xss_protection import XSSProtectionRoute
 
-router = APIRouter(route_class=XSSProtectionRoute)
+router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
 
 
 @router.get("/analytics/state", response_model=ContractorStateAnalytics)

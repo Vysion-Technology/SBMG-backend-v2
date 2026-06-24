@@ -23,7 +23,7 @@ from models.response.notice import (
     NoticeReplyResponse,
 )
 
-from auth_utils import require_admin, require_staff_role
+from auth_utils import require_admin, require_staff_role, require_reconfirmed_vdo
 
 from services.auth import AuthService
 from services.position_holder import PositionHolderService
@@ -35,7 +35,7 @@ from middleware.file_validation import validate_secure_file
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(route_class=XSSProtectionRoute)
+router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
 
 
 @router.post(

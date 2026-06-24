@@ -49,6 +49,7 @@ from models.database.survey_master import (
     FundHead,
     CollectionFrequency,
     CleaningFrequency,
+    WorkFrequency,
     AnnualSurvey,
     DoorToDoorCollectionDetails,
     RoadSweepingDetails,
@@ -61,11 +62,16 @@ from models.database.survey_master import (
     FSMDetails,
     GobardhanProject,
     D2DActivities,
+    BartanBank,
+    VehicleAssets,
     FundSanctioned,
     WorkOrderDetails,
 )
 from models.database.gps import GPSTracking, Vehicle, GPSRecord
 from models.database.feedback import Feedback
+from models.database.volunteer import VolunteerRegistration
+from models.database.circular import Circular
+
 __all__ = [
     # Auth models
     "DailyAttendance",
@@ -125,6 +131,7 @@ __all__ = [
     "FundHead",
     "CollectionFrequency",
     "CleaningFrequency",
+    "WorkFrequency",
     "AnnualSurvey",
     "DoorToDoorCollectionDetails",
     "RoadSweepingDetails",
@@ -137,6 +144,8 @@ __all__ = [
     "FSMDetails",
     "GobardhanProject",
     "D2DActivities",
+    "BartanBank",
+    "VehicleAssets",
     "FundSanctioned",
     "WorkOrderDetails",
     # GPS Tracking model
@@ -145,4 +154,9 @@ __all__ = [
     "Vehicle",
     # Feedback model
     "Feedback",
+    # Volunteer model
+    "VolunteerRegistration",
+    # Circular model
+    "Circular",
 ]
+

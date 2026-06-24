@@ -10,7 +10,7 @@ from controllers.auth import get_current_any_user
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from auth_utils import require_admin
+from auth_utils import require_admin, require_reconfirmed_vdo
 
 from services.s3_service import s3_service
 from services.scheme import SchemeService

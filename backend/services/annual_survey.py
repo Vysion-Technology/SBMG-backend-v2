@@ -6,7 +6,7 @@ Handles business logic for annual survey management
 from fastapi.exceptions import HTTPException
 from fastapi import status
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
 import random
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,12 +34,15 @@ from models.database.survey_master import (
     FSMDetails,
     GobardhanProject,
     D2DActivities,
+    BartanBank,
+    VehicleAssets,
     SBMGYearTargets,
     VillageData,
     VillageSBMGAssets,
     VillageGWMAssets,
     CollectionFrequency,
     CleaningFrequency,
+    WorkFrequency,
 )
 from models.database.auth import PositionHolder, User
 from models.database.geography import Block, District, GramPanchayat, Village
@@ -78,6 +81,7 @@ def get_response_model_from_survey(
             last_name=survey.vdo.last_name,
             username=survey.vdo.user.username,
         ),
+        last_reconfirmed_at=survey.last_reconfirmed_at,
         created_at=survey.created_at,
         updated_at=survey.updated_at,
         work_order=survey.work_order,
@@ -94,6 +98,8 @@ def get_response_model_from_survey(
         fsm_details=survey.fsm_details,
         gobardhan_projects=survey.gobardhan_projects,
         d2d_activities=survey.d2d_activities,
+        bartan_bank=survey.bartan_bank,
+        vehicle_assets=survey.vehicle_assets,
         
         sbmg_targets=survey.sbmg_targets,
         village_data=survey.village_data,  # type: ignore
@@ -212,6 +218,7 @@ class AnnualSurveyService:
                 bins_hh_level=request.swm_assets.bins_hh_level,
                 bins_public_places=request.swm_assets.bins_public_places,
                 community_compost_pits=request.swm_assets.community_compost_pits,
+                hh_compost_pit=request.swm_assets.hh_compost_pit,
                 segregation_sheds=request.swm_assets.segregation_sheds,
                 tricycles_manual=request.swm_assets.tricycles_manual,
                 e_rickshaws=request.swm_assets.e_rickshaws,
@@ -254,16 +261,21 @@ class AnnualSurveyService:
         if request.gobardhan_projects:
             self.db.add(GobardhanProject(
                 id=survey.id,
-                total_projects=request.gobardhan_projects.total_projects,
+                total_sanctioned=request.gobardhan_projects.total_sanctioned,
+                total_functional=request.gobardhan_projects.total_functional,
+                gas_production=request.gobardhan_projects.gas_production,
             ))
 
         if request.d2d_activities:
             self.db.add(D2DActivities(
                 id=survey.id,
+                is_active=request.d2d_activities.is_active,
+                work_frequency=request.d2d_activities.work_frequency if request.d2d_activities.is_active else None,
                 sanctioned_tender=request.d2d_activities.sanctioned_tender,
                 sanctioned_self_gp=request.d2d_activities.sanctioned_self_gp,
                 sanctioned_csr_ngo=request.d2d_activities.sanctioned_csr_ngo,
                 sanctioned_shg=request.d2d_activities.sanctioned_shg,
+                sanctioned_mixed_model=request.d2d_activities.sanctioned_mixed_model,
                 total_expenditure=request.d2d_activities.total_expenditure,
                 vehicles_deployed=request.d2d_activities.vehicles_deployed,
                 persons_deployed=request.d2d_activities.persons_deployed,
@@ -271,6 +283,24 @@ class AnnualSurveyService:
                 status_start=request.d2d_activities.status_start,
                 status_running=request.d2d_activities.status_running,
                 status_completed=request.d2d_activities.status_completed,
+            ))
+
+        if request.bartan_bank:
+            self.db.add(BartanBank(
+                id=survey.id,
+                established_banks=request.bartan_bank.established_banks,
+                revenue=request.bartan_bank.revenue,
+            ))
+
+        if request.vehicle_assets:
+            self.db.add(VehicleAssets(
+                id=survey.id,
+                owned_tricycles=request.vehicle_assets.owned_tricycles,
+                owned_e_rickshaws=request.vehicle_assets.owned_e_rickshaws,
+                owned_motorized_vehicles=request.vehicle_assets.owned_motorized_vehicles,
+                contractor_tricycles=request.vehicle_assets.contractor_tricycles,
+                contractor_e_rickshaws=request.vehicle_assets.contractor_e_rickshaws,
+                contractor_motorized_vehicles=request.vehicle_assets.contractor_motorized_vehicles,
             ))
 
         if request.sbmg_targets:
@@ -318,31 +348,7 @@ class AnnualSurveyService:
                     ))
 
         await self.db.commit()
-        await self.db.refresh(survey)
-
-        agency = await self.db.get(Agency, request.agency_id)
-        agency_name = agency.name if agency else ""
-
-        return AnnualSurveyResponse(
-            id=survey.id,
-            fy_id=survey.fy_id,
-            gp_id=survey.gp_id,
-            survey_date=survey.survey_date,
-            vdo_id=survey.vdo_id,
-            vdo_name=survey.vdo_name,
-            vdo_contact_number=survey.vdo_contact_number,
-            gp_name=gp.name,
-            block_name=gp.block.name,
-            district_name=gp.district.name,
-            sarpanch_name=survey.sarpanch_name or "",
-            sarpanch_contact=survey.sarpanch_contact or "",
-            num_ward_panchs=survey.num_ward_panchs or 0,
-            agency_id=survey.agency_id,
-            agency_name=agency_name,
-            vdo=None,
-            created_at=survey.created_at,
-            updated_at=survey.updated_at,
-        )
+        return await self.get_survey_by_id(survey.id)
 
     async def update_survey(
         self, survey_id: int, request: UpdateAnnualSurveyRequest
@@ -376,6 +382,8 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.fsm_details),
                 selectinload(AnnualSurvey.gobardhan_projects),
                 selectinload(AnnualSurvey.d2d_activities),
+                selectinload(AnnualSurvey.bartan_bank),
+                selectinload(AnnualSurvey.vehicle_assets),
                 selectinload(AnnualSurvey.sbmg_targets),
             )
             .where(AnnualSurvey.id == survey_id)
@@ -397,6 +405,9 @@ class AnnualSurveyService:
             survey.num_ward_panchs = request.num_ward_panchs
         if request.agency_id is not None:
             survey.agency_id = request.agency_id
+        
+        # Update reconfirmation timestamp
+        survey.last_reconfirmed_at = datetime.now()
 
         # --- Helper for standard sections ---
         async def upsert_section(model_class, request_data, existing_obj=None):
@@ -433,6 +444,10 @@ class AnnualSurveyService:
         await upsert_section(FSMDetails, request.fsm_details, survey.fsm_details)
         await upsert_section(GobardhanProject, request.gobardhan_projects, survey.gobardhan_projects)
         await upsert_section(D2DActivities, request.d2d_activities, survey.d2d_activities)
+        if survey.d2d_activities and not survey.d2d_activities.is_active:
+            survey.d2d_activities.work_frequency = None
+        await upsert_section(BartanBank, request.bartan_bank, survey.bartan_bank)
+        await upsert_section(VehicleAssets, request.vehicle_assets, survey.vehicle_assets)
         
         await upsert_section(SBMGYearTargets, request.sbmg_targets, survey.sbmg_targets)
 
@@ -479,29 +494,7 @@ class AnnualSurveyService:
                     self.db.add(VillageGWMAssets(id=v_data.id, **village_req.gwm_assets.model_dump()))
 
         await self.db.commit()
-        await self.db.refresh(survey)
-
-        agency_name = survey.agency.name if getattr(survey, "agency", None) else ""
-        return AnnualSurveyResponse(
-            id=survey.id,
-            fy_id=survey.fy_id,
-            gp_id=survey.gp_id,
-            survey_date=survey.survey_date,
-            vdo_id=survey.vdo_id,
-            vdo_name=survey.vdo_name,
-            vdo_contact_number=survey.vdo_contact_number,
-            gp_name=survey.gp.name,
-            block_name=survey.gp.block.name,
-            district_name=survey.gp.district.name,
-            sarpanch_name=survey.sarpanch_name or "",
-            sarpanch_contact=survey.sarpanch_contact or "",
-            num_ward_panchs=survey.num_ward_panchs or 0,
-            agency_id=survey.agency_id,
-            agency_name=agency_name,
-            vdo=None,
-            created_at=survey.created_at,
-            updated_at=survey.updated_at,
-        )
+        return await self.get_survey_by_id(survey.id)
 
     async def get_survey_by_id(self, survey_id: int) -> Optional[AnnualSurveyResponse]:
         """Get annual survey by ID with all related data."""
@@ -533,6 +526,8 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.fsm_details),
                 selectinload(AnnualSurvey.gobardhan_projects),
                 selectinload(AnnualSurvey.d2d_activities),
+                selectinload(AnnualSurvey.bartan_bank),
+                selectinload(AnnualSurvey.vehicle_assets),
                 selectinload(AnnualSurvey.sbmg_targets),
                 selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
                 selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
@@ -584,6 +579,8 @@ class AnnualSurveyService:
             selectinload(AnnualSurvey.fsm_details),
             selectinload(AnnualSurvey.gobardhan_projects),
             selectinload(AnnualSurvey.d2d_activities),
+            selectinload(AnnualSurvey.bartan_bank),
+            selectinload(AnnualSurvey.vehicle_assets),
             selectinload(AnnualSurvey.sbmg_targets),
             selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
             selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
@@ -614,6 +611,55 @@ class AnnualSurveyService:
         await self.db.execute(delete(AnnualSurvey).where(AnnualSurvey.id == survey_id))
         await self.db.commit()
         return True
+
+    async def reconfirm_survey(self, survey_id: int) -> AnnualSurveyResponse:
+        """Reconfirm an existing annual survey without updating data."""
+        result = await self.db.execute(
+            select(AnnualSurvey)
+            .options(
+                selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.block),
+                selectinload(AnnualSurvey.gp).selectinload(GramPanchayat.district),
+                selectinload(AnnualSurvey.vdo).options(
+                    selectinload(PositionHolder.user),
+                    selectinload(PositionHolder.role),
+                    selectinload(PositionHolder.gp),
+                    selectinload(PositionHolder.block),
+                    selectinload(PositionHolder.district),
+                    selectinload(PositionHolder.employee),
+                ),
+                selectinload(AnnualSurvey.agency),
+                selectinload(AnnualSurvey.work_order),
+                selectinload(AnnualSurvey.fund_sanctioned),
+                selectinload(AnnualSurvey.door_to_door_collection),
+                selectinload(AnnualSurvey.road_sweeping),
+                selectinload(AnnualSurvey.drain_cleaning),
+                selectinload(AnnualSurvey.csc_details),
+                # New assets
+                selectinload(AnnualSurvey.odf_sustainability),
+                selectinload(AnnualSurvey.swm_assets),
+                selectinload(AnnualSurvey.lwm_assets),
+                selectinload(AnnualSurvey.pwmu_details),
+                selectinload(AnnualSurvey.fsm_details),
+                selectinload(AnnualSurvey.gobardhan_projects),
+                selectinload(AnnualSurvey.d2d_activities),
+                selectinload(AnnualSurvey.bartan_bank),
+                selectinload(AnnualSurvey.vehicle_assets),
+                selectinload(AnnualSurvey.sbmg_targets),
+                selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
+                selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
+            )
+            .where(AnnualSurvey.id == survey_id)
+        )
+        survey = result.scalar_one_or_none()
+        if not survey:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Survey not found",
+            )
+        
+        survey.last_reconfirmed_at = datetime.now()
+        await self.db.commit()
+        return get_response_model_from_survey(survey)
 
     async def get_active_financial_years(self) -> List[AnnualSurveyFYResponse]:
         """Get list of active financial years from surveys."""
@@ -655,18 +701,51 @@ class AnnualSurveyService:
                 selectinload(AnnualSurvey.fsm_details),
                 selectinload(AnnualSurvey.gobardhan_projects),
                 selectinload(AnnualSurvey.d2d_activities),
+                selectinload(AnnualSurvey.bartan_bank),
+                selectinload(AnnualSurvey.vehicle_assets),
                 selectinload(AnnualSurvey.sbmg_targets),
                 selectinload(AnnualSurvey.village_data).selectinload(VillageData.sbmg_assets),
                 selectinload(AnnualSurvey.village_data).selectinload(VillageData.gwm_assets),
             )
             .where(AnnualSurvey.gp_id == gp_id)
-            .order_by(AnnualSurvey.survey_date.desc())
+            .order_by(AnnualSurvey.last_reconfirmed_at.desc())
             .limit(1)
         )
         survey = result.scalar_one_or_none()
         if survey:
             return get_response_model_from_survey(survey)
         return None
+
+    async def get_gp_reconfirmation_status(self, gp_id: int) -> dict:
+        """Get the reconfirmation status for a Gram Panchayat."""
+        result = await self.db.execute(
+            select(AnnualSurvey.last_reconfirmed_at)
+            .where(AnnualSurvey.gp_id == gp_id)
+            .order_by(AnnualSurvey.last_reconfirmed_at.desc())
+            .limit(1)
+        )
+        last_reconfirmed_at = result.scalar_one_or_none()
+        
+        if not last_reconfirmed_at:
+            return {
+                "is_overdue": True,
+                "last_reconfirmed_at": None,
+                "days_remaining": 0
+            }
+        
+        # Calculate days remaining (90 days limit)
+        # Handle timezone-aware/naive comparison
+        now = datetime.now(last_reconfirmed_at.tzinfo) if last_reconfirmed_at.tzinfo else datetime.now()
+        diff = now - last_reconfirmed_at
+        days_passed = diff.days
+        days_remaining = max(0, 90 - days_passed)
+        is_overdue = days_passed > 90
+        
+        return {
+            "is_overdue": is_overdue,
+            "last_reconfirmed_at": last_reconfirmed_at,
+            "days_remaining": days_remaining if not is_overdue else - (days_passed - 90)
+        }
 
     async def fill_annual_survey_bulk(
         self,
@@ -748,6 +827,7 @@ class AnnualSurveyService:
             bins_hh_level=random.randint(1000, 5000),
             bins_public_places=random.randint(50, 200),
             community_compost_pits=random.randint(5, 15),
+            hh_compost_pit=random.randint(100, 500),
             segregation_sheds=random.randint(1, 3),
             tricycles_manual=random.randint(2, 8),
             e_rickshaws=random.randint(1, 4),
@@ -786,16 +866,21 @@ class AnnualSurveyService:
 
         self.db.add(GobardhanProject(
             id=survey.id,
-            total_projects=random.randint(0, 2),
+            total_sanctioned=random.randint(1, 5),
+            total_functional=random.randint(0, 3),
+            gas_production=float(random.randint(10, 100)),
         ))
 
+        is_active = random.choice([True, False])
         self.db.add(D2DActivities(
             id=survey.id,
-            is_active=random.choice([True, False]),
+            is_active=is_active,
+            work_frequency=random.choice([WorkFrequency.DAILY, WorkFrequency.WEEKLY, WorkFrequency.FIFTEEN_DAYS, WorkFrequency.MONTHLY]) if is_active else None,
             sanctioned_tender=random.randint(0, 5),
             sanctioned_self_gp=random.randint(0, 5),
             sanctioned_csr_ngo=random.randint(0, 2),
             sanctioned_shg=random.randint(0, 3),
+            sanctioned_mixed_model=random.randint(0, 2),
             total_expenditure=float(random.randint(50000, 200000)),
             vehicles_deployed=random.randint(1, 5),
             persons_deployed=random.randint(2, 10),
@@ -803,6 +888,22 @@ class AnnualSurveyService:
             status_start=random.randint(1, 5),
             status_running=random.randint(1, 5),
             status_completed=random.randint(1, 5),
+        ))
+
+        self.db.add(BartanBank(
+            id=survey.id,
+            established_banks=random.randint(0, 5),
+            revenue=float(random.randint(5000, 20000)),
+        ))
+
+        self.db.add(VehicleAssets(
+            id=survey.id,
+            owned_tricycles=random.randint(0, 5),
+            owned_e_rickshaws=random.randint(0, 3),
+            owned_motorized_vehicles=random.randint(0, 2),
+            contractor_tricycles=random.randint(0, 5),
+            contractor_e_rickshaws=random.randint(0, 3),
+            contractor_motorized_vehicles=random.randint(0, 2),
         ))
 
         targets = SBMGYearTargets(

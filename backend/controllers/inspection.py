@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from auth_utils import UserRole, require_staff_role
+from auth_utils import UserRole, require_staff_role, require_reconfirmed_vdo
 from database import get_db
 from models.database.auth import PositionHolder, User
 from models.database.geography import GramPanchayat
@@ -41,7 +41,7 @@ from models.response.inspection import (
 from services.inspection import InspectionService
 from middleware.xss_protection import XSSProtectionRoute
 
-router = APIRouter(route_class=XSSProtectionRoute)
+router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
 
 
 @router.get("/performance-report", response_model=PerformanceReportResponse)

@@ -10,6 +10,7 @@ from models.database.survey_master import (
     FundHead,
     CollectionFrequency,
     CleaningFrequency,
+    WorkFrequency,
 )
 
 
@@ -107,6 +108,7 @@ class SWMAssetsCategoryResponse(BaseModel):
     bins_hh_level: int
     bins_public_places: int
     community_compost_pits: int
+    hh_compost_pit: int
     segregation_sheds: int
     tricycles_manual: int
     e_rickshaws: int
@@ -161,7 +163,9 @@ class FSMDetailsResponse(BaseModel):
 class GobardhanProjectResponse(BaseModel):
     """Response model for Gobar-dhan project details."""
     id: int
-    total_projects: int
+    total_sanctioned: int
+    total_functional: int
+    gas_production: float
 
     class Config:
         from_attributes = True
@@ -171,10 +175,12 @@ class D2DActivitiesResponse(BaseModel):
     """Response model for D2D activities details."""
     id: int
     is_active: bool
+    work_frequency: Optional[WorkFrequency]
     sanctioned_tender: int
     sanctioned_self_gp: int
     sanctioned_csr_ngo: int
     sanctioned_shg: int
+    sanctioned_mixed_model: int
     total_expenditure: float
     vehicles_deployed: int
     persons_deployed: int
@@ -182,6 +188,30 @@ class D2DActivitiesResponse(BaseModel):
     status_start: int
     status_running: int
     status_completed: int
+
+    class Config:
+        from_attributes = True
+
+
+class BartanBankResponse(BaseModel):
+    """Response model for Bartan Bank details."""
+    id: int
+    established_banks: int
+    revenue: float
+
+    class Config:
+        from_attributes = True
+
+
+class VehicleAssetsResponse(BaseModel):
+    """Response model for categorized vehicle assets."""
+    id: int
+    owned_tricycles: int
+    owned_e_rickshaws: int
+    owned_motorized_vehicles: int
+    contractor_tricycles: int
+    contractor_e_rickshaws: int
+    contractor_motorized_vehicles: int
 
     class Config:
         from_attributes = True
@@ -305,6 +335,8 @@ class AnnualSurveyResponse(BaseModel):
     fsm_details: Optional[FSMDetailsResponse] = None
     gobardhan_projects: Optional[GobardhanProjectResponse] = None
     d2d_activities: Optional[D2DActivitiesResponse] = None
+    bartan_bank: Optional[BartanBankResponse] = None
+    vehicle_assets: Optional[VehicleAssetsResponse] = None
     
     sbmg_targets: Optional[SBMGYearTargetsResponse] = None
 
@@ -312,6 +344,7 @@ class AnnualSurveyResponse(BaseModel):
     village_data: List[VillageDataResponse] = []
 
     # Timestamps
+    last_reconfirmed_at: datetime
     created_at: datetime
     updated_at: datetime
 

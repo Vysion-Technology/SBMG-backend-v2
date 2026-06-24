@@ -24,7 +24,7 @@ from models.database.complaint import (
     ComplaintType,
 )
 
-from models.response.complaint import MediaResponse
+from models.response.complaint import MediaResponse, ComplaintTypeResponse
 from models.response.complaint import (
     ComplaintCommentResponse,
     DetailedComplaintResponse,
@@ -57,12 +57,6 @@ class VillageResponse(BaseModel):
     description: Optional[str]
     block_id: int
     district_id: int
-
-
-class ComplaintTypeResponse(BaseModel):
-    id: int
-    name: str
-    description: Optional[str]
 
 
 @router.get("/complaint-types", response_model=List[ComplaintTypeResponse])
@@ -193,6 +187,7 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
                 comment=comment.comment,
                 commented_at=comment.commented_at,
                 user_name=user_name,
+                is_system_generated=comment.is_system_generated,
             )
         )
 
@@ -249,6 +244,7 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
         district_id=complaint.district_id,
         created_at=complaint.created_at,
         updated_at=complaint.updated_at,
+        last_sla_breach_level=complaint.last_sla_breach_level,
         media=media_details,
         comments=comments,  # type: ignore
         assigned_worker=assigned_worker,
@@ -256,4 +252,5 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
         resolved_at=complaint.resolved_at,
         verified_at=complaint.verified_at,
         closed_at=complaint.closed_at,
+        closed_by_info=complaint.closed_by_info,
     )

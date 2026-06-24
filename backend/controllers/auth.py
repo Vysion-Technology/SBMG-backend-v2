@@ -1,8 +1,8 @@
 from services.auth import UserRole
 from typing import List, Optional, Union
-from datetime import timedelta
+from datetime import timedelta, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, ConfigDict
@@ -10,13 +10,14 @@ from pydantic import BaseModel, ConfigDict
 from database import get_db
 from models.database.auth import PositionHolder, User, PublicUser
 from services.auth import AuthService
+from services.annual_survey import AnnualSurveyService
 from services.encryption import EncryptionService
 from config import settings
 from middleware.xss_protection import XSSProtectionRoute
 
 
 # Security
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 # Router
 router = APIRouter(route_class=XSSProtectionRoute)
@@ -68,6 +69,27 @@ class PositionInfo(BaseModel):
     village_name: Optional[str]
 
 
+class GPDataStatus(BaseModel):
+    is_overdue: bool
+    last_reconfirmed_at: Optional[datetime] = None
+    days_remaining: int
+
+
+class EmployeeInfo(BaseModel):
+    first_name: str
+    middle_name: Optional[str] = None
+    last_name: str
+    mobile_number: str
+
+
+class ProfileUpdateRequest(BaseModel):
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
+    mobile_number: Optional[str] = None
+
+
 class UserResponse(BaseModel):
     id: int
     username: str
@@ -78,6 +100,8 @@ class UserResponse(BaseModel):
     district_id: Optional[int]
     role: UserRole = UserRole.WORKER
     positions: list[PositionInfo] = []
+    gp_data_status: Optional[GPDataStatus] = None
+    employee: Optional[EmployeeInfo] = None
 
 
 class AuthController:
@@ -112,7 +136,7 @@ class AuthController:
 
 # Dependency to get current user from token
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """Get current user from JWT token."""
@@ -123,6 +147,9 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    if not credentials:
+        raise credentials_exception
 
     try:
         token = credentials.credentials
@@ -144,12 +171,26 @@ async def get_current_active_user(
 
 
 async def get_current_any_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: AsyncSession = Depends(get_db),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> Union[User, PublicUser]:
     """Get current user (User or PublicUser) from token."""
     auth_service = AuthService(db)
-    token = credentials.credentials
+    token = None
+
+    if credentials:
+        token = credentials.credentials
+    else:
+        # Fallback to custom 'token' header for public users
+        token = request.headers.get("token")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     # 1. Try Public User (Token based)
     public_user = await auth_service.get_public_user_by_token(token)
@@ -223,8 +264,34 @@ async def login(login_request: LoginRequest, db: AsyncSession = Depends(get_db))
 
 
 @router.get("/me", response_model=UserResponse)
-async def read_users_me(current_user: User = Depends(get_current_active_user)):
+async def read_users_me(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
     """Get current user information."""
+
+    role = AuthService.get_role_by_user(current_user) or UserRole.WORKER
+    gp_data_status = None
+
+    if role == UserRole.VDO and current_user.gp_id:
+        survey_service = AnnualSurveyService(db)
+        status_dict = await survey_service.get_gp_reconfirmation_status(
+            current_user.gp_id
+        )
+        gp_data_status = GPDataStatus(**status_dict)
+
+    # Get employee info from active position
+    employee_info = None
+    auth_service = AuthService(db)
+    active_position = await auth_service.get_user_active_position(current_user)
+    if active_position and active_position.employee:
+        employee = active_position.employee
+        employee_info = EmployeeInfo(
+            first_name=employee.first_name,
+            middle_name=employee.middle_name,
+            last_name=employee.last_name,
+            mobile_number=employee.mobile_number,
+        )
 
     return UserResponse(
         id=current_user.id,
@@ -234,9 +301,33 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
         village_id=current_user.gp_id,
         block_id=current_user.block_id,
         district_id=current_user.district_id,
-        role=AuthService.get_role_by_user(current_user) or UserRole.WORKER,
+        role=role,
         positions=[],
+        gp_data_status=gp_data_status,
+        employee=employee_info,
     )
+
+
+@router.put("/profile")
+async def update_profile(
+    request: ProfileUpdateRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update current user's profile information."""
+    auth_service = AuthService(db)
+    try:
+        await auth_service.update_user_profile(
+            user_id=current_user.id,
+            first_name=request.first_name,
+            middle_name=request.middle_name,
+            last_name=request.last_name,
+            email=request.email,
+            mobile_number=request.mobile_number,
+        )
+        return {"detail": "Profile updated successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("send-otp")

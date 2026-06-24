@@ -26,6 +26,21 @@ class ContractorSummary(BaseModel):
         from_attributes = True
 
 
+class ContractorGeographyCoverage(BaseModel):
+    """Contractor coverage metrics by geography with next month's ending contracts count."""
+
+    geography_id: int
+    geography_name: str
+    total_gps: int
+    gps_with_data: int
+    coverage_percentage: float
+    master_data_status: str  # "Available" or "Not Available"
+    contracts_ending_next_month: int = 0
+
+    class Config:
+        from_attributes = True
+
+
 class ContractorStateAnalytics(BaseModel):
     """Response model for state-level contractor analytics."""
 
@@ -34,9 +49,10 @@ class ContractorStateAnalytics(BaseModel):
     coverage_percentage: float
     total_contractors: int
     total_contract_amount: float
+    contracts_ending_next_month: int = 0
 
     # Geographic breakdown
-    district_wise_coverage: List[VillageMasterDataCoverage]
+    district_wise_coverage: List[ContractorGeographyCoverage]
 
     class Config:
         from_attributes = True
@@ -52,9 +68,10 @@ class ContractorDistrictAnalytics(BaseModel):
     coverage_percentage: float
     total_contractors: int
     total_contract_amount: float
+    contracts_ending_next_month: int = 0
 
     # Geographic breakdown
-    block_wise_coverage: List[VillageMasterDataCoverage]
+    block_wise_coverage: List[ContractorGeographyCoverage]
 
     class Config:
         from_attributes = True
@@ -72,9 +89,10 @@ class ContractorBlockAnalytics(BaseModel):
     coverage_percentage: float
     total_contractors: int
     total_contract_amount: float
+    contracts_ending_next_month: int = 0
 
     # Geographic breakdown
-    gp_wise_coverage: List[VillageMasterDataCoverage]
+    gp_wise_coverage: List[ContractorGeographyCoverage]
 
     class Config:
         from_attributes = True
@@ -93,6 +111,7 @@ class ContractorGPAnalytics(BaseModel):
     contractor_data_status: str  # "Available" or "Not Available"
     total_contractors: int
     total_contract_amount: float
+    contracts_ending_next_month: int = 0
 
     # Contractor details
     contractors: List[ContractorSummary]
