@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -23,15 +23,16 @@ from services.geography import GeographyService
 from services.contractor import ContractorService
 from services.permission import PermissionService
 from controllers.auth import get_current_user
+from middleware.xss_protection import XSSProtectionRoute
 
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 # List endpoints with pagination
 @router.get("/districts", response_model=List[DistrictResponse])
 async def list_districts(
-    skip: int = Query(0, ge=0),
+    skip: int = Query(0, ge=0, le=10000),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
@@ -51,8 +52,8 @@ async def list_districts(
 
 @router.get("/blocks", response_model=List[BlockResponse])
 async def list_blocks(
-    district_id: Optional[int] = None,
-    skip: int = Query(0, ge=0),
+    district_id: Optional[int] = Query(None, le=2147483647),
+    skip: int = Query(0, ge=0, le=10000),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
@@ -79,9 +80,9 @@ async def list_blocks(
 
 @router.get("/grampanchayats", response_model=List[GPResponse])
 async def list_grampanchayats(
-    block_id: Optional[int] = None,
-    district_id: Optional[int] = None,
-    skip: int = Query(0, ge=0),
+    block_id: Optional[int] = Query(None, le=2147483647),
+    district_id: Optional[int] = Query(None, le=2147483647),
+    skip: int = Query(0, ge=0, le=10000),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
@@ -111,7 +112,7 @@ async def list_grampanchayats(
 
 @router.get("/grampanchayats/{village_id}", response_model=GPResponse)
 async def get_grampanchayat(
-    village_id: int,
+    village_id: int = Path(..., le=2147483647),
     db: AsyncSession = Depends(get_db),
 ):
     """Get a specific grampanchayat by ID."""
@@ -132,7 +133,7 @@ async def get_grampanchayat(
 
 @router.get("/blocks/{block_id}", response_model=BlockResponse)
 async def get_block(
-    block_id: int,
+    block_id: int = Path(..., le=2147483647),
     db: AsyncSession = Depends(get_db),
 ):
     """Get a specific block by ID."""
@@ -152,7 +153,7 @@ async def get_block(
 
 @router.get("/districts/{district_id}", response_model=DistrictResponse)
 async def get_district(
-    district_id: int,
+    district_id: int = Path(..., le=2147483647),
     db: AsyncSession = Depends(get_db),
 ):
     """Get a specific district by ID (Admin only)."""
@@ -167,7 +168,7 @@ async def get_district(
 
 @router.get("/grampanchayats/{village_id}/contractor", response_model=ContractorResponse)
 async def get_contractors_by_gp(
-    village_id: int,
+    village_id: int = Path(..., le=2147483647),
     db: AsyncSession = Depends(get_db),
 ) -> ContractorResponse:
     """Get all contractors for a specific Gram Panchayat."""
@@ -193,8 +194,8 @@ async def get_contractors_by_gp(
 # Village endpoints
 @router.get("/villages", response_model=List[VillageResponse])
 async def list_villages(
-    gp_id: Optional[int] = None,
-    skip: int = Query(0, ge=0),
+    gp_id: Optional[int] = Query(None, le=2147483647),
+    skip: int = Query(0, ge=0, le=10000),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> List[VillageResponse]:
@@ -221,7 +222,7 @@ async def list_villages(
 
 @router.get("/villages/{village_id}", response_model=VillageResponse)
 async def get_village(
-    village_id: int,
+    village_id: int = Path(..., le=2147483647),
     db: AsyncSession = Depends(get_db),
 ) -> VillageResponse:
     """Get a specific village by ID."""

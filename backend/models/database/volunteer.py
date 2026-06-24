@@ -1,6 +1,6 @@
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional
-from sqlalchemy import String, Integer, ForeignKey, Date, Boolean, JSON, Text
+from sqlalchemy import String, Integer, ForeignKey, Date, Boolean, JSON, Text, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 
@@ -55,6 +55,7 @@ class VolunteerRegistration(Base):
     # Identity & Declaration
     category: Mapped[str] = mapped_column(String, nullable=False)  # General / SC / ST / OBC
     declaration_accepted: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     # Relationships
     public_user = relationship("PublicUser")

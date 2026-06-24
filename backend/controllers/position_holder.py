@@ -19,6 +19,7 @@ from models.response.auth import EmployeeResponse, PositionHolderResponse
 from services.position_holder import PositionHolderService
 from services.auth import AuthService, UserRole
 from controllers.auth import get_current_active_user
+from middleware.xss_protection import XSSProtectionRoute
 
 
 router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])

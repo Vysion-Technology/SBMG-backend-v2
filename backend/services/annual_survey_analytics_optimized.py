@@ -245,14 +245,11 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 func.count(
                     distinct(
                         case(
-                            (
-                                (D2DActivities.work_frequency == "none") | (D2DActivities.id.is_(None)),
-                                AnnualSurvey.gp_id,
-                            ),
+                            (D2DActivities.work_frequency == "daily", AnnualSurvey.gp_id),
                             else_=None,
                         )
                     )
-                ).label("freq_none"),
+                ).label("freq_daily"),
                 func.count(
                     distinct(
                         case(
@@ -330,7 +327,8 @@ class AnnualSurveyAnalyticsServiceOptimized:
         bartan_query = select(
             func.coalesce(func.sum(BartanBank.established_banks), 0).label(
                 "established_banks"
-            )
+            ),
+            func.coalesce(func.sum(BartanBank.revenue), 0).label("revenue"),
         )
         bartan_query = apply_filters(bartan_query, BartanBank)
 
@@ -465,7 +463,7 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 status_running=d2d_res.status_running,
                 status_completed=d2d_res.status_completed,
                 work_frequency_count=WorkFrequencyCount(
-                    none=d2d_res.freq_none or 0,
+                    daily=d2d_res.freq_daily or 0,
                     weekly=d2d_res.freq_weekly or 0,
                     fifteen_days=d2d_res.freq_fifteen_days or 0,
                     monthly=d2d_res.freq_monthly or 0,
@@ -473,6 +471,7 @@ class AnnualSurveyAnalyticsServiceOptimized:
             ),
             bartan_bank=BartanBankStats(
                 established_banks=bartan_res.established_banks,
+                revenue=float(bartan_res.revenue),
             ),
             vehicle_assets=VehicleStats(
                 owned_tricycles=vehicle_res.owned_tricycles,

@@ -20,6 +20,7 @@ from models.response.contractor_analytics import (
 
 from services.geography import GeographyService
 from services.contractor_analytics import ContractorAnalyticsService
+from middleware.xss_protection import XSSProtectionRoute
 
 router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
 
