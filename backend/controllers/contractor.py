@@ -14,8 +14,9 @@ from services.permission import PermissionService
 from models.database.auth import User
 from models.requests.contractor import CreateAgencyRequest, CreateContractorRequest, UpdateContractorRequest
 from models.response.contractor import AgencyResponse, ContractorResponse
+from middleware.xss_protection import XSSProtectionRoute
 
-router = APIRouter(dependencies=[Depends(require_reconfirmed_vdo)])
+router = APIRouter()
 
 
 @router.get("/agencies", response_model=List[AgencyResponse])
@@ -34,7 +35,7 @@ async def list_agencies(
     return [agency for agency in agencies]
 
 
-@router.get("/contractors", response_model=List[ContractorResponse])
+@router.get("/contractors", response_model=List[ContractorResponse], dependencies=[Depends(require_reconfirmed_vdo)])
 async def list_contractors(
     db: AsyncSession = Depends(get_db),
     skip: int = Query(0, ge=0),
@@ -86,7 +87,7 @@ async def create_agency(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.post("/contractors", response_model=ContractorResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/contractors", response_model=ContractorResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_reconfirmed_vdo)])
 async def create_contractor(
     contractor: CreateContractorRequest,
     db: AsyncSession = Depends(get_db),
@@ -122,7 +123,7 @@ async def create_contractor(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
 
 
-@router.put("/contractors/{contractor_id}", response_model=ContractorResponse)
+@router.put("/contractors/{contractor_id}", response_model=ContractorResponse, dependencies=[Depends(require_reconfirmed_vdo)])
 async def update_contractor(
     contractor_id: int,
     contractor: UpdateContractorRequest,

@@ -34,8 +34,10 @@ from models.database.contractor import Contractor
 from models.database.geography import GramPanchayat
 from models.database.auth import PublicUser, PublicUserToken, User
 from models.response.complaint import ComplaintCommentResponse, ComplaintResponse, MediaResponse
+from middleware.xss_protection import XSSProtectionRoute
+from middleware.file_validation import validate_secure_file
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 @router.post("/with-media", response_model=ComplaintResponse)
@@ -293,6 +295,9 @@ async def upload_complaint_media(
         )
     
     public_user = current_user
+    # Security: Validate file content via magic bytes and size
+    await validate_secure_file(file)
+
     # Check if complaint exists
     result = await db.execute(select(Complaint).where(Complaint.id == complaint_id))
     complaint = result.scalar_one_or_none()

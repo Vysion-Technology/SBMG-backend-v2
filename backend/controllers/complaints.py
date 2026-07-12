@@ -16,6 +16,7 @@ from fastapi import (
     Header,
     Query,
     Request,
+    Path,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -60,8 +61,10 @@ from services.auth import AuthService
 from services.fcm_notification_service import notify_user_on_complaint_status_update
 from services.complaints import ComplaintOrderByEnum, ComplaintService
 from services.auth import PublicUserService
+from middleware.xss_protection import XSSProtectionRoute
+from middleware.file_validation import validate_secure_file
 
-router = APIRouter()
+router = APIRouter(route_class=XSSProtectionRoute)
 
 
 # Helper function to get public user by token
@@ -71,10 +74,10 @@ router = APIRouter()
 async def create_complaint_for_public_user(
     phone_number: str = Form(...),
     description: str = Form(...),
-    complaint_type_id: int = Form(...),
+    complaint_type_id: int = Form(..., le=2147483647),
     lat: Optional[float] = Form(None),
     long: Optional[float] = Form(None),
-    gp_id: int = Form(...),
+    gp_id: int = Form(..., le=2147483647),
     location: str = Form(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
@@ -178,8 +181,8 @@ async def create_complaint_for_public_user(
 
 @router.put("/smd/complaints/{complaint_id}", response_model=DetailedComplaintResponse)
 async def update_complaint_for_public_user(
-    complaint_id: int,
-    dstatus_id: int = Form(...),
+    complaint_id: int = Path(..., le=2147483647),
+    dstatus_id: int = Form(..., le=2147483647),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
 ):
@@ -389,8 +392,8 @@ async def get_my_complaints(
 
 @router.patch("/{complaint_id}/status")
 async def update_complaint_status(
-    complaint_id: int,
     status_request: UpdateComplaintStatusRequest,
+    complaint_id: int = Path(..., le=2147483647),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),  # pylint: disable=unused-argument
 ):
@@ -479,7 +482,7 @@ async def update_complaint_status(
 
 @router.post("/{complaint_id}/comments", response_model=ComplaintCommentResponse)
 async def add_complaint_comment(
-    complaint_id: int,
+    complaint_id: int = Path(..., le=2147483647),
     comment_text: str = Form(...),
     photo: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
@@ -570,7 +573,7 @@ async def add_complaint_comment(
     user_positions = current_user.positions
     user_name = "Unknown User"
     if user_positions:
-        first_pos = user_positions[0]
+        first_pos = user_positions
         user_name = f"{first_pos.first_name} {first_pos.last_name}"
 
     return ComplaintCommentResponse(
@@ -584,12 +587,15 @@ async def add_complaint_comment(
 
 @router.post("/{complaint_id}/media", response_model=MediaResponse)
 async def upload_complaint_media(
-    complaint_id: int,
+    complaint_id: int = Path(..., le=2147483647),
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_worker_role),
 ):
     """Upload media to a complaint (Workers and VDOs only, within their village)."""
+    # Security: Validate file content via magic bytes and size
+    await validate_secure_file(file)
+
     # Check if user is a Worker or VDO
     if not PermissionChecker.user_has_role(
         current_user, [UserRole.WORKER, UserRole.VDO]
@@ -671,8 +677,8 @@ async def upload_complaint_media(
 
 @router.patch("/{complaint_id}/resolve", response_model=ResolveComplaintResponse)
 async def resolve_complaint(
-    complaint_id: int,
     resolve_request: ResolveComplaintRequest,
+    complaint_id: int = Path(..., le=2147483647),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_worker_role),
 ):
@@ -746,7 +752,7 @@ async def resolve_complaint(
 # VDO-specific endpoints
 @router.patch("/vdo/complaints/{complaint_id}/verify")
 async def verify_complaint(
-    complaint_id: int,
+    complaint_id: int = Path(..., le=2147483647),
     comment: Optional[str] = Form(...),
     media: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
@@ -880,9 +886,9 @@ async def verify_complaint(
 async def get_complaint_counts_by_status(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
-    district_id: Optional[int] = None,
-    block_id: Optional[int] = None,
-    gp_id: Optional[int] = None,
+    district_id: Optional[int] = Query(None, le=2147483647),
+    block_id: Optional[int] = Query(None, le=2147483647),
+    gp_id: Optional[int] = Query(None, le=2147483647),
     level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
@@ -944,9 +950,9 @@ async def get_complaint_counts_by_status(
 async def get_complaint_counts_by_date(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
-    district_id: Optional[int] = None,
-    block_id: Optional[int] = None,
-    gp_id: Optional[int] = None,
+    district_id: Optional[int] = Query(None, le=2147483647),
+    block_id: Optional[int] = Query(None, le=2147483647),
+    gp_id: Optional[int] = Query(None, le=2147483647),
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
 ) -> List[ComplaintDateAnalyticsResponse]:
@@ -995,11 +1001,11 @@ async def top_n_geographies(
     end_date: date,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),
-    n: int = 5,
+    n: int = Query(5, le=10000),
     level: GeoTypeEnum = GeoTypeEnum.DISTRICT,
-    district_id: Optional[int] = None,
-    block_id: Optional[int] = None,
-    gp_id: Optional[int] = None,
+    district_id: Optional[int] = Query(None, le=2147483647),
+    block_id: Optional[int] = Query(None, le=2147483647),
+    gp_id: Optional[int] = Query(None, le=2147483647),
 ) -> List[TopNGeographiesInDateRangeResponse]:
     """Get top N complaint types for analytics (Staff only)."""
     if current_user.district_id is not None:
@@ -1059,10 +1065,10 @@ async def top_n_geographies(
 async def get_all_complaints(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_staff_role),  # pylint: disable=unused-argument
-    district_id: Optional[int] = None,
-    block_id: Optional[int] = None,
-    gp_id: Optional[int] = None,
-    complaint_status_id: Optional[int] = None,
+    district_id: Optional[int] = Query(None, le=2147483647),
+    block_id: Optional[int] = Query(None, le=2147483647),
+    gp_id: Optional[int] = Query(None, le=2147483647),
+    complaint_status_id: Optional[int] = Query(None, le=2147483647),
     skip: int = Query(0, ge=0, le=1000000),
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
@@ -1094,4 +1100,4 @@ async def get_all_complaints(
         skip=skip,
         limit=limit,
         order_by=order_by,
-    )
+        )

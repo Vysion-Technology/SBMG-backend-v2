@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # JWT Settings
     jwt_secret_key: str = "your-secret-key-here-change-in-production"
     jwt_algorithm: str = "HS256"
-    jwt_access_token_expire_minutes: int = 43200  # 30 days default
+    jwt_access_token_expire_minutes: int = 15  # 15 minutes for inactivity logout
     max_login_attempts: int = 5
     lockout_duration_minutes: int = 15
 
@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     )
     trackverse_username: str = os.getenv("TRACKVERSE_USERNAME") or "deepakgupta"
     trackverse_password: str = os.getenv("TRACKVERSE_PASSWORD") or "123456"
+
+    # SMS/OTP Settings (eSanchar API)
+    sms_client_id: Optional[str] = os.getenv("SMS_CLIENT_ID")
+    sms_password: Optional[str] = os.getenv("SMS_PASSWORD")
+    sms_username: str = os.getenv("SMS_USERNAME") or "SBMOTP"
 
     # Application
     debug: bool = False
