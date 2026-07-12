@@ -112,20 +112,31 @@ async def create_complaint_with_media(
         for file in files:
             if file.filename:
                 try:
-                    # Upload file to S3/MinIO
-                    s3_key = await s3_service.upload_file(
-                        file=file,
-                        folder=f"complaints/{complaint.id}",
-                        filename=file.filename,
-                    )
-
-                    # Get the public URL for the uploaded file
+                    # Check if S3 is available
                     if s3_service.is_available():
-                        # Use S3 URL for database storage
+                        # Upload file to S3/MinIO
+                        s3_key = await s3_service.upload_file(
+                            file=file,
+                            folder=f"complaints/{complaint.id}",
+                            filename=file.filename,
+                        )
                         media_url = s3_key
                     else:
-                        # Fallback to local path
-                        media_url = f"/media/complaints/{complaint.id}/{file.filename}"
+                        # Fallback: save locally
+                        media_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "media")
+                        relative_path = f"complaints/{complaint.id}/{file.filename}"
+                        full_path = os.path.join(media_dir, relative_path)
+
+                        # Create directory if it doesn't exist
+                        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+                        # Read file content and save locally
+                        content = await file.read()
+                        with open(full_path, "wb") as f:
+                            f.write(content)
+                        await file.seek(0)  # Reset file pointer
+
+                        media_url = f"/media/{relative_path}"
 
                     # Create media record
                     media = ComplaintMedia(
@@ -136,11 +147,11 @@ async def create_complaint_with_media(
                     )
                     db.add(media)
                     media_urls.append(media_url)
-                    print(f"Uploaded file to {media_url}")
+                    print(f"Uploaded/Saved file to {media_url}")
 
-                except HTTPException:
-                    # If S3 upload fails, continue without media
-                    # In production, you might want to handle this differently
+                except Exception as e:
+                    # Log error and continue without this media
+                    logging.error(f"Failed to process media file {file.filename}: {str(e)}")
                     continue
 
         if media_urls:

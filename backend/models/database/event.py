@@ -74,3 +74,27 @@ class EventBookmark(Base):  # type: ignore
             name="check_event_bookmark_owner",
         ),
     )
+
+
+class VdoEventImage(Base):  # type: ignore
+    """Database model for VDO-uploaded event images."""
+
+    __tablename__ = "vdo_event_images"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    event_id: Mapped[int] = mapped_column(Integer, ForeignKey("events.id"), nullable=False, index=True)
+    vdo_id: Mapped[int] = mapped_column(Integer, ForeignKey("authority_users.id"), nullable=False, index=True)
+    gp_id: Mapped[int] = mapped_column(Integer, ForeignKey("gram_panchayats.id"), nullable=False, index=True)
+    block_id: Mapped[int] = mapped_column(Integer, ForeignKey("blocks.id"), nullable=False, index=True)
+    district_id: Mapped[int] = mapped_column(Integer, ForeignKey("districts.id"), nullable=False, index=True)
+    media_url: Mapped[str] = mapped_column(String, nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    event = relationship("Event")
+    vdo = relationship("User")
+    gp = relationship("GramPanchayat")
+    block = relationship("Block")
+    district = relationship("District")
+

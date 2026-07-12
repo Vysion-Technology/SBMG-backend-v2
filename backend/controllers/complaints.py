@@ -529,20 +529,31 @@ async def add_complaint_comment(
     # Handle photo upload if provided
     if photo and photo.filename:
         try:
-            # Upload photo to S3/MinIO
-            s3_key = await s3_service.upload_file(
-                file=photo,
-                folder=f"complaints/{complaint_id}/comments/{comment.id}",
-                filename=photo.filename,
-            )
-
-            # Get the media URL for database storage
+            # Check if S3 is available
             if s3_service.is_available():
-                # Use S3 key for database storage
+                # Upload photo to S3/MinIO
+                s3_key = await s3_service.upload_file(
+                    file=photo,
+                    folder=f"complaints/{complaint_id}/comments/{comment.id}",
+                    filename=photo.filename,
+                )
                 media_url = s3_key
             else:
-                # Fallback to local path
-                media_url = f"/media/complaints/{complaint_id}/comments/{comment.id}/{photo.filename}"
+                # Fallback: save locally
+                media_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "media")
+                relative_path = f"complaints/{complaint_id}/comments/{comment.id}/{photo.filename}"
+                full_path = os.path.join(media_dir, relative_path)
+
+                # Create directory if it doesn't exist
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+                # Read file content and save locally
+                content = await photo.read()
+                with open(full_path, "wb") as f:
+                    f.write(content)
+                await photo.seek(0)  # Reset file pointer
+
+                media_url = f"/media/{relative_path}"
 
             # Create media record
             media = ComplaintMedia(
@@ -553,8 +564,9 @@ async def add_complaint_comment(
             )
             db.add(media)
             await db.commit()
-        except HTTPException:
-            # If S3 upload fails, continue without photo
+        except Exception as e:
+            # Log error and continue without photo
+            logging.error(f"Failed to process comment photo: {str(e)}")
             pass
 
     # Get user name for response
@@ -614,20 +626,31 @@ async def upload_complaint_media(
         )
 
     try:
-        # Upload file to S3/MinIO
-        s3_key = await s3_service.upload_file(
-            file=file,
-            folder=f"complaints/{complaint_id}/media",
-            filename=file.filename,
-        )
-
-        # Get the media URL for database storage
+        # Check if S3 is available
         if s3_service.is_available():
-            # Use S3 key for database storage
+            # Upload file to S3/MinIO
+            s3_key = await s3_service.upload_file(
+                file=file,
+                folder=f"complaints/{complaint_id}/media",
+                filename=file.filename,
+            )
             media_url = s3_key
         else:
-            # Fallback to local path
-            media_url = f"/media/complaints/{complaint_id}/media/{file.filename}"
+            # Fallback: save locally
+            media_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "media")
+            relative_path = f"complaints/{complaint_id}/media/{file.filename}"
+            full_path = os.path.join(media_dir, relative_path)
+
+            # Create directory if it doesn't exist
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+            # Read file content and save locally
+            content = await file.read()
+            with open(full_path, "wb") as f:
+                f.write(content)
+            await file.seek(0)  # Reset file pointer
+
+            media_url = f"/media/{relative_path}"
 
         # Create media record
         media = ComplaintMedia(

@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from sqlalchemy import delete, insert, select, update
 
-from models.database.event import Event, EventMedia, EventBookmark
+from models.database.event import Event, EventMedia, EventBookmark, VdoEventImage
 
 
 class EventService:
@@ -199,3 +199,67 @@ class EventService:
 
         result = await self.db.execute(query)
         return result.scalar_one_or_none() is not None
+
+    async def get_vdo_event_images_count(self, event_id: int, vdo_id: int) -> int:
+        """Count the number of images uploaded by a VDO for an event."""
+        query = select(VdoEventImage).where(
+            VdoEventImage.event_id == event_id,
+            VdoEventImage.vdo_id == vdo_id,
+        )
+        result = await self.db.execute(query)
+        return len(result.scalars().all())
+
+    async def add_vdo_event_image(
+        self,
+        event_id: int,
+        vdo_id: int,
+        gp_id: int,
+        block_id: int,
+        district_id: int,
+        media_url: str,
+    ) -> VdoEventImage:
+        """Add a new VDO-uploaded event image."""
+        vdo_image = VdoEventImage(
+            event_id=event_id,
+            vdo_id=vdo_id,
+            gp_id=gp_id,
+            block_id=block_id,
+            district_id=district_id,
+            media_url=media_url,
+        )
+        self.db.add(vdo_image)
+        await self.db.commit()
+        await self.db.refresh(vdo_image)
+        return vdo_image
+
+    async def track_vdo_event_images(
+        self,
+        event_id: int,
+        district_id: Optional[int] = None,
+        block_id: Optional[int] = None,
+        gp_id: Optional[int] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> list[VdoEventImage]:
+        """Track VDO-uploaded event images with optional geo filters."""
+        query = (
+            select(VdoEventImage)
+            .options(
+                selectinload(VdoEventImage.vdo),
+                selectinload(VdoEventImage.gp),
+                selectinload(VdoEventImage.block),
+                selectinload(VdoEventImage.district),
+            )
+            .where(VdoEventImage.event_id == event_id)
+        )
+        if district_id is not None:
+            query = query.where(VdoEventImage.district_id == district_id)
+        if block_id is not None:
+            query = query.where(VdoEventImage.block_id == block_id)
+        if gp_id is not None:
+            query = query.where(VdoEventImage.gp_id == gp_id)
+
+        query = query.order_by(VdoEventImage.uploaded_at.desc()).offset(skip).limit(limit)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+

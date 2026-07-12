@@ -9,6 +9,7 @@ class CreateCircularRequest(BaseModel):
 
     title: str
     description: str
+    is_active: bool = True
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
 
@@ -18,5 +19,6 @@ class CircularUpdateRequest(BaseModel):
 
     title: Optional[str] = None
     description: Optional[str] = None
+    is_active: Optional[bool] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
