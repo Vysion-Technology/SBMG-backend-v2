@@ -5,6 +5,7 @@ from sqlalchemy import (
     Integer,
     String,
     DateTime,
+    Boolean,
 )
 from sqlalchemy.orm import mapped_column, Mapped
 from sqlalchemy.sql import func
@@ -22,6 +23,7 @@ class Circular(Base):  # type: ignore
     description: Mapped[str] = mapped_column(String, nullable=False)
     pdf_url: Mapped[str] = mapped_column(String, nullable=False)
     image_url: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
