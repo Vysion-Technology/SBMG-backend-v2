@@ -1,18 +1,21 @@
 """Event Controller"""
 
+import os
+import logging
 from datetime import timezone
 from typing import List, Optional, Union
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
 from models.database.auth import User, PublicUser
 from controllers.auth import get_current_any_user
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_utils import require_admin, require_reconfirmed_vdo
+from auth_utils import require_admin, require_reconfirmed_vdo, require_staff_role, require_admin_or_smd, PermissionChecker
+from services.auth import UserRole
 from database import get_db
 from models.requests.event import CreateEventRequest, EventUpdateRequest
-from models.response.event import EventResponse
+from models.response.event import EventResponse, VdoEventImageResponse, VdoEventImageTrackResponse
 from models.response.deletion import DeletionResponse
 
 from services.event import EventService
@@ -261,3 +264,146 @@ async def list_bookmarked_events(
         )
         for event in events
     ]
+
+
+@router.post("/{event_id}/vdo-media", response_model=VdoEventImageResponse, status_code=status.HTTP_201_CREATED)
+async def upload_vdo_event_image(
+    event_id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> VdoEventImageResponse:
+    """Upload media for an event (VDOs only, up to 3 photos)."""
+    # 1. Enforce VDO role
+    if not PermissionChecker.user_has_role(current_user, [UserRole.VDO]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only VDOs can upload event media",
+        )
+
+    # Ensure profile is complete
+    if not current_user.gp_id or not current_user.block_id or not current_user.district_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="VDO geographical assignment is incomplete",
+        )
+
+    # 2. Check if event exists
+    service = EventService(db)
+    event = await service.get_event_by_id(event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found",
+        )
+
+    # 3. Enforce maximum 3 photos limit
+    current_count = await service.get_vdo_event_images_count(event_id, current_user.id)
+    if current_count >= 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You can upload a maximum of 3 photos per event",
+        )
+
+    # 4. Upload photo
+    try:
+        # Check if S3 is available
+        if s3_service.is_available():
+            s3_key = await s3_service.upload_file(
+                file=file,
+                folder=f"events/{event_id}/vdo_media/{current_user.id}",
+                filename=file.filename,
+            )
+            media_url = s3_key
+        else:
+            # Fallback: save locally
+            media_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "media")
+            relative_path = f"events/{event_id}/vdo_media/{current_user.id}/{file.filename}"
+            full_path = os.path.join(media_dir, relative_path)
+
+            # Create directory if it doesn't exist
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+            # Read file content and save locally
+            content = await file.read()
+            with open(full_path, "wb") as f:
+                f.write(content)
+            await file.seek(0)  # Reset file pointer
+
+            media_url = f"/media/{relative_path}"
+
+        # 5. Save database record
+        vdo_image = await service.add_vdo_event_image(
+            event_id=event_id,
+            vdo_id=current_user.id,
+            gp_id=current_user.gp_id,
+            block_id=current_user.block_id,
+            district_id=current_user.district_id,
+            media_url=media_url,
+        )
+
+        return VdoEventImageResponse(
+            id=vdo_image.id,
+            event_id=vdo_image.event_id,
+            vdo_id=vdo_image.vdo_id,
+            gp_id=vdo_image.gp_id,
+            block_id=vdo_image.block_id,
+            district_id=vdo_image.district_id,
+            media_url=vdo_image.media_url,
+            uploaded_at=vdo_image.uploaded_at,
+        )
+    except Exception as e:
+        logging.error(f"Failed to process VDO event photo: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload/save photo",
+        )
+
+
+@router.get("/{event_id}/vdo-media/track", response_model=List[VdoEventImageTrackResponse])
+async def track_vdo_event_media(
+    event_id: int,
+    district_id: Optional[int] = Query(None),
+    block_id: Optional[int] = Query(None),
+    gp_id: Optional[int] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin_or_smd),
+) -> List[VdoEventImageTrackResponse]:
+    """Track VDO event media uploads with optional location filters (Admin/SMD only)."""
+    service = EventService(db)
+    event = await service.get_event_by_id(event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found",
+        )
+
+    images = await service.track_vdo_event_images(
+        event_id=event_id,
+        district_id=district_id,
+        block_id=block_id,
+        gp_id=gp_id,
+        skip=skip,
+        limit=limit,
+    )
+
+    return [
+        VdoEventImageTrackResponse(
+            id=img.id,
+            event_id=img.event_id,
+            vdo_id=img.vdo_id,
+            vdo_username=img.vdo.username if img.vdo else "Unknown",
+            gp_id=img.gp_id,
+            gp_name=img.gp.name if img.gp else "Unknown",
+            block_id=img.block_id,
+            block_name=img.block.name if img.block else "Unknown",
+            district_id=img.district_id,
+            district_name=img.district.name if img.district else "Unknown",
+            media_url=img.media_url,
+            uploaded_at=img.uploaded_at,
+        )
+        for img in images
+    ]
+
