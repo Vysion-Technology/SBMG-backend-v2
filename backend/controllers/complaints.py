@@ -106,6 +106,7 @@ async def create_complaint_for_public_user(
         long=long,
         location=location,
         gp_id=gp_id,
+        mobile_number=phone_number,
     )
 
     # Re-fetch complaint with all relationships loaded
