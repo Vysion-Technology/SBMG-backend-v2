@@ -2,7 +2,7 @@
 Request Models for Annual Survey Management
 """
 
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import date
 from pydantic import BaseModel, Field, model_validator
 from models.database.survey_master import (
@@ -133,6 +133,15 @@ class D2DActivitiesRequest(BaseModel):
     status_start: int = 0
     status_running: int = 0
     status_completed: int = 0
+
+    @model_validator(mode="before")
+    @classmethod
+    def preprocess_work_frequency(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            work_freq = data.get("work_frequency")
+            if isinstance(work_freq, str) and work_freq.strip().lower() in ("none", "", "null", "undefined"):
+                data["work_frequency"] = None
+        return data
 
     @model_validator(mode="after")
     def validate_work_frequency(self):
