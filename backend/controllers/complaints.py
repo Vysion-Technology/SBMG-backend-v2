@@ -484,7 +484,6 @@ async def update_complaint_status(
         complaint_id=complaint.id,
         comment=status_request.remark.strip(),
         user_id=current_user.id,
-        mobile_number=current_user.mobile_number,
     )
     db.add(closing_comment)
 
