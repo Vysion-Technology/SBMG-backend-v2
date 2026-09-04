@@ -445,6 +445,12 @@ async def update_complaint_status(
                 detail="VDOs are not allowed to close complaints. Only Citizens or higher authority can close them.",
             )
 
+    if not status_request.remark or not status_request.remark.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Remark is mandatory when updating complaint status",
+        )
+
     # Update complaint
     complaint.status_id = new_status.id
     complaint.updated_at = datetime.now(tz=timezone.utc)  # type: ignore
@@ -472,6 +478,15 @@ async def update_complaint_status(
                 place_name = "State"
         
         complaint.closed_by_info = f"{user_role} - {place_name}" if place_name else user_role
+
+    # Save mandatory remark as a comment on the complaint
+    closing_comment = ComplaintComment(
+        complaint_id=complaint.id,
+        comment=status_request.remark.strip(),
+        user_id=current_user.id,
+        mobile_number=current_user.mobile_number,
+    )
+    db.add(closing_comment)
 
     await db.commit()
 

@@ -13,6 +13,7 @@ class CreateComplaintRequest(BaseModel):
 
 class UpdateComplaintStatusRequest(BaseModel):
     status_name: str
+    remark: str
 
 
 class AddCommentRequest(BaseModel):
