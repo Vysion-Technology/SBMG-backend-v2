@@ -154,6 +154,7 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
                 selectinload(PositionHolder.district),
                 selectinload(PositionHolder.employee),
             ),
+            selectinload(Complaint.public_user),
         )
         .where(Complaint.id == complaint_id)
     )
@@ -231,6 +232,7 @@ async def get_detailed_complaint(complaint_id: int, db: AsyncSession = Depends(g
         id=complaint.id,
         description=complaint.description,
         mobile_number=complaint.mobile_number,
+        complainant_name=complaint.public_user.name if complaint.public_user else None,
         complaint_type_id=complaint.complaint_type_id,
         status_id=complaint.status_id,
         lat=complaint.lat,

@@ -17,7 +17,7 @@ from sqlalchemy import (
 
 from database import Base
 from models.database.geography import District, Block, GramPanchayat
-from models.database.auth import User
+from models.database.auth import User, PublicUser
 
 
 class ComplaintType(Base):  # type: ignore
@@ -138,6 +138,7 @@ class Complaint(Base):  # type: ignore
     complaint_type: Mapped["ComplaintType"] = relationship("ComplaintType", back_populates="complaints")
     status: Mapped[ComplaintStatus] = relationship("ComplaintStatus", back_populates="complaints")
     closed_by: Mapped[Optional["User"]] = relationship("User")
+    public_user: Mapped[Optional["PublicUser"]] = relationship("PublicUser")
     assignments: Mapped["ComplaintAssignment"] = relationship("ComplaintAssignment", back_populates="complaint")
     media: Mapped[List["ComplaintMedia"]] = relationship("ComplaintMedia", back_populates="complaint")
     comments: Mapped[List["ComplaintComment"]] = relationship("ComplaintComment", back_populates="complaint")

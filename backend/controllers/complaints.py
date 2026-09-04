@@ -75,6 +75,7 @@ async def create_complaint_for_public_user(
     phone_number: str = Form(...),
     description: str = Form(...),
     complaint_type_id: int = Form(..., le=2147483647),
+    complainant_name: Optional[str] = Form(None),
     lat: Optional[float] = Form(None),
     long: Optional[float] = Form(None),
     gp_id: int = Form(..., le=2147483647),
@@ -93,7 +94,7 @@ async def create_complaint_for_public_user(
     # Check if the public user exists, if not create one
     public_user_service = PublicUserService(db)
     public_user = await public_user_service.get_or_create_public_user_by_phone(
-        phone_number
+        phone_number, name=complainant_name
     )
 
     # Create the complaint
@@ -122,6 +123,7 @@ async def create_complaint_for_public_user(
         description=complaint_with_relations.description,
         complaint_type_id=complaint_with_relations.complaint_type_id,
         mobile_number=phone_number,
+        complainant_name=complaint_with_relations.public_user.name if complaint_with_relations.public_user else complainant_name,
         created_at=complaint_with_relations.created_at,
         updated_at=complaint_with_relations.updated_at,
         status_id=complaint_with_relations.status_id,
@@ -219,6 +221,7 @@ async def update_complaint_for_public_user(
         description=complaint_with_relations.description,
         complaint_type_id=complaint_with_relations.complaint_type_id,
         mobile_number=complaint_with_relations.mobile_number,
+        complainant_name=complaint_with_relations.public_user.name if complaint_with_relations.public_user else None,
         created_at=complaint_with_relations.created_at,
         updated_at=complaint_with_relations.updated_at,
         status_id=complaint_with_relations.status_id,
@@ -309,6 +312,7 @@ async def get_my_complaints(
             selectinload(Complaint.complaint_type),
             selectinload(Complaint.media),
             selectinload(Complaint.comments).selectinload(ComplaintComment.user),
+            selectinload(Complaint.public_user),
         )
         .where(Complaint.public_user_id == user.id)
     )
@@ -344,6 +348,7 @@ async def get_my_complaints(
             description=complaint.description,
             complaint_type_id=complaint.complaint_type_id,
             mobile_number=complaint.mobile_number,
+            complainant_name=complaint.public_user.name if complaint.public_user else None,
             created_at=complaint.created_at,
             updated_at=complaint.updated_at,
             status_id=complaint.status_id,

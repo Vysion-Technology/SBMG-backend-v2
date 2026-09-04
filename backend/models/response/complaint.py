@@ -21,6 +21,7 @@ class ComplaintResponse(BaseModel):
     id: int
     description: str
     mobile_number: Optional[str] = None
+    complainant_name: Optional[str] = None
     status_name: str
     village_name: str
     block_name: str
@@ -73,6 +74,7 @@ class DetailedComplaintResponse(BaseModel):
     id: int
     description: str
     mobile_number: Optional[str] = None
+    complainant_name: Optional[str] = None
     complaint_type_id: int
     created_at: datetime
     status_id: int

@@ -8,6 +8,7 @@ class CreateComplaintRequest(BaseModel):
     district_id: int
     description: str
     mobile_number: Optional[str] = None
+    complainant_name: Optional[str] = None
 
 
 class UpdateComplaintStatusRequest(BaseModel):
