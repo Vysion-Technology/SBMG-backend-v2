@@ -40,19 +40,48 @@ jobs:
             echo "📂 Target Directory: $PROJECT_DIR"
             cd "$PROJECT_DIR"
 
-            echo "📥 Fetching latest code..."
+            echo "📥 Fetching and pulling latest code..."
+            PREV_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "")
             git fetch origin feat-assets
             git checkout feat-assets
             git pull origin feat-assets
+            NEW_COMMIT=$(git rev-parse HEAD)
 
-            echo "🐳 Rebuilding and restarting containers..."
-            docker compose up -d --build backend
+            # Check changed files between deployments
+            if [ -n "$PREV_COMMIT" ] && [ "$PREV_COMMIT" != "$NEW_COMMIT" ]; then
+              CHANGED_FILES=$(git diff --name-only "$PREV_COMMIT" "$NEW_COMMIT" 2>/dev/null || true)
+            else
+              CHANGED_FILES=""
+            fi
 
-            echo "⏳ Waiting for backend service to become healthy..."
-            sleep 10
+            echo "📄 Changed files since last commit:"
+            echo "${CHANGED_FILES:-"(no file diff detected / fresh branch)"}"
+
+            NEED_BUILD=false
+            NEED_MIGRATION=false
+
+            if echo "$CHANGED_FILES" | grep -Eq "(Dockerfile|requirements|pyproject\.toml|poetry\.lock|docker-compose\.ya?ml)"; then
+              NEED_BUILD=true
+            fi
+
+            if echo "$CHANGED_FILES" | grep -Eq "(alembic|backend/models)"; then
+              NEED_MIGRATION=true
+            fi
+
+            if [ "$NEED_BUILD" = true ]; then
+              echo "🔨 Dependency or Docker files changed. Rebuilding and restarting backend container..."
+              docker compose up -d --build backend
+              sleep 5
+            elif [ "$NEED_MIGRATION" = true ]; then
+              echo "📦 Migrations/Models changed. Restarting container (entrypoint.sh will auto-run alembic upgrade head)..."
+              docker compose restart backend
+              sleep 5
+            else
+              echo "⚡ Only app code changed. Uvicorn hot-reloads mounted volume automatically (no container restart needed)."
+            fi
 
             echo "🔍 Checking backend health..."
-            if curl -f http://localhost:8000/health; then
+            if curl -sf http://localhost:8000/health; then
               echo ""
               echo "=========================================="
               echo "✅ Deployment completed successfully!"
