@@ -628,6 +628,9 @@ class AuthService:
                 await self.db.flush()
                 position.employee_id = new_employee.id
 
+        # Update profile_updated_at timestamp on User
+        user.profile_updated_at = datetime.now(timezone.utc)
+
         await self.db.commit()
         return True
 

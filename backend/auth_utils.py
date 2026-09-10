@@ -1,7 +1,7 @@
 """Utility functions for role-based access control (RBAC) in FastAPI."""
 
 from typing import List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,7 @@ from database import get_db
 from controllers.auth import get_current_active_user, UserRole
 from models.database.auth import User
 from models.database.survey_master import AnnualSurvey
+from services.auth import AuthService
 
 
 class PermissionChecker:
@@ -54,8 +55,37 @@ async def require_admin_or_smd(
     return current_user
 
 
-async def require_staff_role(
+async def require_updated_profile(
     current_user: User = Depends(get_current_active_user),
+) -> User:
+    """
+    Check if authority user has updated their profile within the last 30 days (1 month).
+    Excludes ADMIN, SUPERADMIN, SMD, and PUBLIC users.
+    Applies to CEO, BDO, VDO, WORKER.
+    """
+    role = AuthService.get_role_by_user(current_user)
+    if role in [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.SMD]:
+        return current_user
+
+    if not current_user.profile_updated_at:
+        raise HTTPException(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            detail="PROFILE_UPDATE_REQUIRED",
+        )
+
+    tz = current_user.profile_updated_at.tzinfo or timezone.utc
+    now = datetime.now(tz)
+    if now - current_user.profile_updated_at > timedelta(days=30):
+        raise HTTPException(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            detail="PROFILE_UPDATE_REQUIRED",
+        )
+
+    return current_user
+
+
+async def require_staff_role(
+    current_user: User = Depends(require_updated_profile),
 ) -> User:
     """Require any staff role (not public)."""
     staff_roles = [
@@ -72,7 +102,7 @@ async def require_staff_role(
 
 
 async def require_worker_role(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_updated_profile),
 ) -> User:
     """Require worker role."""
     if not PermissionChecker.user_has_role(current_user, [UserRole.WORKER]):

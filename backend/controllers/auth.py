@@ -75,6 +75,12 @@ class GPDataStatus(BaseModel):
     days_remaining: int
 
 
+class ProfileStatus(BaseModel):
+    is_overdue: bool
+    profile_updated_at: Optional[datetime] = None
+    days_remaining: int
+
+
 class EmployeeInfo(BaseModel):
     first_name: str
     middle_name: Optional[str] = None
@@ -101,6 +107,7 @@ class UserResponse(BaseModel):
     role: UserRole = UserRole.WORKER
     positions: list[PositionInfo] = []
     gp_data_status: Optional[GPDataStatus] = None
+    profile_status: Optional[ProfileStatus] = None
     employee: Optional[EmployeeInfo] = None
 
 
@@ -280,6 +287,27 @@ async def read_users_me(
         )
         gp_data_status = GPDataStatus(**status_dict)
 
+    # Calculate profile_status for CEO, BDO, VDO, WORKER
+    profile_status = None
+    if role in [UserRole.CEO, UserRole.BDO, UserRole.VDO, UserRole.WORKER]:
+        if not current_user.profile_updated_at:
+            profile_status = ProfileStatus(
+                is_overdue=True,
+                profile_updated_at=None,
+                days_remaining=0,
+            )
+        else:
+            tz = current_user.profile_updated_at.tzinfo or timezone.utc
+            now = datetime.now(tz)
+            delta = now - current_user.profile_updated_at
+            is_overdue = delta > timedelta(days=30)
+            days_remaining = max(0, 30 - delta.days) if not is_overdue else 0
+            profile_status = ProfileStatus(
+                is_overdue=is_overdue,
+                profile_updated_at=current_user.profile_updated_at,
+                days_remaining=days_remaining,
+            )
+
     # Get employee info from active position
     employee_info = None
     auth_service = AuthService(db)
@@ -304,6 +332,7 @@ async def read_users_me(
         role=role,
         positions=[],
         gp_data_status=gp_data_status,
+        profile_status=profile_status,
         employee=employee_info,
     )
 
