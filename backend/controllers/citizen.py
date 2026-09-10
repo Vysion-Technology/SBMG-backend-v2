@@ -45,6 +45,7 @@ async def create_complaint_with_media(
     complaint_type_id: int = Form(...),
     gp_id: int = Form(..., description="Gram Panchayat (village) ID"),
     description: str = Form(..., description="Complaint description"),
+    complainant_name: Optional[str] = Form(None, description="Complainant name"),
     files: List[UploadFile] = File(default=[]),
     lat: float = Form(..., description="Latitude"),
     long: float = Form(..., description="Longitude"),
@@ -62,6 +63,10 @@ async def create_complaint_with_media(
             )
         
         user = current_user
+        if complainant_name and user.name != complainant_name:
+            user.name = complainant_name
+            await db.commit()
+            await db.refresh(user)
         # Create the complaint first using similar logic to create_complaint
         # Verify village exists
         if not lat or not long:
@@ -201,6 +206,7 @@ async def create_complaint_with_media(
             id=complaint.id,
             description=complaint.description,
             mobile_number=complaint.mobile_number,
+            complainant_name=user.name,
             status_name=complaint_status.name,
             village_name=gp.name,
             block_name=gp.block.name,
@@ -421,6 +427,7 @@ async def close_complaint(
         id=complaint_with_relations.id,
         description=complaint_with_relations.description,
         mobile_number=complaint_with_relations.mobile_number,
+        complainant_name=complaint_with_relations.public_user.name if complaint_with_relations.public_user else None,
         status_name=closed_status.name,
         village_name=complaint_with_relations.gp.name if complaint_with_relations.gp else "",
         block_name=complaint_with_relations.block.name if complaint_with_relations.block else "",

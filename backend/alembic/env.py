@@ -7,6 +7,7 @@ from sqlalchemy import pool
 from alembic import context
 from dotenv import load_dotenv
 
+from config import settings
 from database import Base  # Import your Base where models are defined
 # Import all models to register them with Base.metadata
 import models  # noqa: F401
@@ -32,13 +33,15 @@ target_metadata = Base.metadata
 # ... etc.
 
 load_dotenv()  # Load environment variables from a .env file if present
-url = os.getenv("DATABASE_URL")
+url = os.getenv("DATABASE_URL") or settings.database_url
 assert url is not None, "DATABASE_URL environment variable is not set"
 
 if url.startswith("postgres://"):
     url = url.replace("postgres://", "postgresql://", 1)
 elif url.startswith("postgresql+asyncpg://"):
     url = url.replace("postgresql+asyncpg://", "postgresql+psycopg2://", 1)
+elif url.startswith("sqlite+aiosqlite://"):
+    url = url.replace("sqlite+aiosqlite://", "sqlite://", 1)
 
 
 def run_migrations_offline() -> None:
