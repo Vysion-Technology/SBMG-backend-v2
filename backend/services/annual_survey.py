@@ -70,6 +70,9 @@ def get_response_model_from_survey(
         district_name=survey.gp.district.name,
         sarpanch_name=survey.sarpanch_name or "",
         sarpanch_contact=survey.sarpanch_contact or "",
+        surveyor_name=survey.surveyor_name,
+        surveyor_post=survey.surveyor_post,
+        surveyor_contact=survey.surveyor_contact,
         num_ward_panchs=survey.num_ward_panchs or 0,
         agency_id=survey.agency_id,
         agency_name=survey.agency.name if getattr(survey, "agency", None) else "",
@@ -148,6 +151,9 @@ class AnnualSurveyService:
                     vdo_contact_number=request.vdo_contact_number,
                     sarpanch_name=request.sarpanch_name,
                     sarpanch_contact=request.sarpanch_contact,
+                    surveyor_name=request.surveyor_name,
+                    surveyor_post=request.surveyor_post,
+                    surveyor_contact=request.surveyor_contact,
                     num_ward_panchs=request.num_ward_panchs,
                     agency_id=request.agency_id,
                 )
@@ -161,6 +167,7 @@ class AnnualSurveyService:
                 id=survey.id,
                 work_order_no=request.work_order.work_order_no,
                 work_order_date=request.work_order.work_order_date,
+                work_order_end_date=request.work_order.work_order_end_date,
                 work_order_amount=request.work_order.work_order_amount,
             ))
 
@@ -401,6 +408,12 @@ class AnnualSurveyService:
             survey.sarpanch_name = request.sarpanch_name
         if request.sarpanch_contact is not None:
             survey.sarpanch_contact = request.sarpanch_contact
+        if request.surveyor_name is not None:
+            survey.surveyor_name = request.surveyor_name
+        if request.surveyor_post is not None:
+            survey.surveyor_post = request.surveyor_post
+        if request.surveyor_contact is not None:
+            survey.surveyor_contact = request.surveyor_contact
         if request.num_ward_panchs is not None:
             survey.num_ward_panchs = request.num_ward_panchs
         if request.agency_id is not None:

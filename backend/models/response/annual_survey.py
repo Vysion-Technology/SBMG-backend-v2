@@ -25,6 +25,7 @@ class WorkOrderDetailsResponse(BaseModel):
     id: int
     work_order_no: Optional[str]
     work_order_date: Optional[date]
+    work_order_end_date: Optional[date] = None
     work_order_amount: Optional[float]
 
     class Config:
@@ -310,6 +311,11 @@ class AnnualSurveyResponse(BaseModel):
     # 2. Sarpanch Details
     sarpanch_name: str
     sarpanch_contact: str
+
+    # Surveyor Details (Optional)
+    surveyor_name: Optional[str] = None
+    surveyor_post: Optional[str] = None
+    surveyor_contact: Optional[str] = None
 
     # 3. No. of Ward Panchs
     num_ward_panchs: int

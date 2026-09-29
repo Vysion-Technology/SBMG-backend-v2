@@ -121,6 +121,11 @@ class AnnualSurvey(Base):  # type: ignore
     sarpanch_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # type: ignore
     sarpanch_contact: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # type: ignore
 
+    # Surveyor Details (Optional)
+    surveyor_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # type: ignore
+    surveyor_post: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # type: ignore
+    surveyor_contact: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # type: ignore
+
     # 3. No. of Ward Panchs
     num_ward_panchs: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
@@ -295,6 +300,7 @@ class WorkOrderDetails(Base):  # type: ignore
 
     work_order_no: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     work_order_date: Mapped[Optional[dt_date]] = mapped_column(Date, nullable=True)
+    work_order_end_date: Mapped[Optional[dt_date]] = mapped_column(Date, nullable=True)
     work_order_amount: Mapped[Optional[float]] = mapped_column(Numeric(15, 2), nullable=True)
 
     # 1:1 relationship back to survey

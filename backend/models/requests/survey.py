@@ -18,6 +18,7 @@ class WorkOrderDetailsRequest(BaseModel):
 
     work_order_no: Optional[str] = None
     work_order_date: Optional[date] = None
+    work_order_end_date: Optional[date] = None
     work_order_amount: Optional[float] = None
 
 
@@ -230,6 +231,11 @@ class CreateAnnualSurveyRequest(BaseModel):
     sarpanch_name: str = Field(..., description="Name of the Sarpanch")
     sarpanch_contact: str = Field(..., description="Contact number of the Sarpanch")
 
+    # Surveyor Details (Optional)
+    surveyor_name: Optional[str] = Field(None, description="Name of the Surveyor")
+    surveyor_post: Optional[str] = Field(None, description="Post/Designation of the Surveyor")
+    surveyor_contact: Optional[str] = Field(None, description="Contact number of the Surveyor")
+
     # 3. No. of Ward Panchs
     num_ward_panchs: int = Field(..., description="Number of Ward Panchs")
 
@@ -305,6 +311,11 @@ class UpdateAnnualSurveyRequest(BaseModel):
     sarpanch_contact: Optional[str] = Field(
         None, description="Contact number of the Sarpanch", pattern=r"^[6-9]\d{9}$"
     )
+
+    # Surveyor Details (Optional)
+    surveyor_name: Optional[str] = None
+    surveyor_post: Optional[str] = None
+    surveyor_contact: Optional[str] = None
 
     # 3. No. of Ward Panchs
     num_ward_panchs: Optional[int] = None

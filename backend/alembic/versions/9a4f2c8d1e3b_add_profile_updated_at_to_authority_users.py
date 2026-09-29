@@ -27,7 +27,11 @@ def upgrade() -> None:
     )
     
     # 2. Backfill existing authority users to now() - 2 months so they are prompted to update
-    op.execute("UPDATE authority_users SET profile_updated_at = now() - INTERVAL '2 months'")
+    bind = op.get_bind()
+    if bind.dialect.name == 'postgresql':
+        op.execute("UPDATE authority_users SET profile_updated_at = now() - INTERVAL '2 months'")
+    else:
+        op.execute("UPDATE authority_users SET profile_updated_at = datetime('now', '-2 months')")
 
 
 def downgrade() -> None:
