@@ -435,6 +435,7 @@ class AuthService:
                 select(PositionHolder)
                 .options(*options)
                 .where(PositionHolder.gp_id == gp_id, PositionHolder.end_date.is_(None))
+                .order_by(PositionHolder.id.desc())
             )
         elif block_id is not None:
             result = await self.db.execute(
@@ -445,6 +446,7 @@ class AuthService:
                     PositionHolder.gp_id.is_(None),
                     PositionHolder.end_date.is_(None),
                 )
+                .order_by(PositionHolder.id.desc())
             )
         elif district_id is not None:
             result = await self.db.execute(
@@ -456,6 +458,7 @@ class AuthService:
                     PositionHolder.gp_id.is_(None),
                     PositionHolder.end_date.is_(None),
                 )
+                .order_by(PositionHolder.id.desc())
             )
         else:
             result = await self.db.execute(
@@ -467,11 +470,12 @@ class AuthService:
                     PositionHolder.gp_id.is_(None),
                     PositionHolder.end_date.is_(None),
                 )
+                .order_by(PositionHolder.id.desc())
             )
         assert result is not None, (
             "Database query failed in get_current_position_holder"
         )
-        position_holder = result.scalar_one_or_none()
+        position_holder = result.scalars().first()
         return position_holder
 
     async def send_password_reset_otp(self, user_id: int) -> bool:
@@ -696,8 +700,8 @@ class AuthService:
         position_holders = result.scalars().all()
         return list(position_holders)
 
-    async def get_smd_position_holder(self) -> PositionHolder:
-        """Get all users with SMD role."""
+    async def get_smd_position_holder(self) -> Optional[PositionHolder]:
+        """Get user with SMD role."""
         result = await self.db.execute(
             select(PositionHolder)
             .options(
@@ -708,8 +712,9 @@ class AuthService:
             .where(
                 Role.name == UserRole.ADMIN.value,
             )
+            .order_by(PositionHolder.id.desc())
         )
-        position_holder = result.scalar_one()
+        position_holder = result.scalars().first()
         return position_holder
 
 
