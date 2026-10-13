@@ -305,6 +305,9 @@ async def get_gp_latest_survey(
 async def get_assets_dashboard_totals(
     db: AsyncSession = Depends(get_db),
     fy_id: Optional[int] = Query(None, description="Financial Year ID"),
+    district_id: Optional[int] = Query(None, description="District ID"),
+    block_id: Optional[int] = Query(None, description="Block ID"),
+    gp_id: Optional[int] = Query(None, description="Gram Panchayat ID"),
     current_user: User = Depends(require_reconfirmed_vdo),
 ) -> AssetsDashboardResponse:
     """
@@ -313,13 +316,39 @@ async def get_assets_dashboard_totals(
     """
     service = AnnualSurveyAnalyticsService(db)
 
+    # Apply jurisdiction restrictions from current_user
+    final_district_id = district_id or current_user.district_id
+    final_block_id = block_id or current_user.block_id
+    final_gp_id = gp_id or current_user.gp_id
+
+    # If user is restricted to a district, they cannot see other districts
+    if current_user.district_id and district_id and current_user.district_id != district_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this district's data."
+        )
+
+    # If user is restricted to a block, they cannot see other blocks
+    if current_user.block_id and block_id and current_user.block_id != block_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this block's data."
+        )
+
+    # If user is restricted to a GP, they cannot see other GPs
+    if current_user.gp_id and gp_id and current_user.gp_id != gp_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this GP's data."
+        )
+
     try:
-        # Pass the user's jurisdiction IDs down to the service
+        # Pass the jurisdiction IDs down to the service
         analytics = await service.get_assets_dashboard_totals(
             fy_id=fy_id,
-            district_id=current_user.district_id,
-            block_id=current_user.block_id,
-            gp_id=current_user.gp_id
+            district_id=final_district_id,
+            block_id=final_block_id,
+            gp_id=final_gp_id
         )
     except ValueError as e:
         raise HTTPException(

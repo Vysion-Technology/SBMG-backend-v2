@@ -121,6 +121,7 @@ class GobardhanProjectRequest(BaseModel):
 class D2DActivitiesRequest(BaseModel):
     """Request model for D2D activities details."""
     is_active: bool = False
+    work_contract_through: Optional[str] = None
     work_frequency: Optional[WorkFrequency] = None
     sanctioned_tender: int = 0
     sanctioned_self_gp: int = 0
@@ -145,11 +146,53 @@ class D2DActivitiesRequest(BaseModel):
         return data
 
     @model_validator(mode="after")
-    def validate_work_frequency(self):
+    def validate_work_frequency_and_contract(self):
         if not self.is_active:
             self.work_frequency = None
-        elif self.is_active and self.work_frequency is None:
+            self.work_contract_through = None
+            self.sanctioned_tender = 0
+            self.sanctioned_self_gp = 0
+            self.sanctioned_csr_ngo = 0
+            self.sanctioned_shg = 0
+            self.sanctioned_mixed_model = 0
+            return self
+
+        if self.is_active and self.work_frequency is None:
             self.work_frequency = WorkFrequency.DAILY
+
+        # Synchronize single contract mode with 0-1 mutual exclusivity
+        if self.work_contract_through:
+            mode = self.work_contract_through.strip().lower()
+            self.work_contract_through = mode
+            self.sanctioned_tender = 1 if mode == "tender" else 0
+            self.sanctioned_self_gp = 1 if mode == "self_gp" else 0
+            self.sanctioned_csr_ngo = 1 if mode == "csr_ngo" else 0
+            self.sanctioned_shg = 1 if mode == "shg" else 0
+            self.sanctioned_mixed_model = 1 if mode == "mixed_model" else 0
+        else:
+            # Fallback derivation if legacy client provided numeric counts
+            active_modes = [
+                m for m, val in [
+                    ("tender", self.sanctioned_tender),
+                    ("self_gp", self.sanctioned_self_gp),
+                    ("csr_ngo", self.sanctioned_csr_ngo),
+                    ("shg", self.sanctioned_shg),
+                    ("mixed_model", self.sanctioned_mixed_model),
+                ] if (val or 0) > 0
+            ]
+            if len(active_modes) > 1:
+                self.work_contract_through = "mixed_model"
+            elif len(active_modes) == 1:
+                self.work_contract_through = active_modes[0]
+
+            # Strictly enforce that at most one field is 1 and all others are 0
+            mode = self.work_contract_through
+            self.sanctioned_tender = 1 if mode == "tender" else 0
+            self.sanctioned_self_gp = 1 if mode == "self_gp" else 0
+            self.sanctioned_csr_ngo = 1 if mode == "csr_ngo" else 0
+            self.sanctioned_shg = 1 if mode == "shg" else 0
+            self.sanctioned_mixed_model = 1 if mode == "mixed_model" else 0
+
         return self
 
 
