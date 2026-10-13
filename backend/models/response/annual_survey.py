@@ -4,7 +4,7 @@ Response Models for Annual Survey Management
 
 from typing import Optional, List, Dict, Any
 from datetime import date, datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from models.response.auth import PositionHolderResponse
 from models.database.survey_master import (
     FundHead,
@@ -176,6 +176,7 @@ class D2DActivitiesResponse(BaseModel):
     """Response model for D2D activities details."""
     id: int
     is_active: bool
+    work_contract_through: Optional[str] = None
     work_frequency: Optional[WorkFrequency]
     sanctioned_tender: int
     sanctioned_self_gp: int
@@ -189,6 +190,24 @@ class D2DActivitiesResponse(BaseModel):
     status_start: int
     status_running: int
     status_completed: int
+
+    @model_validator(mode="after")
+    def derive_work_contract_through(self):
+        if not self.work_contract_through and self.is_active:
+            active_modes = [
+                m for m, val in [
+                    ("tender", self.sanctioned_tender),
+                    ("self_gp", self.sanctioned_self_gp),
+                    ("csr_ngo", self.sanctioned_csr_ngo),
+                    ("shg", self.sanctioned_shg),
+                    ("mixed_model", self.sanctioned_mixed_model),
+                ] if (val or 0) > 0
+            ]
+            if len(active_modes) > 1:
+                self.work_contract_through = "mixed_model"
+            elif len(active_modes) == 1:
+                self.work_contract_through = active_modes[0]
+        return self
 
     class Config:
         from_attributes = True
