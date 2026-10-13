@@ -54,6 +54,7 @@ from models.internal import GeoTypeEnum
 from models.requests.complaint import (
     UpdateComplaintStatusRequest,
     ResolveComplaintRequest,
+    ReopenComplaintRequest,
 )
 
 from services.s3_service import s3_service
@@ -899,6 +900,90 @@ async def verify_complaint(
         "message": "Complaint verified successfully",
         "complaint_id": complaint_id,
         "error": error_msg.strip(),
+    }
+
+
+@router.patch("/smd/complaints/{complaint_id}/reopen")
+@router.patch("/{complaint_id}/reopen")
+async def reopen_complaint(
+    reopen_request: ReopenComplaintRequest,
+    complaint_id: int = Path(..., le=2147483647),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> Dict[str, Any]:
+    """Reopen a complaint with reason (SMD / State Admin only)."""
+    # Verify SMD / ADMIN role
+    user_roles = [pos.role.name for pos in current_user.positions if pos.role]
+    is_smd_or_admin = (
+        PermissionChecker.user_has_role(current_user, [UserRole.ADMIN, UserRole.SUPERADMIN])
+        or any(r in [UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SMD] for r in user_roles)
+        or current_user.role in ["ADMIN", "SMD", "SUPERADMIN"]
+    )
+    if not is_smd_or_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only SMD (State Admin) users are permitted to reopen complaints",
+        )
+
+    if not reopen_request.reason or not reopen_request.reason.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reason is mandatory when reopening a complaint",
+        )
+
+    query = (
+        select(Complaint)
+        .options(selectinload(Complaint.status))
+        .where(Complaint.id == complaint_id)
+    )
+    result = await db.execute(query)
+    complaint = result.scalar_one_or_none()
+
+    if not complaint:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Complaint not found",
+        )
+
+    # Get "OPEN" status
+    status_query = select(ComplaintStatus).where(ComplaintStatus.name == "OPEN")
+    status_result = await db.execute(status_query)
+    open_status = status_result.scalar_one_or_none()
+
+    if not open_status:
+        open_status = ComplaintStatus(name="OPEN", description="Newly created complaint")
+        db.add(open_status)
+        await db.flush()
+
+    # Update complaint fields back to OPEN state
+    complaint.status_id = open_status.id
+    complaint.closed_at = None
+    complaint.closed_by_id = None
+    complaint.closed_by_info = None
+    complaint.verified_at = None
+    complaint.resolved_at = None
+    complaint.updated_at = datetime.now(tz=timezone.utc)
+
+    # Record the reopen action & reason in comments
+    reopen_comment = ComplaintComment(
+        complaint_id=complaint_id,
+        user_id=current_user.id,
+        comment=f"Complaint Reopened by SMD. Reason: {reopen_request.reason.strip()}",
+        commented_at=datetime.now(tz=timezone.utc),
+    )
+    db.add(reopen_comment)
+
+    await db.commit()
+
+    # Notify complainant
+    try:
+        await notify_user_on_complaint_status_update(db, complaint, "OPEN")
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logging.error("Failed to send FCM notification on reopen: %s", e)
+
+    return {
+        "message": "Complaint reopened successfully",
+        "complaint_id": complaint_id,
     }
 
 

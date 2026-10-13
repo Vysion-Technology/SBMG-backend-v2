@@ -39,3 +39,7 @@ class ComplaintTypeRequest(BaseModel):
     name: str
     description: Optional[str] = None
 
+
+class ReopenComplaintRequest(BaseModel):
+    reason: str
+

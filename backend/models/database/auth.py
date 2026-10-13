@@ -88,6 +88,9 @@ class User(Base):  # type: ignore
     lockout_until: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )  # type: ignore
+    profile_updated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )  # type: ignore
 
     # Relationships
     positions: Mapped[List["PositionHolder"]] = relationship(
