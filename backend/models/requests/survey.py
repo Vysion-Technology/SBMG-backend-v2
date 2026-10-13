@@ -2,7 +2,7 @@
 Request Models for Annual Survey Management
 """
 
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import date
 from pydantic import BaseModel, Field, model_validator
 from models.database.survey_master import (
@@ -18,6 +18,7 @@ class WorkOrderDetailsRequest(BaseModel):
 
     work_order_no: Optional[str] = None
     work_order_date: Optional[date] = None
+    work_order_end_date: Optional[date] = None
     work_order_amount: Optional[float] = None
 
 
@@ -134,6 +135,15 @@ class D2DActivitiesRequest(BaseModel):
     status_running: int = 0
     status_completed: int = 0
 
+    @model_validator(mode="before")
+    @classmethod
+    def preprocess_work_frequency(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            work_freq = data.get("work_frequency")
+            if isinstance(work_freq, str) and work_freq.strip().lower() in ("none", "", "null", "undefined"):
+                data["work_frequency"] = None
+        return data
+
     @model_validator(mode="after")
     def validate_work_frequency(self):
         if not self.is_active:
@@ -221,6 +231,11 @@ class CreateAnnualSurveyRequest(BaseModel):
     sarpanch_name: str = Field(..., description="Name of the Sarpanch")
     sarpanch_contact: str = Field(..., description="Contact number of the Sarpanch")
 
+    # Surveyor Details (Optional)
+    surveyor_name: Optional[str] = Field(None, description="Name of the Surveyor")
+    surveyor_post: Optional[str] = Field(None, description="Post/Designation of the Surveyor")
+    surveyor_contact: Optional[str] = Field(None, description="Contact number of the Surveyor")
+
     # 3. No. of Ward Panchs
     num_ward_panchs: int = Field(..., description="Number of Ward Panchs")
 
@@ -296,6 +311,11 @@ class UpdateAnnualSurveyRequest(BaseModel):
     sarpanch_contact: Optional[str] = Field(
         None, description="Contact number of the Sarpanch", pattern=r"^[6-9]\d{9}$"
     )
+
+    # Surveyor Details (Optional)
+    surveyor_name: Optional[str] = None
+    surveyor_post: Optional[str] = None
+    surveyor_contact: Optional[str] = None
 
     # 3. No. of Ward Panchs
     num_ward_panchs: Optional[int] = None

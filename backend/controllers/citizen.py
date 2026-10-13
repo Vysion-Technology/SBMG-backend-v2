@@ -45,6 +45,7 @@ async def create_complaint_with_media(
     complaint_type_id: int = Form(...),
     gp_id: int = Form(..., description="Gram Panchayat (village) ID"),
     description: str = Form(..., description="Complaint description"),
+    complainant_name: Optional[str] = Form(None, description="Complainant name"),
     files: List[UploadFile] = File(default=[]),
     lat: float = Form(..., description="Latitude"),
     long: float = Form(..., description="Longitude"),
@@ -62,6 +63,10 @@ async def create_complaint_with_media(
             )
         
         user = current_user
+        if complainant_name and user.name != complainant_name:
+            user.name = complainant_name
+            await db.commit()
+            await db.refresh(user)
         # Create the complaint first using similar logic to create_complaint
         # Verify village exists
         if not lat or not long:
@@ -112,20 +117,31 @@ async def create_complaint_with_media(
         for file in files:
             if file.filename:
                 try:
-                    # Upload file to S3/MinIO
-                    s3_key = await s3_service.upload_file(
-                        file=file,
-                        folder=f"complaints/{complaint.id}",
-                        filename=file.filename,
-                    )
-
-                    # Get the public URL for the uploaded file
+                    # Check if S3 is available
                     if s3_service.is_available():
-                        # Use S3 URL for database storage
+                        # Upload file to S3/MinIO
+                        s3_key = await s3_service.upload_file(
+                            file=file,
+                            folder=f"complaints/{complaint.id}",
+                            filename=file.filename,
+                        )
                         media_url = s3_key
                     else:
-                        # Fallback to local path
-                        media_url = f"/media/complaints/{complaint.id}/{file.filename}"
+                        # Fallback: save locally
+                        media_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "media")
+                        relative_path = f"complaints/{complaint.id}/{file.filename}"
+                        full_path = os.path.join(media_dir, relative_path)
+
+                        # Create directory if it doesn't exist
+                        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+                        # Read file content and save locally
+                        content = await file.read()
+                        with open(full_path, "wb") as f:
+                            f.write(content)
+                        await file.seek(0)  # Reset file pointer
+
+                        media_url = f"/media/{relative_path}"
 
                     # Create media record
                     media = ComplaintMedia(
@@ -136,11 +152,11 @@ async def create_complaint_with_media(
                     )
                     db.add(media)
                     media_urls.append(media_url)
-                    print(f"Uploaded file to {media_url}")
+                    print(f"Uploaded/Saved file to {media_url}")
 
-                except HTTPException:
-                    # If S3 upload fails, continue without media
-                    # In production, you might want to handle this differently
+                except Exception as e:
+                    # Log error and continue without this media
+                    logging.error(f"Failed to process media file {file.filename}: {str(e)}")
                     continue
 
         if media_urls:
@@ -190,6 +206,7 @@ async def create_complaint_with_media(
             id=complaint.id,
             description=complaint.description,
             mobile_number=complaint.mobile_number,
+            complainant_name=user.name,
             status_name=complaint_status.name,
             village_name=gp.name,
             block_name=gp.block.name,
@@ -410,6 +427,7 @@ async def close_complaint(
         id=complaint_with_relations.id,
         description=complaint_with_relations.description,
         mobile_number=complaint_with_relations.mobile_number,
+        complainant_name=complaint_with_relations.public_user.name if complaint_with_relations.public_user else None,
         status_name=closed_status.name,
         village_name=complaint_with_relations.gp.name if complaint_with_relations.gp else "",
         block_name=complaint_with_relations.block.name if complaint_with_relations.block else "",

@@ -25,9 +25,13 @@ class CircularService:
         self,
         skip: int = 0,
         limit: int = 100,
+        active_only: bool = False,
     ) -> list[Circular]:
         """Retrieve all circulars ordered by creation date descending."""
-        query = select(Circular).order_by(Circular.created_at.desc()).offset(skip).limit(limit)
+        query = select(Circular)
+        if active_only:
+            query = query.where(Circular.is_active == True)
+        query = query.order_by(Circular.created_at.desc()).offset(skip).limit(limit)
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
@@ -37,6 +41,7 @@ class CircularService:
         description: str,
         pdf_url: str,
         image_url: Optional[str] = None,
+        is_active: bool = True,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
     ) -> Circular:
@@ -46,6 +51,7 @@ class CircularService:
             description=description,
             pdf_url=pdf_url,
             image_url=image_url,
+            is_active=is_active,
             start_date=start_date,
             end_date=end_date,
         )
@@ -61,6 +67,7 @@ class CircularService:
         description: Optional[str] = None,
         pdf_url: Optional[str] = None,
         image_url: Optional[str] = None,
+        is_active: Optional[bool] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
     ) -> Optional[Circular]:
@@ -74,6 +81,8 @@ class CircularService:
             update_data["pdf_url"] = pdf_url
         if image_url is not None:
             update_data["image_url"] = image_url
+        if is_active is not None:
+            update_data["is_active"] = is_active
         if start_date is not None:
             update_data["start_date"] = start_date
         if end_date is not None:

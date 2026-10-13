@@ -54,6 +54,7 @@ from models.internal import GeoTypeEnum
 from models.requests.complaint import (
     UpdateComplaintStatusRequest,
     ResolveComplaintRequest,
+    ReopenComplaintRequest,
 )
 
 from services.s3_service import s3_service
@@ -75,6 +76,7 @@ async def create_complaint_for_public_user(
     phone_number: str = Form(...),
     description: str = Form(...),
     complaint_type_id: int = Form(..., le=2147483647),
+    complainant_name: Optional[str] = Form(None),
     lat: Optional[float] = Form(None),
     long: Optional[float] = Form(None),
     gp_id: int = Form(..., le=2147483647),
@@ -93,7 +95,7 @@ async def create_complaint_for_public_user(
     # Check if the public user exists, if not create one
     public_user_service = PublicUserService(db)
     public_user = await public_user_service.get_or_create_public_user_by_phone(
-        phone_number
+        phone_number, name=complainant_name
     )
 
     # Create the complaint
@@ -106,6 +108,7 @@ async def create_complaint_for_public_user(
         long=long,
         location=location,
         gp_id=gp_id,
+        mobile_number=phone_number,
     )
 
     # Re-fetch complaint with all relationships loaded
@@ -121,6 +124,7 @@ async def create_complaint_for_public_user(
         description=complaint_with_relations.description,
         complaint_type_id=complaint_with_relations.complaint_type_id,
         mobile_number=phone_number,
+        complainant_name=complaint_with_relations.public_user.name if complaint_with_relations.public_user else complainant_name,
         created_at=complaint_with_relations.created_at,
         updated_at=complaint_with_relations.updated_at,
         status_id=complaint_with_relations.status_id,
@@ -218,6 +222,7 @@ async def update_complaint_for_public_user(
         description=complaint_with_relations.description,
         complaint_type_id=complaint_with_relations.complaint_type_id,
         mobile_number=complaint_with_relations.mobile_number,
+        complainant_name=complaint_with_relations.public_user.name if complaint_with_relations.public_user else None,
         created_at=complaint_with_relations.created_at,
         updated_at=complaint_with_relations.updated_at,
         status_id=complaint_with_relations.status_id,
@@ -308,6 +313,7 @@ async def get_my_complaints(
             selectinload(Complaint.complaint_type),
             selectinload(Complaint.media),
             selectinload(Complaint.comments).selectinload(ComplaintComment.user),
+            selectinload(Complaint.public_user),
         )
         .where(Complaint.public_user_id == user.id)
     )
@@ -343,6 +349,7 @@ async def get_my_complaints(
             description=complaint.description,
             complaint_type_id=complaint.complaint_type_id,
             mobile_number=complaint.mobile_number,
+            complainant_name=complaint.public_user.name if complaint.public_user else None,
             created_at=complaint.created_at,
             updated_at=complaint.updated_at,
             status_id=complaint.status_id,
@@ -439,6 +446,12 @@ async def update_complaint_status(
                 detail="VDOs are not allowed to close complaints. Only Citizens or higher authority can close them.",
             )
 
+    if not status_request.remark or not status_request.remark.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Remark is mandatory when updating complaint status",
+        )
+
     # Update complaint
     complaint.status_id = new_status.id
     complaint.updated_at = datetime.now(tz=timezone.utc)  # type: ignore
@@ -466,6 +479,14 @@ async def update_complaint_status(
                 place_name = "State"
         
         complaint.closed_by_info = f"{user_role} - {place_name}" if place_name else user_role
+
+    # Save mandatory remark as a comment on the complaint
+    closing_comment = ComplaintComment(
+        complaint_id=complaint.id,
+        comment=status_request.remark.strip(),
+        user_id=current_user.id,
+    )
+    db.add(closing_comment)
 
     await db.commit()
 
@@ -529,20 +550,31 @@ async def add_complaint_comment(
     # Handle photo upload if provided
     if photo and photo.filename:
         try:
-            # Upload photo to S3/MinIO
-            s3_key = await s3_service.upload_file(
-                file=photo,
-                folder=f"complaints/{complaint_id}/comments/{comment.id}",
-                filename=photo.filename,
-            )
-
-            # Get the media URL for database storage
+            # Check if S3 is available
             if s3_service.is_available():
-                # Use S3 key for database storage
+                # Upload photo to S3/MinIO
+                s3_key = await s3_service.upload_file(
+                    file=photo,
+                    folder=f"complaints/{complaint_id}/comments/{comment.id}",
+                    filename=photo.filename,
+                )
                 media_url = s3_key
             else:
-                # Fallback to local path
-                media_url = f"/media/complaints/{complaint_id}/comments/{comment.id}/{photo.filename}"
+                # Fallback: save locally
+                media_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "media")
+                relative_path = f"complaints/{complaint_id}/comments/{comment.id}/{photo.filename}"
+                full_path = os.path.join(media_dir, relative_path)
+
+                # Create directory if it doesn't exist
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+                # Read file content and save locally
+                content = await photo.read()
+                with open(full_path, "wb") as f:
+                    f.write(content)
+                await photo.seek(0)  # Reset file pointer
+
+                media_url = f"/media/{relative_path}"
 
             # Create media record
             media = ComplaintMedia(
@@ -553,8 +585,9 @@ async def add_complaint_comment(
             )
             db.add(media)
             await db.commit()
-        except HTTPException:
-            # If S3 upload fails, continue without photo
+        except Exception as e:
+            # Log error and continue without photo
+            logging.error(f"Failed to process comment photo: {str(e)}")
             pass
 
     # Get user name for response
@@ -614,20 +647,31 @@ async def upload_complaint_media(
         )
 
     try:
-        # Upload file to S3/MinIO
-        s3_key = await s3_service.upload_file(
-            file=file,
-            folder=f"complaints/{complaint_id}/media",
-            filename=file.filename,
-        )
-
-        # Get the media URL for database storage
+        # Check if S3 is available
         if s3_service.is_available():
-            # Use S3 key for database storage
+            # Upload file to S3/MinIO
+            s3_key = await s3_service.upload_file(
+                file=file,
+                folder=f"complaints/{complaint_id}/media",
+                filename=file.filename,
+            )
             media_url = s3_key
         else:
-            # Fallback to local path
-            media_url = f"/media/complaints/{complaint_id}/media/{file.filename}"
+            # Fallback: save locally
+            media_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "media")
+            relative_path = f"complaints/{complaint_id}/media/{file.filename}"
+            full_path = os.path.join(media_dir, relative_path)
+
+            # Create directory if it doesn't exist
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+            # Read file content and save locally
+            content = await file.read()
+            with open(full_path, "wb") as f:
+                f.write(content)
+            await file.seek(0)  # Reset file pointer
+
+            media_url = f"/media/{relative_path}"
 
         # Create media record
         media = ComplaintMedia(
@@ -856,6 +900,90 @@ async def verify_complaint(
         "message": "Complaint verified successfully",
         "complaint_id": complaint_id,
         "error": error_msg.strip(),
+    }
+
+
+@router.patch("/smd/complaints/{complaint_id}/reopen")
+@router.patch("/{complaint_id}/reopen")
+async def reopen_complaint(
+    reopen_request: ReopenComplaintRequest,
+    complaint_id: int = Path(..., le=2147483647),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> Dict[str, Any]:
+    """Reopen a complaint with reason (SMD / State Admin only)."""
+    # Verify SMD / ADMIN role
+    user_roles = [pos.role.name for pos in current_user.positions if pos.role]
+    is_smd_or_admin = (
+        PermissionChecker.user_has_role(current_user, [UserRole.ADMIN, UserRole.SUPERADMIN])
+        or any(r in [UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SMD] for r in user_roles)
+        or current_user.role in ["ADMIN", "SMD", "SUPERADMIN"]
+    )
+    if not is_smd_or_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only SMD (State Admin) users are permitted to reopen complaints",
+        )
+
+    if not reopen_request.reason or not reopen_request.reason.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reason is mandatory when reopening a complaint",
+        )
+
+    query = (
+        select(Complaint)
+        .options(selectinload(Complaint.status))
+        .where(Complaint.id == complaint_id)
+    )
+    result = await db.execute(query)
+    complaint = result.scalar_one_or_none()
+
+    if not complaint:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Complaint not found",
+        )
+
+    # Get "OPEN" status
+    status_query = select(ComplaintStatus).where(ComplaintStatus.name == "OPEN")
+    status_result = await db.execute(status_query)
+    open_status = status_result.scalar_one_or_none()
+
+    if not open_status:
+        open_status = ComplaintStatus(name="OPEN", description="Newly created complaint")
+        db.add(open_status)
+        await db.flush()
+
+    # Update complaint fields back to OPEN state
+    complaint.status_id = open_status.id
+    complaint.closed_at = None
+    complaint.closed_by_id = None
+    complaint.closed_by_info = None
+    complaint.verified_at = None
+    complaint.resolved_at = None
+    complaint.updated_at = datetime.now(tz=timezone.utc)
+
+    # Record the reopen action & reason in comments
+    reopen_comment = ComplaintComment(
+        complaint_id=complaint_id,
+        user_id=current_user.id,
+        comment=f"Complaint Reopened by SMD. Reason: {reopen_request.reason.strip()}",
+        commented_at=datetime.now(tz=timezone.utc),
+    )
+    db.add(reopen_comment)
+
+    await db.commit()
+
+    # Notify complainant
+    try:
+        await notify_user_on_complaint_status_update(db, complaint, "OPEN")
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logging.error("Failed to send FCM notification on reopen: %s", e)
+
+    return {
+        "message": "Complaint reopened successfully",
+        "complaint_id": complaint_id,
     }
 
 

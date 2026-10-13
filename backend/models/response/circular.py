@@ -12,6 +12,7 @@ class CircularResponse(BaseModel):
     description: str
     pdf_url: str
     image_url: Optional[str] = None
+    is_active: bool
     created_at: datetime
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None

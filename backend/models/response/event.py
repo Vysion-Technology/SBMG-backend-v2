@@ -28,3 +28,38 @@ class EventResponse(BaseModel):
     class Config:
         """Pydantic config for EventResponse."""
         from_attributes = True
+
+
+class VdoEventImageResponse(BaseModel):
+    """Response model for VDO-uploaded event image."""
+    id: int
+    event_id: int
+    vdo_id: int
+    gp_id: int
+    block_id: int
+    district_id: int
+    media_url: str
+    uploaded_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class VdoEventImageTrackResponse(BaseModel):
+    """Response model for tracking VDO-uploaded event images."""
+    id: int
+    event_id: int
+    vdo_id: int
+    vdo_username: str
+    gp_id: int
+    gp_name: str
+    block_id: int
+    block_name: str
+    district_id: int
+    district_name: str
+    media_url: str
+    uploaded_at: datetime
+
+    class Config:
+        from_attributes = True
+

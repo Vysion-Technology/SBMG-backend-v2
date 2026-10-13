@@ -5,11 +5,13 @@ import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Query
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 
-from models.database.auth import User
+from models.database.auth import User, PositionHolder
 from models.requests.notice import (
     CreateNoticeRequest,
     CreateNoticeTypeRequest,
@@ -55,22 +57,65 @@ async def create_notice(
         notice_service = NoticeService(db)
         auth_service = AuthService(db)
 
-        # Create the notice
-        sender_position, receiver_position = await asyncio.gather(
-            auth_service.get_current_position_holder(
+        # 1. Fetch sender position directly for current_user
+        sender_pos_query = (
+            select(PositionHolder)
+            .options(
+                selectinload(PositionHolder.role),
+                selectinload(PositionHolder.gp),
+                selectinload(PositionHolder.block),
+                selectinload(PositionHolder.district),
+                selectinload(PositionHolder.employee),
+            )
+            .where(PositionHolder.user_id == current_user.id, PositionHolder.end_date.is_(None))
+            .order_by(PositionHolder.id.desc())
+        )
+        sender_pos_res = await db.execute(sender_pos_query)
+        sender_position = sender_pos_res.scalars().first()
+
+        if not sender_position:
+            # Fallback by user's location
+            sender_position = await auth_service.get_current_position_holder(
                 current_user.district_id,
                 current_user.block_id,
                 current_user.gp_id,
-            ),
-            auth_service.get_current_position_holder(
-                district_id=request.district_id,
-                block_id=request.block_id,
-                gp_id=request.gp_id,
-            ),
+            )
+
+        if not sender_position:
+            # Fallback to any position record of current_user
+            any_pos_query = (
+                select(PositionHolder)
+                .options(
+                    selectinload(PositionHolder.role),
+                    selectinload(PositionHolder.gp),
+                    selectinload(PositionHolder.block),
+                    selectinload(PositionHolder.district),
+                    selectinload(PositionHolder.employee),
+                )
+                .where(PositionHolder.user_id == current_user.id)
+                .order_by(PositionHolder.id.desc())
+            )
+            any_pos_res = await db.execute(any_pos_query)
+            sender_position = any_pos_res.scalars().first()
+
+        if not sender_position:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Sender position holder not found",
+            )
+
+        # 2. Fetch receiver position for target location
+        receiver_position = await auth_service.get_current_position_holder(
+            district_id=request.district_id,
+            block_id=request.block_id,
+            gp_id=request.gp_id,
         )
 
-        assert sender_position, "Sender position holder not found"
-        assert receiver_position, "Receiver position holder not found"
+        if not receiver_position:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Receiver position holder not found for the specified location",
+            )
 
         notice = await notice_service.create_notice(
             notice_type_id=request.notice_type_id,
@@ -106,7 +151,9 @@ async def create_notice(
             if notice_with_relations.media
             else [],
         )
-    except HTTPException as e:
+    except HTTPException:
+        raise
+    except Exception as e:
         logger.error("Database error while creating notice: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -440,11 +487,30 @@ async def reply_to_notice(
         )
 
     # Get the current position holder for the replier
-    replier_position = await AuthService(db).get_current_position_holder(
-        current_user.district_id,
-        current_user.block_id,
-        current_user.gp_id,
+    replier_pos_query = (
+        select(PositionHolder)
+        .options(
+            selectinload(PositionHolder.role),
+            selectinload(PositionHolder.gp),
+            selectinload(PositionHolder.block),
+            selectinload(PositionHolder.district),
+            selectinload(PositionHolder.employee),
+        )
+        .where(PositionHolder.user_id == current_user.id, PositionHolder.end_date.is_(None))
+        .order_by(PositionHolder.id.desc())
     )
+    replier_pos_res = await db.execute(replier_pos_query)
+    replier_position = replier_pos_res.scalars().first()
+
+    if not replier_position:
+        replier_position = await AuthService(db).get_current_position_holder(
+            current_user.district_id,
+            current_user.block_id,
+            current_user.gp_id,
+        )
+
+    if not replier_position and current_user_position_ids:
+        replier_position = await PositionHolderService(db).get_position_holder_by_id(notice.receiver_id)
 
     if not replier_position:
         raise HTTPException(

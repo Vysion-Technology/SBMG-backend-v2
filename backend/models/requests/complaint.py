@@ -8,10 +8,12 @@ class CreateComplaintRequest(BaseModel):
     district_id: int
     description: str
     mobile_number: Optional[str] = None
+    complainant_name: Optional[str] = None
 
 
 class UpdateComplaintStatusRequest(BaseModel):
     status_name: str
+    remark: str
 
 
 class AddCommentRequest(BaseModel):
@@ -36,4 +38,8 @@ class CitizenStatusUpdateRequest(BaseModel):
 class ComplaintTypeRequest(BaseModel):
     name: str
     description: Optional[str] = None
+
+
+class ReopenComplaintRequest(BaseModel):
+    reason: str
 

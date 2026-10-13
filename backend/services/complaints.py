@@ -65,6 +65,7 @@ class ComplaintService:
                 selectinload(Complaint.media),
                 selectinload(Complaint.comments),
                 selectinload(Complaint.comments).selectinload(ComplaintComment.user),
+                selectinload(Complaint.public_user),
             )
         )
         complaint = result.scalar_one_or_none()
@@ -94,6 +95,7 @@ class ComplaintService:
                 selectinload(Complaint.media),
                 selectinload(Complaint.comments),
                 selectinload(Complaint.comments).selectinload(ComplaintComment.user),
+                selectinload(Complaint.public_user),
             )
             .join(ComplaintStatus, isouter=True)
             .join(GramPanchayat, isouter=True)
@@ -142,6 +144,7 @@ class ComplaintService:
                 description=complaint.description,
                 complaint_type_id=complaint.complaint_type_id,
                 mobile_number=complaint.mobile_number,
+                complainant_name=complaint.public_user.name if complaint.public_user else None,
                 created_at=complaint.created_at,
                 updated_at=complaint.updated_at,
                 status_id=complaint.status_id,
