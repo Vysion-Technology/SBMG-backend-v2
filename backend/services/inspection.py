@@ -128,6 +128,9 @@ class InspectionService:
             lat=request.lat,
             long=request.long,
             register_maintenance=request.register_maintenance,
+            post=request.post,
+            name=request.name,
+            contact_number=request.contact_number,
         )
 
         self.db.add(inspection)

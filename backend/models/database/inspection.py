@@ -48,6 +48,9 @@ class Inspection(Base):  # type: ignore
         Boolean,
         nullable=True,
     )
+    post: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    contact_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
     gp: Mapped[GramPanchayat] = relationship("GramPanchayat", foreign_keys=[gp_id])
     position_holder: Mapped["PositionHolder"] = relationship("PositionHolder", foreign_keys=[position_holder_id])

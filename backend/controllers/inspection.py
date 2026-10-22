@@ -274,8 +274,8 @@ async def get_my_inspections(
         )
         position = pos_result.scalar_one_or_none()
 
-        officer_name = f"{position.first_name} {position.last_name}" if position else "Unknown"
-        officer_role = position.role.name if position and position.role else "Unknown"
+        officer_name = inspection.name or (f"{position.first_name} {position.last_name}" if position else "Unknown")
+        officer_role = inspection.post or (position.role.name if position and position.role else "Unknown")
 
         inspection_items.append(
             InspectionListItemResponse(
@@ -287,6 +287,9 @@ async def get_my_inspections(
                 date=inspection.date,
                 officer_name=officer_name,
                 officer_role=officer_role,
+                post=inspection.post,
+                name=inspection.name,
+                contact_number=inspection.contact_number,
                 remarks=inspection.remarks,
                 visibly_clean=inspection.other_item.village_visibly_clean if inspection.other_item else False,
                 images=[
@@ -397,8 +400,8 @@ async def get_inspections(
         )
         position = pos_result.scalar_one_or_none()
 
-        officer_name = f"{position.first_name} {position.last_name}" if position else "Unknown"
-        officer_role = position.role.name if position and position.role else "Unknown"
+        officer_name = inspection.name or (f"{position.first_name} {position.last_name}" if position else "Unknown")
+        officer_role = inspection.post or (position.role.name if position and position.role else "Unknown")
 
         inspection_items.append(
             InspectionListItemResponse(
@@ -410,6 +413,9 @@ async def get_inspections(
                 date=inspection.date,
                 officer_name=officer_name,
                 officer_role=officer_role,
+                post=inspection.post,
+                name=inspection.name,
+                contact_number=inspection.contact_number,
                 remarks=inspection.remarks,
                 visibly_clean=inspection.other_item.village_visibly_clean if inspection.other_item else False,
                 images=[
@@ -467,8 +473,8 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
     )
     position = pos_result.scalar_one_or_none()
 
-    officer_name = f"{position.first_name} {position.last_name}" if position else "Unknown"
-    officer_role = position.role.name if position and position.role else "Unknown"
+    officer_name = inspection.name or (f"{position.first_name} {position.last_name}" if position else "Unknown")
+    officer_role = inspection.post or (position.role.name if position and position.role else "Unknown")
 
     # Get household waste items
     household_result = await db.execute(
@@ -507,6 +513,9 @@ async def get_inspection_detail(inspection_id: int, db: AsyncSession) -> Optiona
         register_maintenance=inspection.register_maintenance,
         officer_name=officer_name,
         officer_role=officer_role,
+        post=inspection.post,
+        name=inspection.name,
+        contact_number=inspection.contact_number,
         village_name=inspection.village_name,
         block_name=inspection.gp.block.name if inspection.gp and inspection.gp.block else "Unknown",
         district_name=inspection.gp.district.name if inspection.gp and inspection.gp.district else "Unknown",
