@@ -83,6 +83,7 @@ class NoticeReply(Base):  # type: ignore
     notice_id: Mapped[int] = mapped_column(Integer, ForeignKey(Notice.id), nullable=False)  # type: ignore
     replier_id: Mapped[int] = mapped_column(Integer, ForeignKey("authority_holder_persons.id"), nullable=False)  # type: ignore
     reply_text: Mapped[str] = mapped_column(Text, nullable=False)  # type: ignore
+    attachment_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # type: ignore
     reply_datetime: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.now)  # type: ignore
 
     notice: Mapped[Notice] = relationship("Notice", back_populates="replies")  # type: ignore

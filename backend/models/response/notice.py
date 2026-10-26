@@ -49,6 +49,7 @@ class NoticeReplyResponse(BaseModel):
     notice_id: int
     replier_id: int
     reply_text: str
+    attachment_url: Optional[str] = None
     reply_datetime: datetime
     replier: Optional[PositionHolderBasicInfo] = None
 
