@@ -66,6 +66,9 @@ class CreateInspectionRequest(BaseModel):
 
     gp_id: int = Field(..., description="ID of the village being inspected")
     village_name: str = Field(..., description="Name of the village being inspected")
+    post: Optional[str] = Field(None, description="Post/Designation of the person doing the inspection")
+    name: Optional[str] = Field(None, description="Name of the person doing the inspection")
+    contact_number: Optional[str] = Field(None, description="Contact number of the person doing the inspection")
     remarks: Optional[str] = Field(
         None, description="General remarks about the inspection"
     )

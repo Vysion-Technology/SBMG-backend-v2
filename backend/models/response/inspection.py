@@ -99,6 +99,9 @@ class InspectionResponse(BaseModel):
     # Officer details
     officer_name: str
     officer_role: str
+    post: Optional[str] = None
+    name: Optional[str] = None
+    contact_number: Optional[str] = None
 
     # Geography details
     village_name: str
@@ -129,6 +132,9 @@ class InspectionListItemResponse(BaseModel):
     date: date
     officer_name: str
     officer_role: str
+    post: Optional[str] = None
+    name: Optional[str] = None
+    contact_number: Optional[str] = None
     remarks: Optional[str]
     visibly_clean: Optional[bool] = False
     overall_score: Optional[float] = 0.0
