@@ -498,6 +498,7 @@ class D2DActivities(Base):
     id: Mapped[int] = mapped_column(Integer, ForeignKey("annual_surveys.id"), primary_key=True)
     
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    work_contract_through: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default=None)
     work_frequency: Mapped[Optional[WorkFrequency]] = mapped_column(
         Enum(WorkFrequency, name="work_frequency", values_callable=lambda x: [e.value for e in x]), nullable=True, default=None, server_default=None
     )

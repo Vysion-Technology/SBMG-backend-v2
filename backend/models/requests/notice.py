@@ -28,3 +28,4 @@ class CreateNoticeReplyRequest(BaseModel):
     """Request model for creating a notice reply."""
 
     reply_text: str = Field(..., min_length=1, description="Reply text content")
+    attachment_url: Optional[str] = Field(None, description="URL of attached file or document")

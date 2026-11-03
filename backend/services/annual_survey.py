@@ -277,6 +277,7 @@ class AnnualSurveyService:
             self.db.add(D2DActivities(
                 id=survey.id,
                 is_active=request.d2d_activities.is_active,
+                work_contract_through=request.d2d_activities.work_contract_through if request.d2d_activities.is_active else None,
                 work_frequency=request.d2d_activities.work_frequency if request.d2d_activities.is_active else None,
                 sanctioned_tender=request.d2d_activities.sanctioned_tender,
                 sanctioned_self_gp=request.d2d_activities.sanctioned_self_gp,
@@ -459,6 +460,7 @@ class AnnualSurveyService:
         await upsert_section(D2DActivities, request.d2d_activities, survey.d2d_activities)
         if survey.d2d_activities and not survey.d2d_activities.is_active:
             survey.d2d_activities.work_frequency = None
+            survey.d2d_activities.work_contract_through = None
         await upsert_section(BartanBank, request.bartan_bank, survey.bartan_bank)
         await upsert_section(VehicleAssets, request.vehicle_assets, survey.vehicle_assets)
         

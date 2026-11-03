@@ -523,6 +523,7 @@ async def reply_to_notice(
         notice_id=notice_id,
         replier_id=replier_position.id,
         reply_text=request.reply_text,
+        attachment_url=request.attachment_url,
     )
 
     # Fetch the reply with replier info
@@ -537,6 +538,7 @@ async def reply_to_notice(
         notice_id=reply_with_info.notice_id,
         replier_id=reply_with_info.replier_id,
         reply_text=reply_with_info.reply_text,
+        attachment_url=reply_with_info.attachment_url,
         reply_datetime=reply_with_info.reply_datetime,
         replier=PositionHolderBasicInfo(
             id=reply_with_info.replier.id,
@@ -572,7 +574,7 @@ async def delete_notice(
     await svc.delete_notice(notice_id)
 
 
-@router.post("{notice_id}/media", status_code=status.HTTP_201_CREATED)
+@router.post("/{notice_id}/media", status_code=status.HTTP_201_CREATED)
 async def upload_notice_media(
     notice_id: int,
     file: UploadFile = File(...),
@@ -582,6 +584,44 @@ async def upload_notice_media(
     """Upload media file for a notice and get the URL."""
     # Security: Validate file content via magic bytes and size
     await validate_secure_file(file)
+
+    assert current_user, "Authentication required"
+    s3_service = S3Service()
+    file_url = await s3_service.upload_file(file, folder="notices")
+    await NoticeService(db).upload_notice_media(notice_id=notice_id, media_url=file_url)
+    notice = await NoticeService(db).get_notice_by_id(notice_id)
+    if not notice:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Notice not found"
+        )
+    return NoticeDetailResponse(
+        id=notice.id,
+        sender_id=notice.sender_id,
+        receiver_id=notice.receiver_id,
+        title=notice.title,
+        date=notice.date,  # type: ignore
+        text=notice.text,
+        media=[NoticeMediaResponse.from_orm(m) for m in notice.media],
+        sender=notice.sender,  # type: ignore
+        receiver=notice.receiver,  # type: ignore
+        replies=[NoticeReplyResponse.from_orm(r) for r in notice.replies],
+        type=NoticeTypeResponse.from_orm(notice.type) if notice.type else None,
+    )
+
+
+@router.post("/{notice_id}/reply/upload", status_code=status.HTTP_201_CREATED)
+async def upload_notice_reply_media(
+    notice_id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_staff_role),
+) -> dict:
+    """Upload attachment for a notice reply."""
+    await validate_secure_file(file)
+    assert current_user, "Authentication required"
+    s3_service = S3Service()
+    file_url = await s3_service.upload_file(file, folder="notice_replies")
+    return {"attachment_url": file_url}
 
     assert current_user, "Authentication required"
     s3_service = S3Service()

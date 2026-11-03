@@ -214,7 +214,9 @@ class NoticeService:
         await self.db.execute(insert(NoticeMedia).values(notice_id=notice_id, media_url=media_url))
         await self.db.commit()
 
-    async def create_notice_reply(self, notice_id: int, replier_id: int, reply_text: str) -> NoticeReply:
+    async def create_notice_reply(
+        self, notice_id: int, replier_id: int, reply_text: str, attachment_url: Optional[str] = None
+    ) -> NoticeReply:
         """Create a reply to a notice."""
         notice_reply = (
             await self.db.execute(
@@ -224,6 +226,7 @@ class NoticeService:
                     replier_id=replier_id,
                     reply_text=reply_text,
                     reply_datetime=datetime.now(),
+                    attachment_url=attachment_url,
                 )
                 .returning(NoticeReply)
             )
