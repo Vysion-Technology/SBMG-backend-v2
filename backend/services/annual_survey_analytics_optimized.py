@@ -329,6 +329,36 @@ class AnnualSurveyAnalyticsServiceOptimized:
                 "established_banks"
             ),
             func.coalesce(func.sum(BartanBank.revenue), 0).label("revenue"),
+            func.coalesce(
+                func.sum(
+                    case((BartanBank.work_contract_through == "tender", 1), else_=0)
+                ),
+                0,
+            ).label("sanctioned_tender"),
+            func.coalesce(
+                func.sum(
+                    case((BartanBank.work_contract_through == "self_gp", 1), else_=0)
+                ),
+                0,
+            ).label("sanctioned_self_gp"),
+            func.coalesce(
+                func.sum(
+                    case((BartanBank.work_contract_through == "csr_ngo", 1), else_=0)
+                ),
+                0,
+            ).label("sanctioned_csr_ngo"),
+            func.coalesce(
+                func.sum(
+                    case((BartanBank.work_contract_through == "shg", 1), else_=0)
+                ),
+                0,
+            ).label("sanctioned_shg"),
+            func.coalesce(
+                func.sum(
+                    case((BartanBank.work_contract_through == "mixed_model", 1), else_=0)
+                ),
+                0,
+            ).label("sanctioned_mixed_model"),
         )
         bartan_query = apply_filters(bartan_query, BartanBank)
 
@@ -472,6 +502,11 @@ class AnnualSurveyAnalyticsServiceOptimized:
             bartan_bank=BartanBankStats(
                 established_banks=bartan_res.established_banks,
                 revenue=float(bartan_res.revenue),
+                sanctioned_tender=bartan_res.sanctioned_tender,
+                sanctioned_self_gp=bartan_res.sanctioned_self_gp,
+                sanctioned_csr_ngo=bartan_res.sanctioned_csr_ngo,
+                sanctioned_shg=bartan_res.sanctioned_shg,
+                sanctioned_mixed_model=bartan_res.sanctioned_mixed_model,
             ),
             vehicle_assets=VehicleStats(
                 owned_tricycles=vehicle_res.owned_tricycles,

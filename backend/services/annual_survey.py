@@ -294,10 +294,14 @@ class AnnualSurveyService:
             ))
 
         if request.bartan_bank:
+            mode_val = request.bartan_bank.work_contract_through
+            if hasattr(mode_val, "value"):
+                mode_val = mode_val.value
             self.db.add(BartanBank(
                 id=survey.id,
                 established_banks=request.bartan_bank.established_banks,
                 revenue=request.bartan_bank.revenue,
+                work_contract_through=mode_val if request.bartan_bank.established_banks == 1 else None,
             ))
 
         if request.vehicle_assets:
@@ -462,6 +466,8 @@ class AnnualSurveyService:
             survey.d2d_activities.work_frequency = None
             survey.d2d_activities.work_contract_through = None
         await upsert_section(BartanBank, request.bartan_bank, survey.bartan_bank)
+        if survey.bartan_bank and survey.bartan_bank.established_banks != 1:
+            survey.bartan_bank.work_contract_through = None
         await upsert_section(VehicleAssets, request.vehicle_assets, survey.vehicle_assets)
         
         await upsert_section(SBMGYearTargets, request.sbmg_targets, survey.sbmg_targets)

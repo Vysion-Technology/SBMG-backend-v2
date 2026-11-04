@@ -248,6 +248,11 @@ class D2DActivitiesStats(BaseModel):
 class BartanBankStats(BaseModel):
     established_banks: int
     revenue: float
+    sanctioned_tender: int = 0
+    sanctioned_self_gp: int = 0
+    sanctioned_csr_ngo: int = 0
+    sanctioned_shg: int = 0
+    sanctioned_mixed_model: int = 0
 
 
 class VehicleStats(BaseModel):
