@@ -10,6 +10,7 @@ from models.database.survey_master import (
     CollectionFrequency,
     CleaningFrequency,
     WorkFrequency,
+    WorkContractMode,
 )
 
 
@@ -200,6 +201,13 @@ class BartanBankRequest(BaseModel):
     """Request model for Bartan Bank details."""
     established_banks: int = 0
     revenue: float = 0.0
+    work_contract_through: Optional[WorkContractMode] = None
+
+    @model_validator(mode="after")
+    def validate_bartan_bank(self):
+        if self.established_banks != 1:
+            self.work_contract_through = None
+        return self
 
 
 class VehicleAssetsRequest(BaseModel):

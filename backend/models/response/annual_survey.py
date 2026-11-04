@@ -218,6 +218,7 @@ class BartanBankResponse(BaseModel):
     id: int
     established_banks: int
     revenue: float
+    work_contract_through: Optional[str] = None
 
     class Config:
         from_attributes = True

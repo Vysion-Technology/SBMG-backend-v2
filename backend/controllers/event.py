@@ -21,6 +21,7 @@ from models.response.deletion import DeletionResponse
 
 from services.event import EventService
 from services.s3_service import s3_service
+from services.in_app_notification_service import InAppNotificationService
 from middleware.xss_protection import XSSProtectionRoute
 from middleware.file_validation import validate_secure_file
 
@@ -57,6 +58,13 @@ async def create_event(
 
     # Refresh the event with media relationship loaded
     await db.refresh(event, ["media"])
+
+    # Trigger event notifications if immediately applicable
+    try:
+        notif_service = InAppNotificationService(db)
+        await notif_service.check_and_trigger_event_notifications()
+    except Exception as e:
+        logging.warning("Failed to check event notification on creation: %s", e)
 
     return event
 
