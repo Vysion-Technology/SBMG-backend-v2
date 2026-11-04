@@ -31,6 +31,7 @@ from services.auth import AuthService
 from services.position_holder import PositionHolderService
 from services.notice import NoticeService
 from services.s3_service import S3Service
+from services.in_app_notification_service import InAppNotificationService
 from middleware.xss_protection import XSSProtectionRoute
 from middleware.file_validation import validate_secure_file
 
@@ -124,6 +125,20 @@ async def create_notice(
             title=request.title,
             text=request.text,
         )
+
+        # Trigger in-app notification to the receiver
+        try:
+            in_app_service = InAppNotificationService(db)
+            sender_display_name = sender_position.full_name or current_user.username
+            sender_role_name = sender_position.role.name if sender_position.role else "Authority"
+            await in_app_service.notify_notice_received(
+                notice=notice,
+                receiver_user_id=receiver_position.user_id,
+                sender_name=sender_display_name,
+                sender_role=sender_role_name,
+            )
+        except Exception as notif_err:
+            logger.warning("Failed to send notice notification: %s", notif_err)
 
         # Re-fetch notice with all relationships to include media
         notice_with_relations = await notice_service.get_notice_by_id(notice.id)
@@ -532,6 +547,24 @@ async def reply_to_notice(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Reply not found"
         )
+
+    # Trigger in-app notification to the original notice issuer (sender)
+    try:
+        in_app_service = InAppNotificationService(db)
+        sender_user_id = notice.sender.user_id if notice.sender else None
+        if sender_user_id:
+            replier_display_name = replier_position.full_name or current_user.username
+            replier_role_name = (
+                replier_position.role.name if replier_position.role else "Authority"
+            )
+            await in_app_service.notify_notice_reply_received(
+                notice=notice,
+                sender_user_id=sender_user_id,
+                replier_name=replier_display_name,
+                replier_role=replier_role_name,
+            )
+    except Exception as notif_err:
+        logger.warning("Failed to send notice reply notification: %s", notif_err)
 
     return NoticeReplyResponse(
         id=reply_with_info.id,

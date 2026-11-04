@@ -25,6 +25,7 @@ from controllers import volunteer
 from controllers import circular
 from controllers import formulae
 from controllers import contractor_analytics
+from controllers import in_app_notification
 from database import get_db
 from middleware.security import SecurityHeadersMiddleware
 from middleware.auth import JWTSlidingWindowMiddleware
@@ -162,6 +163,11 @@ fastapi_app.include_router(
 fastapi_app.include_router(scheme.router, prefix="/api/v1/schemes", tags=["Schemes"])
 fastapi_app.include_router(
     fcm_device.router, prefix="/api/v1/notifications", tags=["FCM Notifications"]
+)
+fastapi_app.include_router(
+    in_app_notification.router,
+    prefix="/api/v1/in-app-notifications",
+    tags=["In-App Notifications"],
 )
 fastapi_app.include_router(
     inspection.router, prefix="/api/v1/inspections", tags=["Inspections"]
