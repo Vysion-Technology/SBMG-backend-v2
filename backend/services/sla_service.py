@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from models.database.complaint import Complaint, ComplaintStatus, ComplaintComment
+from services.in_app_notification_service import InAppNotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +30,12 @@ class SLAService:
         while not SLAService._should_stop:
             try:
                 await self.run_sla_check()
+                # Also check and trigger active/expiring events and schemes periodically
+                notif_service = InAppNotificationService(self.db)
+                await notif_service.check_and_trigger_event_notifications()
+                await notif_service.check_and_trigger_scheme_notifications()
             except Exception as e:
-                logger.error(f"Error in periodic SLA monitoring: {e}")
+                logger.error(f"Error in periodic SLA / Event / Scheme monitoring: {e}")
             
             await asyncio.sleep(SLAService.CHECK_INTERVAL_SECONDS)
 
@@ -84,6 +89,8 @@ class SLAService:
             # If a breach level is identified and it's different from the last recorded breach level
             if current_breach_level and complaint.last_sla_breach_level != current_breach_level:
                 await self._generate_sla_remark(complaint, current_breach_level, days_elapsed)
+                notif_service = InAppNotificationService(self.db)
+                await notif_service.notify_sla_breach(complaint, current_breach_level, days_elapsed)
                 complaint.last_sla_breach_level = current_breach_level
                 breaches_count += 1
         

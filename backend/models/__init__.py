@@ -50,6 +50,7 @@ from models.database.survey_master import (
     CollectionFrequency,
     CleaningFrequency,
     WorkFrequency,
+    WorkContractMode,
     AnnualSurvey,
     DoorToDoorCollectionDetails,
     RoadSweepingDetails,
@@ -71,6 +72,7 @@ from models.database.gps import GPSTracking, Vehicle, GPSRecord
 from models.database.feedback import Feedback
 from models.database.volunteer import VolunteerRegistration
 from models.database.circular import Circular
+from models.database.notification import InAppNotification, InAppNotificationRead
 
 __all__ = [
     # Auth models
@@ -133,6 +135,7 @@ __all__ = [
     "CollectionFrequency",
     "CleaningFrequency",
     "WorkFrequency",
+    "WorkContractMode",
     "AnnualSurvey",
     "DoorToDoorCollectionDetails",
     "RoadSweepingDetails",
@@ -159,5 +162,8 @@ __all__ = [
     "VolunteerRegistration",
     # Circular model
     "Circular",
+    # In-App Notification models
+    "InAppNotification",
+    "InAppNotificationRead",
 ]
 

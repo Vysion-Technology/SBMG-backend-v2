@@ -59,6 +59,16 @@ class WorkFrequency(str, PyEnum):
     MONTHLY = "monthly"
 
 
+class WorkContractMode(str, PyEnum):
+    """Work contract mode for D2D and Bartan Bank"""
+
+    TENDER = "tender"
+    SELF_GP = "self_gp"
+    CSR_NGO = "csr_ngo"
+    SHG = "shg"
+    MIXED_MODEL = "mixed_model"
+
+
 class AnnualSurveyFY(Base): # type: ignore
     """Annual Survey Financial Year."""
 
@@ -531,6 +541,7 @@ class BartanBank(Base):
     
     established_banks: Mapped[int] = mapped_column(Integer, default=0)
     revenue: Mapped[float] = mapped_column(Numeric(15, 2), default=0.0)
+    work_contract_through: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default=None)
 
     # 1:1 relationship back to survey
     survey: Mapped["AnnualSurvey"] = relationship("AnnualSurvey", back_populates="bartan_bank")

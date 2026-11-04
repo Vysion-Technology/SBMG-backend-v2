@@ -14,6 +14,7 @@ from auth_utils import require_admin, require_reconfirmed_vdo
 
 from services.s3_service import s3_service
 from services.scheme import SchemeService
+from services.in_app_notification_service import InAppNotificationService
 
 from models.requests.scheme import CreateSchemeRequest, SchemeUpdateRequest
 from models.response.scheme import SchemeResponse
@@ -64,6 +65,13 @@ async def create_scheme(
 
     # Refresh the scheme with media relationship loaded
     await db.refresh(scheme, ["media"])
+
+    # Trigger scheme notifications if immediately applicable
+    try:
+        notif_service = InAppNotificationService(db)
+        await notif_service.check_and_trigger_scheme_notifications()
+    except Exception as e:
+        print("Failed to check scheme notification on creation:", e)
 
     return scheme
 
